@@ -3732,8 +3732,8 @@ MuseScore {
         var proposed = defaultDiagnosticPath()
         try {
             if (!diagnosticSaveDialogObject) {
-                var code = 'import QtQuick 2.2\\n' +
-                    'import Qt.labs.platform 1.1 as Platform\\n' +
+                var code = 'import QtQuick 2.2\n' +
+                    'import Qt.labs.platform 1.1 as Platform\n' +
                     'Platform.FileDialog { title: "Diagnose speichern unter"; fileMode: Platform.FileDialog.SaveFile; nameFilters: ["JSON-Dateien (*.json)"]; onAccepted: root.finishDiagnosticSave(file) }'
                 diagnosticSaveDialogObject = Qt.createQmlObject(code, root, "NativeDiagnosticSavePicker")
             }
@@ -3751,7 +3751,7 @@ MuseScore {
         try {
             var path = fileUrlToLocalPath(String(url || "").trim())
             if (!path) throw Error("Kein Speicherpfad übermittelt.")
-            if (!/\\.json$/i.test(path)) path += ".json"
+            if (!/\.json$/i.test(path)) path += ".json"
             writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
             lastDiagnosticPath = path
             statusText = "Diagnose gespeichert: " + path
