@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.15"
+    version: "0.10.16"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -67,6 +67,9 @@ MuseScore {
     property bool hotAppRequested: false
     property string hotAppVersion: ""
     property bool infoOpen: false
+    property var compositionHistory: []
+    property string historyError: ""
+    property var diagnosticSaveDialogObject: null
 
     MS.Settings {
         id: settings
@@ -96,6 +99,8 @@ MuseScore {
         property string activeHotAppSource: ""
         property string activeHotAppVersion: ""
     }
+
+    FileIO { id: historyFile; onError: function(msg) { historyError = String(msg) } }
 
     FileIO {
         id: compactFile
@@ -354,6 +359,7 @@ MuseScore {
             aiAnswer = (job.draft ? "MUSIKALISCHE FASSUNG:\n" + job.draft + "\n\nCS1:\n" : "") + compactSourceText +
                 (compactWarnings.length ? "\nHinweise:\n" + compactWarnings.join("\n") : "")
             saveScoreMemory(true)
+            archiveComposition()
         } catch (e) {
             compositionJson = ""
             aiAnswer = text + "\n\nUmsetzungsfehler: " + e
@@ -423,6 +429,57 @@ MuseScore {
         if (actual !== expected && actual.replace(/\r?\n+$/, "") !== expected.replace(/\r?\n+$/, ""))
             throw Error(label + ": Inhalt konnte nicht verifiziert werden: " + path + " (gelesen " + actual.length + ", erwartet " + expected.length + " Zeichen)")
         return path
+    }
+
+    function historyPath() {
+        return fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-History.json"))
+    }
+
+    function loadCompositionHistory() {
+        try {
+            historyFile.source = historyPath()
+            var raw = String(historyFile.read() || "")
+            var data = raw.trim() ? JSON.parse(raw) : { entries: [] }
+            compositionHistory = data.entries && data.entries.length !== undefined ? data.entries : []
+        } catch (e) { compositionHistory = []; historyError = String(e) }
+    }
+
+    function archiveComposition() {
+        if (!compositionJson) return
+        var item = {
+            date: new Date().toISOString(),
+            title: compositionJob && compositionJob.title ? compositionJob.title : "Komposition",
+            provider: providerName(), model: modelBox.text.trim(),
+            request: instructionBox.text, costUsd: totalCostUsd,
+            score: currentScoreMemoryObject()
+        }
+        var all = compositionHistory.slice(0)
+        all.unshift(item)
+        if (all.length > 100) all.length = 100
+        try {
+            historyFile.source = historyPath()
+            var output = JSON.stringify({ format: "AI-Notation-Studio-History-1", entries: all }, null, 2)
+            if (historyFile.write(output) === false) throw Error("Schreibfehler")
+            var readback = String(historyFile.read())
+            if (readback.replace(/\\r?\\n+$/, "") !== output.replace(/\\r?\\n+$/, "")) throw Error("Nachkontrolle fehlgeschlagen")
+            compositionHistory = all
+        } catch (e) { historyError = String(e); statusText = "Verlaufssicherung fehlgeschlagen: " + e }
+    }
+
+    function restoreComposition(index) {
+        if (index < 0 || index >= compositionHistory.length) return
+        var m = compositionHistory[index].score
+        if (!m || !m.compositionJson) { statusText = "Verlaufseintrag ist unvollständig."; return }
+        compositionJson = String(m.compositionJson)
+        compactSourceText = String(m.compactSourceText || "")
+        musicalDraft = String(m.musicalDraft || "")
+        compositionJob = m.compositionJob || null
+        compositionIdea = String(m.compositionIdea || "")
+        compositionCosts = m.compositionCosts || []
+        ideaReady = false
+        aiAnswer = compactSourceText || compositionJson
+        statusText = "Komposition aus Verlauf geladen. Über den Öffnen-Button in MuseScore übernehmen."
+        historyDialog.close()
     }
 
     function openCompactScore() {
@@ -3666,9 +3723,21 @@ MuseScore {
     // Deshalb kein statischer FileDialog-Import: Er verhindert das komplette Laden.
     function exportDiagnostic() {
         try {
-            var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json"))
+            if (!diagnosticSaveDialogObject)
+                diagnosticSaveDialogObject = Qt.createQmlObject(
+                    'import QtQuick\nimport QtQuick.Dialogs\nFileDialog { title: "Diagnose speichern unter"; fileMode: FileDialog.SaveFile; nameFilters: ["JSON-Dateien (*.json)"]; onAccepted: root.finishDiagnosticSave(selectedFile) }',
+                    root, "DiagnosticSavePicker")
+            diagnosticSaveDialogObject.currentFile = Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json")
+            diagnosticSaveDialogObject.open()
+        } catch (e) { statusText = "Dateibrowser konnte nicht geöffnet werden: " + e }
+    }
+
+    function finishDiagnosticSave(url) {
+        try {
+            var path = fileUrlToLocalPath(url)
+            if (!/\\.json$/i.test(path)) path += ".json"
             writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
-            statusText = "Diagnose gespeichert: " + path + " (Dateiauswahl folgt nach kompatibler Dialog-Implementierung)."
+            statusText = "Diagnose gespeichert: " + path
         } catch (e) { statusText = "Diagnose konnte nicht gespeichert werden: " + e }
     }
 
@@ -3983,6 +4052,7 @@ MuseScore {
         else providerBox.currentIndex = 0
 
         loadProviderFields()
+        loadCompositionHistory()
         restoreGeneralDefaults()
         loadChatHistory()
         statusText = "Bereit. Live-App v" + root.version + " geladen."
@@ -3991,6 +4061,34 @@ MuseScore {
     }
 
     onRun: bootstrapRun()
+
+    Dialog {
+        id: historyDialog
+        title: "Kompositionsverlauf"
+        modal: true
+        width: Math.min(660, root.width - 30)
+        standardButtons: Dialog.Close
+        contentItem: ColumnLayout {
+            spacing: 8
+            Label { text: compositionHistory.length + " gespeicherte Kompositionen (maximal 100)" }
+            ScrollView {
+                Layout.preferredHeight: 390
+                Layout.fillWidth: true
+                ListView {
+                    id: historyList
+                    clip: true
+                    model: compositionHistory
+                    delegate: Button {
+                        width: historyList.width - 20
+                        text: (index + 1) + ". " + (modelData.title || "Komposition") + " · " +
+                            (modelData.date || "").substring(0,16).replace("T"," ") + " · " + (modelData.model || "")
+                        onClicked: restoreComposition(index)
+                    }
+                }
+            }
+            Label { visible: historyError !== ""; text: historyError; wrapMode: Text.WordWrap }
+        }
+    }
 
     Dialog {
         id: memoryDialog
@@ -4254,6 +4352,7 @@ MuseScore {
                 Button { text: "Protokoll"; font.pixelSize: 14; onClicked: showCommunicationLog() }
                 Button { text: "Diagnose"; font.pixelSize: 14; onClicked: showDiagnostic() }
                 Button { text: "Diagnose speichern"; font.pixelSize: 14; onClicked: exportDiagnostic() }
+                Button { text: "Verlauf"; font.pixelSize: 14; onClicked: { loadCompositionHistory(); historyDialog.open() } }
 
                 Label {
                     Layout.fillWidth: true
