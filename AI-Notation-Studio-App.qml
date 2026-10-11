@@ -2,6 +2,7 @@ import QtQuick 2.2
 import QtQuick.Window 2.2
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.1
+import QtQuick.Dialogs 1.2
 import MuseScore 3.0
 import FileIO 3.0
 import MuseScore 3.0 as MS
@@ -10,7 +11,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.12"
+    version: "0.10.13"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -3010,7 +3011,7 @@ MuseScore {
 
             var data = {
                 format: "AI-Notation-Studio-Selection",
-                version: "0.10.12",
+                version: "0.10.13",
                 scoreTitle: curScore.title || "",
                 isRange: selection.isRange ? true : false,
                 elementCount: count,
@@ -3662,12 +3663,28 @@ MuseScore {
         statusText = "Kommunikationsprotokoll angezeigt."
     }
 
+    FileDialog {
+        id: diagnosticSaveDialog
+        title: "Diagnosedatei speichern unter"
+        selectExisting: false
+        selectMultiple: false
+        nameFilters: ["JSON-Dateien (*.json)", "Alle Dateien (*)"]
+        onAccepted: {
+            try {
+                var path = fileUrlToLocalPath(fileUrl)
+                if (!/\\.json$/i.test(path)) path += ".json"
+                writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
+                statusText = "Diagnose gespeichert: " + path
+            } catch (e) {
+                statusText = "Diagnose konnte nicht gespeichert werden: " + e
+            }
+        }
+        onRejected: statusText = "Diagnose speichern abgebrochen."
+    }
+
     function exportDiagnostic() {
-        try {
-            var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json"))
-            writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
-            statusText = "Diagnose gespeichert: " + path
-        } catch (e) { statusText = "Diagnose konnte nicht gespeichert werden: " + e }
+        diagnosticSaveDialog.fileUrl = Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json")
+        diagnosticSaveDialog.open()
     }
 
     function showDiagnostic() {
@@ -4131,7 +4148,7 @@ MuseScore {
                 selectByMouse: true
                 font.pixelSize: 15
                 text:
-                    "AI Notation Studio v0.10.12\n\n" +
+                    "AI Notation Studio v0.10.13\n\n" +
                     "KOMPOSITION / ANALYSE\n" +
                     "Dieser Bereich führt den eigentlichen musikalischen Auftrag aus. Der gewählte Modus bestimmt, ob analysiert, eine neue Stimme komponiert, frei komponiert, fortgesetzt, ein Motiv entwickelt, eine Variante erzeugt oder neu instrumentiert wird.\n\n" +
                     "PARTITUR-CHAT\n" +
@@ -4191,7 +4208,7 @@ MuseScore {
                 Layout.fillWidth: true
 
                 Label {
-                    text: "AI Notation Studio · v0.10.12"
+                    text: "AI Notation Studio · v0.10.13"
                     color: "white"
                     font.pixelSize: 28
                     font.bold: true
@@ -4806,7 +4823,7 @@ MuseScore {
                 color: "#aaaaaa"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
-                text: "v0.10.12 · 08.10.2026: Windows-Start, Dateipfade und Loader-Wiederherstellung korrigiert."
+                text: "v0.10.13 · 08.10.2026: Windows-Start, Dateipfade und Loader-Wiederherstellung korrigiert."
             }
         }
         }
