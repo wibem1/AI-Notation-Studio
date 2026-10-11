@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.11"
+    version: "0.10.12"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -414,6 +414,17 @@ MuseScore {
         return out.length ? out.join("\n") + "\nAuftrag gesamt: $" + sum.toFixed(5) + (unknown ? " + unbekannte Kosten" : "") + " (geschätzt, USD)" : "Auftrag: noch keine Kosten gemeldet."
     }
 
+    function writeVerifiedCompactFile(path, content, label) {
+        compactFile.source = path
+        var wrote = compactFile.write(content)
+        if (wrote === false) throw Error(label + ": Schreiben fehlgeschlagen: " + path)
+        var actual = String(compactFile.read())
+        var expected = String(content)
+        if (actual !== expected && actual.replace(/\r?\n+$/, "") !== expected.replace(/\r?\n+$/, ""))
+            throw Error(label + ": Inhalt konnte nicht verifiziert werden: " + path + " (gelesen " + actual.length + ", erwartet " + expected.length + " Zeichen)")
+        return path
+    }
+
     function openCompactScore() {
         if (busy || !isCompactResult()) return
         try {
@@ -429,9 +440,8 @@ MuseScore {
             }
             var base = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Result-" + new Date().getTime()))
             compactFile.source = base + ".musicxml"
-            if (!compactFile.write(result.xml) || String(compactFile.read()) !== result.xml) throw Error("MusicXML-Datei konnte nicht gespeichert werden.")
-            compactFile.source = base + ".cs"
-            if (!compactFile.write(source)) throw Error("CS1-Original konnte nicht gespeichert werden.")
+            writeVerifiedCompactFile(base + ".musicxml", result.xml, "MusicXML")
+            writeVerifiedCompactFile(base + ".cs", source, "CS1-Original")
             var imported = readScore(base + ".musicxml", false)
             if (!imported) throw Error("MuseScore konnte die MusicXML-Datei nicht öffnen: " + base + ".musicxml")
             imported.setMetaTag("AI-Notation-Studio-Source-CS1", source)
@@ -3000,7 +3010,7 @@ MuseScore {
 
             var data = {
                 format: "AI-Notation-Studio-Selection",
-                version: "0.10.11",
+                version: "0.10.12",
                 scoreTitle: curScore.title || "",
                 isRange: selection.isRange ? true : false,
                 elementCount: count,
@@ -3652,6 +3662,14 @@ MuseScore {
         statusText = "Kommunikationsprotokoll angezeigt."
     }
 
+    function exportDiagnostic() {
+        try {
+            var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json"))
+            writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
+            statusText = "Diagnose gespeichert: " + path
+        } catch (e) { statusText = "Diagnose konnte nicht gespeichert werden: " + e }
+    }
+
     function showDiagnostic() {
         aiAnswer = diagnosticText()
         statusText = "Diagnose angezeigt."
@@ -4113,7 +4131,7 @@ MuseScore {
                 selectByMouse: true
                 font.pixelSize: 15
                 text:
-                    "AI Notation Studio v0.10.11\n\n" +
+                    "AI Notation Studio v0.10.12\n\n" +
                     "KOMPOSITION / ANALYSE\n" +
                     "Dieser Bereich führt den eigentlichen musikalischen Auftrag aus. Der gewählte Modus bestimmt, ob analysiert, eine neue Stimme komponiert, frei komponiert, fortgesetzt, ein Motiv entwickelt, eine Variante erzeugt oder neu instrumentiert wird.\n\n" +
                     "PARTITUR-CHAT\n" +
@@ -4173,7 +4191,7 @@ MuseScore {
                 Layout.fillWidth: true
 
                 Label {
-                    text: "AI Notation Studio · v0.10.11"
+                    text: "AI Notation Studio · v0.10.12"
                     color: "white"
                     font.pixelSize: 28
                     font.bold: true
@@ -4233,6 +4251,7 @@ MuseScore {
                 Button { text: "Wiederholen"; font.pixelSize: 14; onClicked: redoMuseScore() }
                 Button { text: "Protokoll"; font.pixelSize: 14; onClicked: showCommunicationLog() }
                 Button { text: "Diagnose"; font.pixelSize: 14; onClicked: showDiagnostic() }
+                Button { text: "Diagnose speichern"; font.pixelSize: 14; onClicked: exportDiagnostic() }
 
                 Label {
                     Layout.fillWidth: true
@@ -4787,7 +4806,7 @@ MuseScore {
                 color: "#aaaaaa"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
-                text: "v0.10.11 · 08.10.2026: Windows-Start, Dateipfade und Loader-Wiederherstellung korrigiert."
+                text: "v0.10.12 · 08.10.2026: Windows-Start, Dateipfade und Loader-Wiederherstellung korrigiert."
             }
         }
         }
