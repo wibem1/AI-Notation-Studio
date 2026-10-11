@@ -11,7 +11,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.13"
+    version: "0.10.14"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -2594,7 +2594,7 @@ MuseScore {
 
                 updateSourceText = ""
                 updateStatus = "v" + updateRemoteVersion +
-                               " installiert, geprüft und live aktiviert. Kein MuseScore-Neustart erforderlich."
+                               " gespeichert und geprüft. Live-Aktivierung läuft; die Versionsanzeige muss danach wechseln."
                 return
             }
 
@@ -4208,7 +4208,7 @@ MuseScore {
                 Layout.fillWidth: true
 
                 Label {
-                    text: "AI Notation Studio · v0.10.13"
+                    text: "AI Notation Studio · v" + root.version
                     color: "white"
                     font.pixelSize: 28
                     font.bold: true
@@ -4823,7 +4823,7 @@ MuseScore {
                 color: "#aaaaaa"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
-                text: "v0.10.13 · 08.10.2026: Windows-Start, Dateipfade und Loader-Wiederherstellung korrigiert."
+                text: "v" + root.version + " · 11.10.2026: Update-Status und Versionsanzeige korrigiert."
             }
         }
         }
@@ -4839,9 +4839,11 @@ MuseScore {
             try {
                 if (!item || typeof item.bootstrapRun !== "function")
                     throw Error("App-Einstieg bootstrapRun fehlt.")
+                if (String(item.version) !== String(hotAppVersion))
+                    throw Error("Geladene Version v" + item.version + " stimmt nicht mit v" + hotAppVersion + " überein.")
                 item.bootstrapRun()
                 hotAppActive = true
-                updateStatus = "Live-App v" + hotAppVersion + " geladen."
+                updateStatus = "Live-App v" + hotAppVersion + " geladen und angezeigt."
             } catch (e) {
                 restoreAfterAppFailure("App-Start fehlgeschlagen: " + String(e) + ". Die bisherige Oberfläche bleibt verfügbar.")
             }
