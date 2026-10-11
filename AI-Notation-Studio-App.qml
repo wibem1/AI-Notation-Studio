@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.16"
+    version: "0.10.17"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -70,6 +70,7 @@ MuseScore {
     property var compositionHistory: []
     property string historyError: ""
     property var diagnosticSaveDialogObject: null
+    property string lastDiagnosticPath: ""
 
     MS.Settings {
         id: settings
@@ -3722,22 +3723,21 @@ MuseScore {
     // QtQuick.Dialogs 1.x ist in MuseScore 4.4+ (Qt 6) nicht vorhanden.
     // Deshalb kein statischer FileDialog-Import: Er verhindert das komplette Laden.
     function exportDiagnostic() {
-        try {
-            if (!diagnosticSaveDialogObject)
-                diagnosticSaveDialogObject = Qt.createQmlObject(
-                    'import QtQuick\nimport QtQuick.Dialogs\nFileDialog { title: "Diagnose speichern unter"; fileMode: FileDialog.SaveFile; nameFilters: ["JSON-Dateien (*.json)"]; onAccepted: root.finishDiagnosticSave(selectedFile) }',
-                    root, "DiagnosticSavePicker")
-            diagnosticSaveDialogObject.currentFile = Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json")
-            diagnosticSaveDialogObject.open()
-        } catch (e) { statusText = "Dateibrowser konnte nicht geöffnet werden: " + e }
+        var previous = lastDiagnosticPath !== "" ? lastDiagnosticPath :
+            fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json"))
+        diagnosticPathBox.text = previous
+        diagnosticPathDialog.open()
     }
 
     function finishDiagnosticSave(url) {
         try {
-            var path = fileUrlToLocalPath(url)
+            var path = fileUrlToLocalPath(String(url || "").trim())
+            if (!path) throw Error("Bitte einen vollständigen Dateipfad angeben.")
             if (!/\\.json$/i.test(path)) path += ".json"
             writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
+            lastDiagnosticPath = path
             statusText = "Diagnose gespeichert: " + path
+            diagnosticPathDialog.close()
         } catch (e) { statusText = "Diagnose konnte nicht gespeichert werden: " + e }
     }
 
@@ -4061,6 +4061,50 @@ MuseScore {
     }
 
     onRun: bootstrapRun()
+
+    // QtQuick.Dialogs fehlt in dieser MuseScore-Installation.
+    // Schreibbarer Pfad-Dialog ohne zusätzliche QML-Module.
+    Dialog {
+        id: diagnosticPathDialog
+        title: "Diagnose speichern unter"
+        modal: true
+        width: Math.min(740, root.width - 24)
+        standardButtons: Dialog.NoButton
+        contentItem: ColumnLayout {
+            spacing: 12
+            Label {
+                text: "Vollständigen Dateipfad angeben (Ordner und Dateiname):"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            TextField {
+                id: diagnosticPathBox
+                Layout.fillWidth: true
+                selectByMouse: true
+                placeholderText: "C:/Users/.../Dokumente/Diagnose.json"
+                onAccepted: finishDiagnosticSave(text)
+            }
+            Label {
+                text: "Der native Dateibrowser ist in dieser MuseScore-Installation nicht verfügbar."
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+                color: "#bbbbbb"
+            }
+            RowLayout {
+                Button {
+                    text: "Ordner im Explorer öffnen"
+                    onClicked: {
+                        var p = diagnosticPathBox.text.replace(/\\\\/g, "/")
+                        var slash = p.lastIndexOf("/")
+                        if (slash > 0) Qt.openUrlExternally(localPathToFileUrl(p.substring(0, slash + 1)))
+                    }
+                }
+                Item { Layout.fillWidth: true }
+                Button { text: "Abbrechen"; onClicked: diagnosticPathDialog.close() }
+                Button { text: "Speichern"; onClicked: finishDiagnosticSave(diagnosticPathBox.text) }
+            }
+        }
+    }
 
     Dialog {
         id: historyDialog
