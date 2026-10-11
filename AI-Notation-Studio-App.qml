@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.20"
+    version: "0.10.21"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -2408,9 +2408,9 @@ MuseScore {
     // END COMPACTSCORE RUNTIME
 
     function currentVersionString() {
-        if (hotAppActive && hotAppVersion !== "")
-            return hotAppVersion
-        return root.version
+        // Only the actual QML instance is authoritative. A pending Loader version
+        // is not evidence that an update has been activated.
+        return String(root.version)
     }
 
     function versionParts(v) {
@@ -2472,9 +2472,11 @@ MuseScore {
             updateStatus = "Neue Version verfügbar: lokal v" + currentVersionString() +
                            " → GitHub v" + remote + (isHotApp ? " · Live-Update" : "")
         } else if (cmp === 0) {
-            updateStatus = "Aktuell: lokal v" + currentVersionString() + " · GitHub v" + remote
+            updateSourceText = ""
+            updateStatus = "Aktuell: tatsächlich geladen v" + root.version + " · GitHub v" + remote
         } else {
-            updateStatus = "Installiert v" + currentVersionString() + " ist neuer als GitHub v" + remote + "."
+            updateSourceText = ""
+            updateStatus = "Geladen v" + root.version + " ist neuer als GitHub v" + remote + "."
         }
     }
 
@@ -2650,8 +2652,7 @@ MuseScore {
                     return
 
                 updateSourceText = ""
-                updateStatus = "v" + updateRemoteVersion +
-                               " gespeichert und geprüft. Live-Aktivierung läuft; die Versionsanzeige muss danach wechseln."
+                updateStatus = "v" + updateRemoteVersion + " gespeichert. Aktiviere Oberfläche …"
                 return
             }
 
@@ -2713,8 +2714,7 @@ MuseScore {
         }
 
         sourceUrl = normalizedAppUrl(sourceUrl)
-        settings.activeHotAppSource = sourceUrl
-        settings.activeHotAppVersion = versionText || ""
+        // Do not persist the update as active before the QML Loader succeeds.
         hotAppVersion = versionText || ""
         hotAppActive = false
         hotAppRequested = false
@@ -5020,7 +5020,9 @@ MuseScore {
                     throw Error("Geladene Version v" + item.version + " stimmt nicht mit v" + hotAppVersion + " überein.")
                 item.bootstrapRun()
                 hotAppActive = true
-                updateStatus = "Live-App v" + hotAppVersion + " geladen und angezeigt."
+                settings.activeHotAppSource = String(source)
+                settings.activeHotAppVersion = String(item.version)
+                updateStatus = "Live-App v" + item.version + " geladen und angezeigt."
             } catch (e) {
                 restoreAfterAppFailure("App-Start fehlgeschlagen: " + String(e) + ". Die bisherige Oberfläche bleibt verfügbar.")
             }
