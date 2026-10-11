@@ -2,7 +2,6 @@ import QtQuick 2.2
 import QtQuick.Window 2.2
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.1
-import QtQuick.Dialogs 1.2
 import MuseScore 3.0
 import FileIO 3.0
 import MuseScore 3.0 as MS
@@ -11,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.14"
+    version: "0.10.15"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -3663,28 +3662,14 @@ MuseScore {
         statusText = "Kommunikationsprotokoll angezeigt."
     }
 
-    FileDialog {
-        id: diagnosticSaveDialog
-        title: "Diagnosedatei speichern unter"
-        selectExisting: false
-        selectMultiple: false
-        nameFilters: ["JSON-Dateien (*.json)", "Alle Dateien (*)"]
-        onAccepted: {
-            try {
-                var path = fileUrlToLocalPath(fileUrl)
-                if (!/\\.json$/i.test(path)) path += ".json"
-                writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
-                statusText = "Diagnose gespeichert: " + path
-            } catch (e) {
-                statusText = "Diagnose konnte nicht gespeichert werden: " + e
-            }
-        }
-        onRejected: statusText = "Diagnose speichern abgebrochen."
-    }
-
+    // QtQuick.Dialogs 1.x ist in MuseScore 4.4+ (Qt 6) nicht vorhanden.
+    // Deshalb kein statischer FileDialog-Import: Er verhindert das komplette Laden.
     function exportDiagnostic() {
-        diagnosticSaveDialog.fileUrl = Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json")
-        diagnosticSaveDialog.open()
+        try {
+            var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json"))
+            writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
+            statusText = "Diagnose gespeichert: " + path + " (Dateiauswahl folgt nach kompatibler Dialog-Implementierung)."
+        } catch (e) { statusText = "Diagnose konnte nicht gespeichert werden: " + e }
     }
 
     function showDiagnostic() {
@@ -4823,7 +4808,7 @@ MuseScore {
                 color: "#aaaaaa"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
-                text: "v" + root.version + " · 11.10.2026: Update-Status und Versionsanzeige korrigiert."
+                text: "v" + root.version + " · 11.10.2026: Qt-6-Ladefehler behoben; Diagnose-Export wiederhergestellt."
             }
         }
         }
