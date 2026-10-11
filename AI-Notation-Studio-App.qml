@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.19"
+    version: "0.10.20"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -3722,6 +3722,52 @@ MuseScore {
 
     // QtQuick.Dialogs 1.x ist in MuseScore 4.4+ (Qt 6) nicht vorhanden.
     // Deshalb kein statischer FileDialog-Import: Er verhindert das komplette Laden.
+    function testStoragePaths() {
+        var candidates = []
+        function add(name, value) {
+            var path = fileUrlToLocalPath(String(value || "")).replace(/\\/g, "/").replace(/\/+$/, "")
+            if (path) candidates.push({ name: name, dir: path })
+        }
+        function method(name) {
+            try {
+                if (typeof compactFile[name] !== "function") return "<nicht verfügbar>"
+                return String(compactFile[name]() || "")
+            } catch (e) { return "<Fehler: " + e + ">" }
+        }
+        add("Plugin-Verzeichnis", Qt.resolvedUrl("."))
+        add("MuseScore Benutzerdaten", method("userDataPath"))
+        add("MuseScore Plugins", method("pluginsUserPath"))
+        add("Plugin directory API", method("pluginDirectoryPath"))
+        var home = method("homePath")
+        if (home && home.charAt(0) !== "<") {
+            add("Home", home)
+            add("Downloads", home + "/Downloads")
+        }
+        var report = ["SPEICHERTEST · AI Notation Studio v" + root.version,
+                      "Betriebssystemabhängige FileIO-Pfade und Schreibtest:",
+                      "Home: " + home, ""]
+        for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i]
+            var path = c.dir + "/AI-Notation-Studio-Schreibtest-" + new Date().getTime() + "-" + i + ".txt"
+            var probe = "AI-Notation-Studio write test " + i
+            var writable = "nicht angeboten"
+            try {
+                if (typeof compactFile.isPathWriteable === "function")
+                    writable = String(compactFile.isPathWriteable(path))
+            } catch (e) { writable = "Fehler: " + e }
+            try {
+                compactFile.source = path
+                var ok = compactFile.write(probe)
+                var actual = String(compactFile.read() || "").trim()
+                report.push(c.name + ": " + (ok !== false && actual === probe ? "OK" : "FEHLER") +
+                            " | isPathWriteable=" + writable + " | " + path +
+                            (ok === false ? " | write()=false" : actual !== probe ? " | Nachkontrolle fehlgeschlagen" : ""))
+            } catch (e) { report.push(c.name + ": FEHLER | " + path + " | " + e) }
+        }
+        aiAnswer = report.join("\\n")
+        statusText = "Speichertest abgeschlossen. Ergebnisse im Ergebnisfenster; bitte Text kopieren."
+    }
+
     function defaultDiagnosticPath() {
         // FileIO.homePath() liefert auf Windows das Profilverzeichnis.
         // Nicht relativ zum Plugin speichern: das führt in schwer auffindbare Ordner.
@@ -4398,6 +4444,7 @@ MuseScore {
                 Button { text: "Protokoll"; font.pixelSize: 14; onClicked: showCommunicationLog() }
                 Button { text: "Diagnose"; font.pixelSize: 14; onClicked: showDiagnostic() }
                 Button { text: "Diagnose speichern"; font.pixelSize: 14; onClicked: exportDiagnostic() }
+                Button { text: "Speicher testen"; font.pixelSize: 14; onClicked: testStoragePaths() }
                 Button { text: "Verlauf"; font.pixelSize: 14; onClicked: { loadCompositionHistory(); historyDialog.open() } }
 
                 Label {
