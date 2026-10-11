@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.18"
+    version: "0.10.19"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -3723,39 +3723,24 @@ MuseScore {
     // QtQuick.Dialogs 1.x ist in MuseScore 4.4+ (Qt 6) nicht vorhanden.
     // Deshalb kein statischer FileDialog-Import: Er verhindert das komplette Laden.
     function defaultDiagnosticPath() {
-        return fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json"))
+        // FileIO.homePath() liefert auf Windows das Profilverzeichnis.
+        // Nicht relativ zum Plugin speichern: das führt in schwer auffindbare Ordner.
+        if (typeof compactFile.homePath !== "function")
+            throw Error("MuseScore stellt keinen Benutzerordner bereit (FileIO.homePath).")
+        var home = String(compactFile.homePath() || "").replace(/\\/g, "/").replace(/\/+$/, "")
+        if (!home) throw Error("Benutzerordner konnte nicht bestimmt werden.")
+        return home + "/Downloads/AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json"
     }
 
     function exportDiagnostic() {
-        // Qt.labs.platform verwendet unter Windows den nativen Speichern-unter-Dialog.
-        // Dynamisch laden: fehlendes Modul darf die Plugin-Oberfläche nicht blockieren.
-        var proposed = defaultDiagnosticPath()
         try {
-            if (!diagnosticSaveDialogObject) {
-                var code = 'import QtQuick 2.2\n' +
-                    'import Qt.labs.platform 1.1 as Platform\n' +
-                    'Platform.FileDialog { title: "Diagnose speichern unter"; fileMode: Platform.FileDialog.SaveFile; nameFilters: ["JSON-Dateien (*.json)"]; onAccepted: root.finishDiagnosticSave(file) }'
-                diagnosticSaveDialogObject = Qt.createQmlObject(code, root, "NativeDiagnosticSavePicker")
-            }
-            diagnosticSaveDialogObject.currentFile = localPathToFileUrl(proposed)
-            diagnosticSaveDialogObject.open()
+            var target = defaultDiagnosticPath()
+            writeVerifiedCompactFile(target, diagnosticText(), "Diagnose")
+            lastDiagnosticPath = target
+            statusText = "Diagnose im Downloadordner gespeichert: " + target
         } catch (e) {
-            // Nutzbarer Rückfall ohne Eintippen: direkt speichern und Speicherordner anzeigen.
-            finishDiagnosticSave(proposed)
-            if (statusText.indexOf("Diagnose gespeichert:") === 0)
-                statusText += " · Nativer Dateibrowser nicht verfügbar; Datei wurde automatisch gespeichert."
+            statusText = "Diagnose konnte nicht im Downloadordner gespeichert werden: " + e
         }
-    }
-
-    function finishDiagnosticSave(url) {
-        try {
-            var path = fileUrlToLocalPath(String(url || "").trim())
-            if (!path) throw Error("Kein Speicherpfad übermittelt.")
-            if (!/\.json$/i.test(path)) path += ".json"
-            writeVerifiedCompactFile(path, diagnosticText(), "Diagnose")
-            lastDiagnosticPath = path
-            statusText = "Diagnose gespeichert: " + path
-        } catch (e) { statusText = "Diagnose konnte nicht gespeichert werden: " + e }
     }
 
     function showDiagnostic() {
