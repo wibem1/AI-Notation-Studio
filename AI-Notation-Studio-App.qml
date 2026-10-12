@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.21"
+    version: "0.10.22"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -42,6 +42,7 @@ MuseScore {
     property int freeMeasures: 16
     property int uiSize: 18
     property string updateStatus: "Noch nicht geprüft."
+    property string lastUpdateError: ""
     property string updateRemoteVersion: ""
     property string updateSourceText: ""
     property bool updateBusy: false
@@ -2652,7 +2653,8 @@ MuseScore {
                     return
 
                 updateSourceText = ""
-                updateStatus = "v" + updateRemoteVersion + " gespeichert. Aktiviere Oberfläche …"
+                if (!hotAppActive && !lastUpdateError)
+                    updateStatus = "v" + updateRemoteVersion + " gespeichert. Aktiviere Oberfläche …"
                 return
             }
 
@@ -2714,6 +2716,13 @@ MuseScore {
         }
 
         sourceUrl = normalizedAppUrl(sourceUrl)
+        var component = Qt.createComponent(sourceUrl)
+        if (component.status === Component.Error) {
+            updateStatus = "Live-Aktivierung fehlgeschlagen: " + component.errorString()
+            lastUpdateError = updateStatus
+            return false
+        }
+        lastUpdateError = ""
         // Do not persist the update as active before the QML Loader succeeds.
         hotAppVersion = versionText || ""
         hotAppActive = false
@@ -2728,6 +2737,7 @@ MuseScore {
     }
 
     function restoreAfterAppFailure(message) {
+        lastUpdateError = message
         hotAppActive = false
         updateStatus = message
         var failedSource = String(hotAppLoader.source)
@@ -3726,7 +3736,10 @@ MuseScore {
         var candidates = []
         function add(name, value) {
             var path = fileUrlToLocalPath(String(value || "")).replace(/\\/g, "/").replace(/\/+$/, "")
-            if (path) candidates.push({ name: name, dir: path })
+            if (!path || path.charAt(0) === "<") return
+            for (var j = 0; j < candidates.length; j++)
+                if (candidates[j].dir === path) return
+            candidates.push({ name: name, dir: path })
         }
         function method(name) {
             try {
@@ -3746,9 +3759,11 @@ MuseScore {
         var report = ["SPEICHERTEST · AI Notation Studio v" + root.version,
                       "Betriebssystemabhängige FileIO-Pfade und Schreibtest:",
                       "Home: " + home, ""]
+        var verifiedDirectories = []
+        var stamp = new Date().getTime()
         for (var i = 0; i < candidates.length; i++) {
             var c = candidates[i]
-            var path = c.dir + "/AI-Notation-Studio-Schreibtest-" + new Date().getTime() + "-" + i + ".txt"
+            var path = c.dir + "/AI-Notation-Studio-Schreibtest-" + stamp + "-" + i + ".txt"
             var probe = "AI-Notation-Studio write test " + i
             var writable = "nicht angeboten"
             try {
@@ -3759,13 +3774,41 @@ MuseScore {
                 compactFile.source = path
                 var ok = compactFile.write(probe)
                 var actual = String(compactFile.read() || "").trim()
+                if (ok !== false && actual === probe) verifiedDirectories.push(c.dir)
                 report.push(c.name + ": " + (ok !== false && actual === probe ? "OK" : "FEHLER") +
                             " | isPathWriteable=" + writable + " | " + path +
                             (ok === false ? " | write()=false" : actual !== probe ? " | Nachkontrolle fehlgeschlagen" : ""))
             } catch (e) { report.push(c.name + ": FEHLER | " + path + " | " + e) }
         }
-        aiAnswer = report.join("\\n")
-        statusText = "Speichertest abgeschlossen. Ergebnisse im Ergebnisfenster; bitte Text kopieren."
+        var savedPath = ""
+        for (var k = 0; k < verifiedDirectories.length; k++) {
+            var logPath = verifiedDirectories[k] + "/AI-Notation-Studio-Speichertest-" + stamp + ".txt"
+            var content = report.concat(["", "Protokolldatei: " + logPath]).join("\n")
+            try {
+                compactFile.source = logPath
+                var saved = compactFile.write(content)
+                // FileIO.read() kann zusätzliche abschließende Zeilenumbrüche liefern.
+                var readBack = String(compactFile.read() || "").replace(/\r\n/g, "\n").replace(/\n+$/, "")
+                if (saved !== false && readBack === content.replace(/\n+$/, "")) {
+                    savedPath = logPath
+                    report.push("", "Protokolldatei: " + logPath)
+                    break
+                }
+                report.push("Protokoll speichern fehlgeschlagen: " + logPath)
+            } catch (e) { report.push("Protokoll speichern fehlgeschlagen: " + logPath + " | " + e) }
+        }
+        if (!savedPath) report.push("", "Protokoll konnte in keinem geprüften Verzeichnis gespeichert werden.")
+        aiAnswer = report.join("\n")
+        statusText = savedPath ? "Speichertest abgeschlossen. Protokoll gespeichert und nachgelesen: " + savedPath
+                               : "Speichertest: Protokoll nicht gespeichert. Ergebnis kann kopiert werden."
+    }
+
+    function copyResult() {
+        if (!aiAnswer) return
+        answerBox.forceActiveFocus()
+        answerBox.selectAll()
+        answerBox.copy()
+        statusText = "Ergebnis in die Zwischenablage kopiert."
     }
 
     function defaultDiagnosticPath() {
@@ -4672,6 +4715,13 @@ MuseScore {
                 font.bold: true
             }
 
+            Button {
+                objectName: "copyResultButton"
+                text: "Ergebnis kopieren"
+                enabled: aiAnswer.length > 0
+                onClicked: copyResult()
+            }
+
             ScrollView {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 220
@@ -5008,6 +5058,7 @@ MuseScore {
 
     Loader {
         id: hotAppLoader
+        objectName: "updateAppLoader"
         anchors.fill: parent
         visible: hotAppActive
         active: hotAppRequested

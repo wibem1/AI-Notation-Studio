@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.22 – 12.10.2026 / Starter 0.7.19
+
+- Ergebnisfenster: vollständigen Text über „Ergebnis kopieren“ in die Zwischenablage übernehmen.
+- Speichertest: echte Zeilenumbrüche, ungültige API-Pfade verwerfen, doppelte Verzeichnisse vermeiden.
+- Protokoll automatisch in einem durch Schreiben und Nachlesen geprüften Verzeichnis speichern; Nachkontrolle und Ausweichverzeichnis bei Fehlern.
+- QML-Update vor Aktivierung kompilieren; Fehleranzeigen werden nicht mehr von einer Speichermeldung überschrieben.
+- Clipboard-, Fehlerfall-, Qt-Oberflächen- und Update-Neustarttests aktualisiert.
+
 ## Starter 0.7.18 – 08.10.2026 / App 0.10.11
 
 - Mitgeliefertes Bundle im Starter auf 0.10.11 aktualisiert. Der Starter liest weiterhin Active.json frisch vom Datenträger. Für den Wechsel vom alten Settings-Starter ist ein manueller Austausch des Starters erforderlich; reine App-Updates ersetzen ihn nicht.

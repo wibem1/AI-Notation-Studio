@@ -1,5 +1,15 @@
 # Testplan v0.7.0
 
+## Version 0.10.22 – 12.10.2026
+
+- Qt 5.15.2 und Qt 6.10.2: echte QML-Oberfläche mit MuseScore-/FileIO-Testobjekten laden, Clipboard prüfen, Scrollen und Größenänderung prüfen.
+- `tests/test_result_storage.py`: vollständiger Unicode-Text in Zwischenablage, leeres Ergebnis, Protokollnachkontrolle, alternative Verzeichnisse, Schreibfehler und abweichender Dateiinhalt.
+- `tests/test_update.py`: Download-Callbacks, HTTP-Fehler, Versionsvergleich und Schreiben der versionierten Datei.
+- `tests/test_update_restart.py`: fehlerhafte QML wird vor Aktivierung abgewiesen; alte aktive Version bleibt erhalten. Erfolgreiches Update, Wiederöffnen mit derselben Engine und neuer Prozess.
+- Qt 6.12.0: Update-Neustarttest scheitert in der Windows-Testumgebung mit „File name case mismatch“ bei der neu geschriebenen Datei. Keine Freigabe für diese Laufzeit.
+- MuseScore 4.7.5 / Qt 6.10.2: gesamte App über den nativen Erweiterungsaufruf geladen. Speichertest-Protokoll erfolgreich geschrieben und nachgelesen, Kopierfunktion ohne API-Fehler ausgeführt. Native Live-Aktivierung einer Testfolgeversion erfolgreich; Active.json benennt die geladene Version. Testdateien lagen in einem temporären Unterordner der Plugins und wurden danach entfernt.
+- Für den unsichtbaren Konsolentest waren das zur MuseScore-Version passende Offscreen-Modul und der explizite QML-Importpfad nötig. Die reguläre GUI-Installation benötigt diese Testkonfiguration nicht.
+
 ## Start und Update
 
 - [ ] Plugin öffnet sich als v0.7.0.

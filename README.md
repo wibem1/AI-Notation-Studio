@@ -1,4 +1,12 @@
-# AI Notation Studio v0.10.11
+# AI Notation Studio v0.10.22
+
+## Ergebnis und Speichertest
+
+**Ergebnis kopieren** kopiert den vollständigen Inhalt des Ergebnisfensters einschließlich Zeilenumbrüchen. Bei leerem Ergebnis ist die Schaltfläche deaktiviert.
+
+**Speicher testen** prüft Verzeichnisse durch Schreiben und Nachlesen. Das vollständige Protokoll wird automatisch als `AI-Notation-Studio-Speichertest-<Zeitstempel>.txt` im ersten erfolgreich geprüften Verzeichnis gespeichert und ebenfalls nachgelesen. Scheitert das Speichern, wird das nächste geprüfte Verzeichnis versucht. Der Speicherpfad erscheint im Ergebnis und in der Statuszeile. Wenn alle Versuche scheitern, bleibt der Bericht kopierbar.
+
+Updates prüfen die heruntergeladene QML-Datei vor der Aktivierung. Kompilierfehler erscheinen in der Updateanzeige; die bisherige aktive Version bleibt erhalten. Starter 0.7.19 enthält das Bundle 0.10.22. Reine App-Updates ersetzen den Starter nicht.
 
 AI Notation Studio ist ein MuseScore-Studio-Plugin für KI-gestützte Analyse, Komposition und Bearbeitung direkt an der Partitur.
 
