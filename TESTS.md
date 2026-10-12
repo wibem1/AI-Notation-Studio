@@ -1,5 +1,18 @@
 # Testplan v0.7.0
 
+## Version 0.10.24 – 12.10.2026
+
+Ausgeführt unter Windows, Python 3.12, PySide6/Qt 6.8.3 und PyQt5/Qt 5.15.2. QML-/MuseScore-/FileIO-Testobjekte, keine kostenpflichtigen API-Aufrufe und kein echter MuseScore-Laufzeittest dieser Änderung.
+
+- Alle zwölf `tests/test_*.py` unter Qt 6.8.3 bestanden: CompactScore/MusicXML-XSD, Diagnose-Komposition, realer Windows-Helfer, Loader, Modellkatalog, Ergebnisspeicherung, Startdatensatz, Oberfläche, Update, Update-Neustart, Workflows und Fensterbeschnitt. Nach den letzten Änderungen betroffene Diagnose-, CompactScore-, Workflow-, Ergebnis- und Update-Neustarttests erneut bestanden.
+- Qt 5.15.2: Loader, Oberfläche, Ergebnisspeicherung/Diagnose und Update-Neustart nach den letzten Änderungen bestanden.
+- `test_diagnostic_composition.py` führt echte QML-JS-Funktionen aus: vollständiges Live-XML trotz leerer Arbeitsnotation, Score-gebundene ursprüngliche Provider-/Modell-/Usage-Daten, ungerundete Tarifkosten, keine erfundenen Rechnungsbeträge, fehlende Thinking-Zahlen, CS1-Dekodierung, beschädigte Metadaten und Exportfehler. Score-Metadaten speichern/leeren/laden, Herkunft vor Arbeitsänderungen schützen, Revisionen, Verlaufsbackup und Korruptionsschutz, eindeutige historische Zuordnung und Ablehnung mehrdeutiger Zuordnung geprüft.
+- `test_diagnostic_helper.py`: echter PowerShell-Helfer, 46.137.355 Bytes, SHA-256, Überschreiben, Unicode und Shell-Sonderzeichen, ungültige Ziele und Schutz der Quelle bestanden. Kein manueller SaveFileDialog-Test.
+- Qt 6.12.0: Update-Neustarttest scheitert weiterhin mit „File name case mismatch“. Bereits in den bisherigen Prüfnotizen beschrieben; keine Freigabe für diese Laufzeit. Ein Qt-IO-Testobjekt und ein Lauf außerhalb der Sandbox beseitigten den Fehler nicht; der Test bleibt unverändert streng.
+- Zwei nachgereichte Originaldiagnosen analysiert: „Vom Sturm umtost“ enthält übereinstimmende CS1-/JSON-Daten, 32 Takte und ursprüngliche Usage trotz leerer Sitzungswerte. Die zweite nennt als geöffnetes Score „Mit zarter Sehnsucht“, enthält aber CS1/JSON und KI-Aufruf für „Hans im Glück“. Deren Daten dürfen der vorhandenen Partitur nicht zugeschrieben werden; Regressionstest ergänzt. Der eigentliche Inhalt von „Mit zarter Sehnsucht“ fehlt in der alten Diagnose und ist ohne Score-Datei nicht überprüfbar. Beide Arbeitsergebnisse erzeugen XSD-gültiges MusicXML. Bei beiden setzt die unspezifische Bassschlüssel-Markierung einen Bassschlüssel im oberen System; keine automatische musikalische Korrektur vorgenommen. Bereits verlorene historische Kosten/Tokenzahlen sind ohne gespeicherte Usage nicht rekonstruierbar.
+
+Praktisch offen: unter der verwendeten MuseScore-Version eine vorhandene geänderte Partitur öffnen, Diagnose exportieren und alle Parts/Takte im MusicXML vergleichen; neue KI-Komposition erzeugen, übernehmen, MSCZ speichern, MuseScore schließen und wieder öffnen, ursprüngliche Usage und Herkunftsrevisionen erneut exportieren. Den frei gewählten Windows-Speicherdialog manuell prüfen.
+
 ## Version 0.10.23 – 12.10.2026
 
 - Qt 5.15.2 / Qt 6.10.2: Oberfläche, Kopieren, Vorbereitung des Diagnoseexports, getrennte Prozessargumente, Erfolgs-/Abbruch-/Fehlerrückmeldungen und Update-Neustarttests.

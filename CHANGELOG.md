@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.24 / Starter 0.7.21 – 12.10.2026
+
+- Diagnose-Schema 2 exportiert die vollständige aktuelle Partitur als MusicXML; Exportfehler verhindern einen unvollständigen erfolgreichen Export.
+- Original-CS1/JSON und ursprüngliche Provider-/Modell-/Usage-Daten mit ungerundeter Tarifberechnung; unbekannte Werte bleiben unbekannt. Rechnungsbeträge werden nicht als exakt vorgetäuscht.
+- Separat gebundene Kompositionsherkunft mit Revisionen schützt frühere Aufrufe vor neuen Aufträgen und Chats. Verifizierte Score-Metadaten und kompatible Wiederherstellung älterer Score-Gedächtnisse.
+- Verlauf verwendet Auftragskosten statt Sitzungssumme, liest vor dem Ergänzen erneut, sichert eine geprüfte Vorgängerversion und überschreibt beschädigte Daten nicht. Eindeutiger Notationsvergleich ermöglicht historische Zuordnung.
+- Fehlende Google-Thinking-Zahlen bleiben unbekannt. Versionierte App-Kopien und Starter-Bundle aktualisiert.
+- Prüfungen mit Qt-Testobjekten und realem Windows-Speicherhelfer dokumentiert. Kein neuer MuseScore-Laufzeittest; Nachgereichte Diagnosen geprüft: „Vom Sturm umtost“ und geöffnete „Mit zarter Sehnsucht“ mit abweichendem Arbeitsergebnis „Hans im Glück“.
+
 ## 0.10.23 – 12.10.2026 / Starter 0.7.20
 
 - Diagnoseexport nach Downloads ersetzt durch eine freie Windows-Zielauswahl mit Dateiexport-Helfer.

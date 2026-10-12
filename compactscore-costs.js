@@ -23,8 +23,8 @@ function usage(provider,response){
   regular=u.input_tokens;read=zero(u.cache_read_input_tokens);write=zero(u.cache_creation_input_tokens);writeHour=zero(u.cache_creation?.ephemeral_1h_input_tokens);write=Math.max(0,write-writeHour);input=validCount(regular)?regular+read+write+writeHour:null;output=u.output_tokens;
   if(validCount(u.output_tokens_details?.thinking_tokens))thinking=u.output_tokens_details.thinking_tokens;else if(validCount(u.thinking_tokens))thinking=u.thinking_tokens;
  }else if(provider==='google'){
-  input=u.promptTokenCount;read=zero(u.cachedContentTokenCount);thinking=zero(u.thoughtsTokenCount);
-  if(validCount(u.candidatesTokenCount))output=u.candidatesTokenCount+thinking;
+  input=u.promptTokenCount;read=zero(u.cachedContentTokenCount);thinking=validCount(u.thoughtsTokenCount)?u.thoughtsTokenCount:null;
+  if(validCount(u.candidatesTokenCount))output=u.candidatesTokenCount+(thinking===null?0:thinking);
   else if(validCount(u.totalTokenCount)&&validCount(input))output=Math.max(0,u.totalTokenCount-input-zero(u.toolUsePromptTokenCount));
   else output=null;
   regular=validCount(input)?Math.max(0,input-read):null;

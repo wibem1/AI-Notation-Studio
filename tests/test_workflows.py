@@ -37,14 +37,18 @@ run('''var compactInstructions="CompactScore CS1";var settings={keyOpenAI:"a-key
 var apiKeyBox={text:"a-key"},modelBox={text:"a"},stageTwoModelBox={text:"c"},modeBox={currentIndex:2,currentText:"Free"},instrumentBox={currentText:"Klavier"},instructionBox={text:"Testauftrag"};
 var selectionJson="reference",freeMeasures=16,freeInstrumentation="Klavier",compositionJob=null,compositionCosts=[],compositionIdea="",ideaReady=false,compositionJson="",compactSourceText="",compactWarnings=[],musicalDraft="",aiAnswer="",statusText="",busy=false;
 var requests=[],queue=[],saved=0,files={};var curScore={title:"Original"};var Qt={resolvedUrl:function(x){return "file:///tmp/"+x;}};
-var compactFile={source:"",read:function(){return files[this.source];}};
+var compositionHistory=[],historyError="",totalCostUsd=0;
+var compactFile={source:"",read:function(){return files[this.source]||"";},write:function(v){files[this.source]=v;return true;}};
+var historyFile=compactFile;
+function currentScoreMemoryObject(){return {compositionJson:compositionJson,compositionCosts:compositionCosts};}
+
 function providerName(){return "OpenAI";}function normalizedInstrumentation(){return ["piano"];}function contextTargetInstruments(){return ["piano"];}function contextMeasures(){return 16;}function selectionMeasureCount(){return 16;}
 function selectionBounds(){return {startTick:0,endTick:30720};}function scoreEndTick(){return 30720;}
 function fileUrlToLocalPath(x){return x.replace("file://","");}function writeScore(s,path){files[path]=xml;return true;}
 function saveScoreMemory(){saved++;}function logEvent(){};
 function callAI(prompt,callback,stage,format,options){requests.push({prompt:prompt,stage:stage,format:format,options:options});queue.push(callback);}
 function acceptCompactText(text){var d=compact.score.decode(text),r=compact.xml.convert(d);compositionJson=JSON.stringify(d);compactSourceText=text;compactWarnings=r.warnings;}
-'''+qml[a:b])
+'''+function('compositionAccounting')+qml[a:b])
 for mode in range(1,7):
  for strategy in range(3):
   run(f'settings.compositionStrategy={strategy};requests=[];queue=[];compositionJson="";modeBox.currentIndex={mode};compositionJob=prepareCompositionJob({mode});runCompositionJob(compositionJob);')

@@ -57,10 +57,10 @@ run('''var compositionJob=null,compositionCosts=[],compositionIdea="",ideaReady=
 var files={},opened=[],metatags={};var Qt={resolvedUrl:function(p){return "file:///tmp/"+p;}};
 var compactFile={source:"",write:function(x){files[this.source]=x;return true;},read:function(){return files[this.source];}};
 function fileUrlToLocalPath(x){return x.replace("file://","");}
-function readScore(p){opened.push(p);return {setMetaTag:function(k,v){metatags[k]=v;}};}
+function readScore(p){opened.push(p);return {setMetaTag:function(k,v){metatags[k]=v;},metaTag:function(k){return metatags[k]||"";}};}
 function scoreMemoryTagName(){return "memory";}function currentScoreMemoryObject(){return {compositionJson:compositionJson,compactSourceText:compactSourceText};}
 function logEvent(){};
-'''+qml[a:b])
+'''+qml[qml.index('    function compositionRecordTag()'):qml.index('    function compositionAccounting(')]+qml[a:b])
 run('acceptCompactText('+json.dumps((ROOT/'tests/fixtures/Elegie.cs').read_text())+');openCompactScore();')
 assert run('opened.length')=='1'
 assert run('metatags["AI-Notation-Studio-Source-CS1"].indexOf("CS1")')=='0'

@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.23"
+    version: "0.10.24"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -452,33 +452,50 @@ MuseScore {
         return fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-History.json"))
     }
 
+    function readHistoryFile(path) {
+        historyFile.source = path
+        var raw = String(historyFile.read() || "")
+        if (!raw.trim()) return null
+        var data = JSON.parse(raw)
+        if (!data.entries || !Array.isArray(data.entries)) throw Error("Ungültiges Verlaufsformat")
+        return data.entries
+    }
+
     function loadCompositionHistory() {
-        try {
-            historyFile.source = historyPath()
-            var raw = String(historyFile.read() || "")
-            var data = raw.trim() ? JSON.parse(raw) : { entries: [] }
-            compositionHistory = data.entries && data.entries.length !== undefined ? data.entries : []
-        } catch (e) { compositionHistory = []; historyError = String(e) }
+        historyError = ""
+        try { compositionHistory = readHistoryFile(historyPath()) || [] }
+        catch (e) {
+            try {
+                var backup = readHistoryFile(historyPath() + ".bak")
+                if (!backup) throw Error("Keine Sicherung vorhanden")
+                compositionHistory = backup
+                historyError = "Verlauf aus Sicherung wiederhergestellt: " + e
+            } catch (e2) { compositionHistory = []; historyError = String(e) + "; " + e2 }
+        }
     }
 
     function archiveComposition() {
         if (!compositionJson) return
-        var item = {
-            date: new Date().toISOString(),
-            title: compositionJob && compositionJob.title ? compositionJob.title : "Komposition",
-            provider: providerName(), model: modelBox.text.trim(),
-            request: instructionBox.text, costUsd: totalCostUsd,
-            score: currentScoreMemoryObject()
-        }
-        var all = compositionHistory.slice(0)
-        all.unshift(item)
-        if (all.length > 100) all.length = 100
         try {
+            var item = {
+                date: new Date().toISOString(),
+                title: compositionJob && compositionJob.title ? compositionJob.title : "Komposition",
+                provider: providerName(), model: modelBox.text.trim(),
+                request: instructionBox.text, accounting: compositionAccounting(compositionCosts),
+                score: currentScoreMemoryObject()
+            }
+            loadCompositionHistory()
+            if (historyError) { statusText = "Verlauf nicht überschrieben: " + historyError; return }
+            var all = compositionHistory.slice(0)
+            all.unshift(item)
+            if (all.length > 100) all.length = 100
+            var previous = JSON.stringify({ format: "AI-Notation-Studio-History-1", entries: compositionHistory }, null, 2)
+            writeVerifiedCompactFile(historyPath() + ".bak", previous, "Verlaufssicherung")
             historyFile.source = historyPath()
             var output = JSON.stringify({ format: "AI-Notation-Studio-History-1", entries: all }, null, 2)
             if (historyFile.write(output) === false) throw Error("Schreibfehler")
             var readback = String(historyFile.read())
-            if (readback.replace(/\\r?\\n+$/, "") !== output.replace(/\\r?\\n+$/, "")) throw Error("Nachkontrolle fehlgeschlagen")
+            if (readback.replace(/\r?\n+$/, "") !== output.replace(/\r?\n+$/, "")) throw Error("Nachkontrolle fehlgeschlagen")
             compositionHistory = all
         } catch (e) { historyError = String(e); statusText = "Verlaufssicherung fehlgeschlagen: " + e }
     }
@@ -516,10 +533,15 @@ MuseScore {
             compactFile.source = base + ".musicxml"
             writeVerifiedCompactFile(base + ".musicxml", result.xml, "MusicXML")
             writeVerifiedCompactFile(base + ".cs", source, "CS1-Original")
+            var inherited = ""
+            if (compositionJob && compositionJob.sourcePath && curScore)
+                inherited = String(curScore.metaTag(compositionRecordTag()) || "")
             var imported = readScore(base + ".musicxml", false)
             if (!imported) throw Error("MuseScore konnte die MusicXML-Datei nicht öffnen: " + base + ".musicxml")
+            if (inherited) imported.setMetaTag(compositionRecordTag(), inherited)
             imported.setMetaTag("AI-Notation-Studio-Source-CS1", source)
             imported.setMetaTag(scoreMemoryTagName(), JSON.stringify(currentScoreMemoryObject()))
+            stampScoreComposition(imported)
             statusText = "Neue Partitur geöffnet. Bitte in MuseScore speichern." + (result.warnings.length ? " Hinweise: " + result.warnings.join(" · ") : "")
             logEvent("MUSESCORE", "CS1 über MusicXML geöffnet", { path: base + ".musicxml", warnings: result.warnings })
         } catch (e) { statusText = "Öffnen fehlgeschlagen: " + e; logEvent("MUSESCORE", statusText) }
@@ -1909,8 +1931,8 @@ MuseScore {
             } else if (provider === 'google') {
               input = u.promptTokenCount;
               read = zero(u.cachedContentTokenCount);
-              thinking = zero(u.thoughtsTokenCount);
-              if (validCount(u.candidatesTokenCount)) output = u.candidatesTokenCount + thinking;else if (validCount(u.totalTokenCount) && validCount(input)) output = Math.max(0, u.totalTokenCount - input - zero(u.toolUsePromptTokenCount));else output = null;
+              thinking = validCount(u.thoughtsTokenCount) ? u.thoughtsTokenCount : null;
+              if (validCount(u.candidatesTokenCount)) output = u.candidatesTokenCount + (thinking === null ? 0 : thinking);else if (validCount(u.totalTokenCount) && validCount(input)) output = Math.max(0, u.totalTokenCount - input - zero(u.toolUsePromptTokenCount));else output = null;
               regular = validCount(input) ? Math.max(0, input - read) : null;
             }
             if (!validCount(input) || !validCount(output)) return null;
@@ -2805,7 +2827,7 @@ MuseScore {
 
     function currentScoreMemoryObject() {
         return {
-            schema: 1,
+            schema: 2,
             pluginVersion: root.version,
             savedAt: new Date().toISOString(),
             notes: scoreMemoryNotes,
@@ -2831,12 +2853,15 @@ MuseScore {
         }
 
         try {
-            curScore.setMetaTag(scoreMemoryTagName(), JSON.stringify(currentScoreMemoryObject()))
+            var serialized = JSON.stringify(currentScoreMemoryObject())
+            curScore.setMetaTag(scoreMemoryTagName(), serialized)
+            if (String(curScore.metaTag(scoreMemoryTagName())) !== serialized)
+                throw Error("Score-Metadaten konnten nicht verifiziert werden")
             if (!silent)
                 statusText = "Score-Gedächtnis aktualisiert. Bitte den Score speichern, damit es dauerhaft in der Datei bleibt."
             return true
         } catch (e) {
-            if (!silent) statusText = "Score-Gedächtnis konnte nicht gespeichert werden: " + e
+            statusText = "Score-Gedächtnis konnte nicht gespeichert werden: " + e
             return false
         }
     }
@@ -2882,6 +2907,8 @@ MuseScore {
             return true
         } catch (e2) {
             restoringMemory = false
+            musicalDraft = ""; compositionJson = ""; compactSourceText = ""
+            compositionJob = null; compositionIdea = ""; compositionCosts = []; ideaReady = false
             if (!silent) statusText = "Score-Gedächtnis ist beschädigt oder unlesbar."
             return false
         }
@@ -3485,6 +3512,7 @@ MuseScore {
             curScore.endCmd()
             cmdStarted = false
 
+            stampScoreComposition(curScore)
             var beforeTrim = curScore.nmeasures
             var trimOk = trimScoreToMeasureCount(curScore, freeMeasures)
             var afterTrim = curScore.nmeasures
@@ -3695,8 +3723,12 @@ MuseScore {
         if (options && compositionJob && options.jobId === compositionJob.id) {
             var ledger = compositionCosts.slice(0)
             ledger.push({ stage: stage, provider: provider, model: requestModel, returnedModel: r.model || r.modelVersion || null,
-                tokens: lastUsage, prices: lastPrices, cost: lastCost, elapsed: elapsed, time: new Date().toISOString() })
+                tokens: lastUsage, rawUsage: r.usage || r.usageMetadata || null,
+                responseId: r.id || r.responseId || null, prices: lastPrices, cost: lastCost,
+                costStatus: lastCost ? "estimated-from-published-rates" : "unavailable",
+                elapsed: elapsed, time: new Date().toISOString() })
             compositionCosts = ledger
+            saveScoreMemory(true)
         }
         logEvent("KOSTEN", costText, { tokens: lastUsage, prices: lastPrices, cost: lastCost })
     }
@@ -3718,10 +3750,120 @@ MuseScore {
         return out
     }
 
+    // Invoice amounts are not returned by these providers. Never call rate estimates exact charges.
+    function compositionRecordTag() { return "AI-Notation-Studio-Composition-2" }
+
+    // Bind provenance to applied music. Pending work and chats may update the workspace memory.
+    function legacyScoreComposition(score) {
+        var raw = String(score.metaTag(scoreMemoryTagName()) || "")
+        if (!raw) return null
+        var memory = JSON.parse(raw)
+        var source = String(score.metaTag("AI-Notation-Studio-Source-CS1") || "")
+        if (source && memory.compactSourceText && source !== memory.compactSourceText)
+            throw Error("Score-Gedächtnis gehört zu einem anderen Arbeitsergebnis als das CS1-Original der Partitur")
+        if (!source && memory.compositionJson) {
+            var data = JSON.parse(memory.compositionJson)
+            var originalTitle = data.score && data.score.title ? String(data.score.title) : ""
+            if (originalTitle && score.title && originalTitle !== String(score.title))
+                throw Error("Score-Titel und unbestätigtes Arbeitsergebnis unterscheiden sich; keine sichere Kostenzuordnung")
+        }
+        return memory
+    }
+
+    function pinScoreComposition() {
+        if (!curScore || curScore.metaTag(compositionRecordTag())) return
+        var memory = null
+        try { memory = legacyScoreComposition(curScore) } catch (e) { return }
+        if (!memory) return
+        if (!memory.compositionJson && !memory.compactSourceText) return
+        var serialized = JSON.stringify({ schema: 2, current: memory, revisions: [memory] })
+        curScore.setMetaTag(compositionRecordTag(), serialized)
+        if (String(curScore.metaTag(compositionRecordTag())) !== serialized) throw Error("Kompositionsherkunft konnte nicht gesichert werden")
+    }
+
+    function stampScoreComposition(score) {
+        var previous = String(score.metaTag(compositionRecordTag()) || "")
+        var record = previous ? JSON.parse(previous) : { schema: 2, revisions: [] }
+        var memory = currentScoreMemoryObject()
+        var revisions = record.revisions || []
+        var last = revisions.length ? revisions[revisions.length - 1] : null
+        if (!last || !last.compositionJob || !memory.compositionJob || last.compositionJob.id !== memory.compositionJob.id)
+            revisions.push(memory)
+        record.current = memory; record.revisions = revisions
+        var serialized = JSON.stringify(record)
+        score.setMetaTag(compositionRecordTag(), serialized)
+        if (String(score.metaTag(compositionRecordTag())) !== serialized) throw Error("Kompositionsherkunft konnte nicht verifiziert werden")
+    }
+
+    function compositionAccounting(calls) {
+        var known = 0, complete = calls.length > 0
+        for (var i = 0; i < calls.length; i++) {
+            if (calls[i].cost && typeof calls[i].cost.usd === "number") known += calls[i].cost.usd
+            else complete = false
+        }
+        return { status: calls.length ? "recorded" : "unavailable", calls: calls,
+            estimatedUsd: complete ? known : null, knownEstimatedUsd: calls.length ? known : null,
+            exactBilledUsd: null, exactBilledReason: "Provider response does not report an invoice amount" }
+    }
+
+    function diagnosticComposition() {
+        var memory = null, memoryError = "", xml = "", revisions = []
+        if (curScore) {
+            try {
+                var bound = String(curScore.metaTag(compositionRecordTag()) || "")
+                if (bound) {
+                    var record = JSON.parse(bound)
+                    memory = record.current; revisions = record.revisions || []
+                } else {
+                    memory = legacyScoreComposition(curScore)
+                }
+            } catch (e) { memoryError = String(e) }
+            // Export the live score, including user edits and every part/measure.
+            var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnostic-Score-" + new Date().getTime() + ".musicxml"))
+            if (!writeScore(curScore, path, "musicxml")) throw Error("Vollständige Partitur konnte nicht exportiert werden.")
+            compactFile.source = path
+            xml = String(compactFile.read() || "")
+            if (xml.indexOf("<score-partwise") < 0 && xml.indexOf("<score-timewise") < 0)
+                throw Error("MusicXML der aktuellen Partitur fehlt oder ist unlesbar.")
+        }
+        var cs = memory ? String(memory.compactSourceText || "") : ""
+        if (curScore && !cs) {
+            try { cs = String(curScore.metaTag("AI-Notation-Studio-Source-CS1") || "") } catch (e2) {}
+        }
+        var internal = memory ? String(memory.compositionJson || "") : ""
+        if (!curScore) { cs = compactSourceText; internal = compositionJson; memory = currentScoreMemoryObject() }
+        if (!internal && cs) {
+            try { internal = JSON.stringify(compact.score.decode(cs), null, 2) } catch (e3) { memoryError += String(e3) }
+        }
+        var recovery = memory ? "score-metadata" : "unavailable"
+        if (curScore && (!memory || !memory.compositionCosts || !memory.compositionCosts.length) && (cs || internal)) {
+            try {
+                var entries = readHistoryFile(historyPath()) || [], matches = []
+                for (var i = 0; i < entries.length; i++) {
+                    var candidate = entries[i].score
+                    if (candidate && ((cs && candidate.compactSourceText === cs) ||
+                        (!cs && internal && candidate.compositionJson === internal))) matches.push(candidate)
+                }
+                // Titles are not identities. Ambiguous matches must never fabricate attribution.
+                if (matches.length === 1 && matches[0].compositionCosts && matches[0].compositionCosts.length) {
+                    memory = matches[0]; recovery = "unique-original-notation-history-match"
+                }
+            } catch (e4) { memoryError += String(e4) }
+        }
+        return { status: xml ? "live-score-exported" : "no-open-score", musicXml: xml || null,
+            internalNotation: { status: internal || cs ? "available" : "unavailable",
+                provenance: "original-generation; may differ from the edited live score",
+                cs1: cs || null, json: internal || null }, memoryError: memoryError || null,
+            accounting: compositionAccounting(memory && memory.compositionCosts ? memory.compositionCosts : []),
+            accountingProvenance: recovery, generationHistory: revisions }
+    }
+
     function diagnosticText() {
         var sel = null
         try { sel = selectionJson === "" ? null : JSON.parse(selectionJson) } catch (e) {}
         return redact(JSON.stringify({
+            diagnosticSchema: 2,
+            composition: diagnosticComposition(),
             pluginVersion: root.version,
             provider: providerName(),
             model: modelBox.text.trim(),
@@ -3986,6 +4128,7 @@ MuseScore {
 
             curScore.endCmd()
             cmdStarted = false
+            stampScoreComposition(curScore)
             logEvent("MUSESCORE", pendingContextMode + " eingefügt", { insertedNotes: inserted, baseTick: pendingContextBaseTick, measures: pendingContextMeasures, useExistingParts: pendingContextUseExistingParts })
             statusText = pendingContextMode + " eingefügt: " + inserted + " Noten."
         } catch (e) {
@@ -4173,6 +4316,7 @@ MuseScore {
             return
         }
         try {
+            pinScoreComposition()
             var job = prepareCompositionJob(mode)
             compositionJob = job; compositionCosts = []; compositionIdea = ""; ideaReady = false
             aiAnswer = ""; musicalDraft = ""; compositionJson = ""; compactSourceText = ""; compactWarnings = []

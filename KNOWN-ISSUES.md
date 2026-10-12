@@ -1,6 +1,6 @@
 # Bekannte Probleme und Grenzen
 
-Stand: **v0.10.2 – 08.10.2026**
+Stand: **v0.10.24 – 12.10.2026**
 
 ## Bewusste Grenzen
 
@@ -8,7 +8,10 @@ Stand: **v0.10.2 – 08.10.2026**
 - **Variante erzeugen** erzeugt genau eine Variante pro Lauf.
 - **Chat – Ändern** schreibt nicht direkt in die Partitur, sondern erzeugt einen Bearbeitungsauftrag.
 - Kosten werden nicht geschätzt, solange kein verifizierter Modellpreis hinterlegt ist.
-- Diagnose und Kommunikationsprotokoll werden im Plugin angezeigt; es gibt noch keinen Dateiexport.
+- Diagnose-Dateiexport vorhanden; freie Zielauswahl verwendet den Windows-Speicherhelfer.
+- Qt 6.12.0: Windows-Update-Neustarttest weiterhin „File name case mismatch“. Qt 5.15.2 und Qt 6.8.3 bestehen; keine Freigabe für Qt 6.12.
+- Historisch nicht gespeicherte Provider-Usage und Rechnungsbeträge können nicht rekonstruiert werden.
+- Die neuen Diagnosepfade sind noch nicht im echten MuseScore getestet.
 - Die MusicXML-Umsetzung erkennt gängige englische und deutsche Instrumentnamen. Unbekannte Klangzuordnungen erzeugen einen Hinweis und verwenden eine Klavier-Klangvorbelegung; die Instrumentbezeichnung und das CS1-Original bleiben erhalten.
 
 ## Praktisch zu testen

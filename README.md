@@ -1,4 +1,14 @@
-# AI Notation Studio v0.10.23
+# AI Notation Studio v0.10.24
+
+## Vollständige Komposition und ursprüngliche KI-Nutzung in der Diagnose
+
+Schema 2 enthält unter `composition.musicXml` die tatsächlich geöffnete vollständige Partitur, frisch mit MuseScores `writeScore` exportiert. Manuelle Änderungen, alle Parts und Takte stammen damit aus dem aktuellen Score, nicht aus einem früheren Entwurf. Scheitert der Export oder ist die Datei unlesbar, wird kein erfolgreicher Diagnoseexport gemeldet. CS1/JSON unter `composition.internalNotation` bezeichnet die ursprüngliche KI-Notation und kann vom bearbeiteten Score abweichen. Vorhandene CS1-Score-Metadaten werden auch bei leerem Arbeitsstand dekodiert; fehlende Daten werden ausdrücklich als nicht verfügbar gekennzeichnet.
+
+`composition.accounting.calls` erhält pro KI-Stufe Provider, angefragtes/zurückgegebenes Modell, Original-Usage, Tokenzahlen einschließlich gemeldeter Thinking-/Reasoning-Tokens, Tarifstand und ungerundete Kostenberechnung. `estimatedUsd` ist eine Tarifberechnung, kein Rechnungsbetrag. `exactBilledUsd` ist nicht verfügbar, weil die verwendeten Provider-Antworten keinen Rechnungsbetrag liefern. Unbekannte Modelle, fehlende Usage oder fehlende Thinking-Zahlen werden nicht durch erfundene Nullzahlen ersetzt. `lastUsage` und `sessionCostUsd` bleiben ausdrücklich Sitzungsdaten.
+
+Die Herkunft wird separat in Score-Metadaten gebunden; neue Aufträge und Chats ersetzen sie nicht. Beim Übernehmen weiterer Musik bleibt der vorherige Stand in `composition.generationHistory` erhalten. MuseScore-Datei speichern, damit Metadaten dauerhaft in MSCZ/MSCX erhalten bleiben. Ein MusicXML-Export in andere Programme garantiert keine Übernahme dieser Metadaten. Der lokale Verlauf speichert Originalnotation und Kosten pro Auftrag, liest vor dem Ergänzen den Datenträger erneut und legt eine geprüfte `.bak` an. Ein beschädigter Verlauf wird nicht überschrieben; die Sicherung kann zum Wiederherstellen verwendet werden. Kosten können aus genau einem identischen Notationseintrag rekonstruiert werden; Titelgleichheit und mehrdeutige Treffer reichen nicht aus. Widersprechen bei alten Scores der Score-Titel oder das gespeicherte CS1-Original dem Arbeitsergebnis, werden dessen Kosten nicht der aktuellen Partitur zugeschrieben. Bereits verlorene historische Nutzungsdaten lassen sich nicht nachträglich erfinden.
+
+Starter 0.7.21 enthält Bundle 0.10.24; vorhandene Starter beziehen die App über den üblichen Update-Feed. Siehe TESTS.md für ausgeführte Prüfungen und Grenzen.
 
 ## Diagnose an einem frei gewählten Ort speichern (Windows)
 
