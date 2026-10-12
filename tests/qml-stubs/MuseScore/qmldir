@@ -1,3 +1,4 @@
 module MuseScore
 MuseScore 3.0 MuseScore.qml
 Settings 3.0 Settings.qml
+QProcess 3.0 QProcess.qml

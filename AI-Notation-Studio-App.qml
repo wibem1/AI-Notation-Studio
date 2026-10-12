@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.22"
+    version: "0.10.23"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -70,7 +70,10 @@ MuseScore {
     property bool infoOpen: false
     property var compositionHistory: []
     property string historyError: ""
-    property var diagnosticSaveDialogObject: null
+    property bool diagnosticExportBusy: false
+    property string diagnosticSourcePath: ""
+    property string diagnosticReceiptPath: ""
+    property string diagnosticHelperScript: "param(\n    [Parameter(Mandatory=$true)][string]$Source,\n    [Parameter(Mandatory=$true)][string]$Receipt,\n    [string]$Destination = '',\n    [string]$InitialDirectory = ''\n)\n$ErrorActionPreference = 'Stop'\n$stagingPath = $null\nfunction Get-StreamHash([string]$Path) {\n    $stream = [IO.File]::OpenRead($Path)\n    $sha = [Security.Cryptography.SHA256]::Create()\n    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }\n    finally { $sha.Dispose(); $stream.Dispose() }\n}\nfunction Write-Receipt($Value) {\n    [IO.File]::WriteAllText($Receipt, (ConvertTo-Json -InputObject $Value -Compress), (New-Object Text.UTF8Encoding($false)))\n}\ntry {\n    $Source = [IO.Path]::GetFullPath($Source)\n    if (-not [IO.File]::Exists($Source)) { throw 'Die vorbereitete Diagnosedatei fehlt.' }\n    if (-not $Destination) {\n        Add-Type -AssemblyName System.Windows.Forms\n        $dialog = New-Object Windows.Forms.SaveFileDialog\n        try {\n            $dialog.Title = 'AI Notation Studio: Diagnose speichern unter'\n            $dialog.Filter = 'JSON-Diagnose (*.json)|*.json|Alle Dateien (*.*)|*.*'\n            $dialog.DefaultExt = 'json'\n            $dialog.AddExtension = $true\n            $dialog.OverwritePrompt = $true\n            $dialog.FileName = [IO.Path]::GetFileName($Source)\n            if ($InitialDirectory -and [IO.Directory]::Exists($InitialDirectory)) { $dialog.InitialDirectory = $InitialDirectory }\n            if ($dialog.ShowDialog() -ne [Windows.Forms.DialogResult]::OK) {\n                Write-Receipt @{status='cancelled'; source=$Source}\n                exit 0\n            }\n            $Destination = $dialog.FileName\n        } finally { $dialog.Dispose() }\n    }\n    $Destination = [IO.Path]::GetFullPath($Destination)\n    if ([string]::Equals($Source, $Destination, [StringComparison]::OrdinalIgnoreCase)) {\n        throw 'Die Zieldatei darf nicht die vorbereitete Quelldatei sein.'\n    }\n    $targetDirectory = [IO.Path]::GetDirectoryName($Destination)\n    if (-not [IO.Directory]::Exists($targetDirectory)) { throw 'Der Zielordner existiert nicht.' }\n    $stagingPath = [IO.Path]::Combine($targetDirectory, '.AI-Notation-Studio-' + [Guid]::NewGuid().ToString('N') + '.tmp')\n    $inputStream = [IO.File]::OpenRead($Source)\n    try {\n        $outputStream = [IO.File]::Open($stagingPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)\n        try { $inputStream.CopyTo($outputStream, 81920); $outputStream.Flush($true) }\n        finally { $outputStream.Dispose() }\n    } finally { $inputStream.Dispose() }\n    $hash = Get-StreamHash $Source\n    if ((Get-StreamHash $stagingPath) -ne $hash) { throw 'Die Nachkontrolle der kopierten Datei ist fehlgeschlagen.' }\n    if ([IO.File]::Exists($Destination)) { [IO.File]::Replace($stagingPath, $Destination, [NullString]::Value) }\n    else { [IO.File]::Move($stagingPath, $Destination) }\n    $stagingPath = $null\n    if ((Get-StreamHash $Destination) -ne $hash) { throw 'Die Nachkontrolle der Zieldatei ist fehlgeschlagen.' }\n    Write-Receipt @{status='saved'; source=$Source; target=$Destination; bytes=(Get-Item -LiteralPath $Destination).Length; sha256=$hash}\n    exit 0\n} catch {\n    Write-Receipt @{status='error'; source=$Source; message=$_.Exception.Message}\n    exit 1\n} finally {\n    if ($stagingPath -and [IO.File]::Exists($stagingPath)) { [IO.File]::Delete($stagingPath) }\n}\n"
     property string lastDiagnosticPath: ""
 
     MS.Settings {
@@ -100,9 +103,21 @@ MuseScore {
         property string secondModel: ""
         property string activeHotAppSource: ""
         property string activeHotAppVersion: ""
+        property string diagnosticExportDirectory: ""
     }
 
     FileIO { id: historyFile; onError: function(msg) { historyError = String(msg) } }
+
+    MS.QProcess {
+        id: diagnosticExportProcess
+        objectName: "diagnosticExportProcess"
+        onFinished: function(exitCode, exitStatus) { finishDiagnosticExport() }
+        onErrorOccurred: function(error) {
+            if (!diagnosticExportBusy) return
+            diagnosticExportBusy = false
+            statusText = "Speicherhelfer konnte nicht gestartet werden. Diagnose liegt hier: " + diagnosticSourcePath
+        }
+    }
 
     FileIO {
         id: compactFile
@@ -3812,23 +3827,58 @@ MuseScore {
     }
 
     function defaultDiagnosticPath() {
-        // FileIO.homePath() liefert auf Windows das Profilverzeichnis.
-        // Nicht relativ zum Plugin speichern: das führt in schwer auffindbare Ordner.
-        if (typeof compactFile.homePath !== "function")
-            throw Error("MuseScore stellt keinen Benutzerordner bereit (FileIO.homePath).")
-        var home = String(compactFile.homePath() || "").replace(/\\/g, "/").replace(/\/+$/, "")
-        if (!home) throw Error("Benutzerordner konnte nicht bestimmt werden.")
-        return home + "/Downloads/AI-Notation-Studio-Diagnose-" + new Date().getTime() + ".json"
+        return fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnose-" +
+            new Date().getTime() + "-" + Math.floor(Math.random() * 1000000) + ".json"))
     }
 
     function exportDiagnostic() {
+        if (diagnosticExportBusy) return
+        if (Qt.platform.os !== "windows") {
+            statusText = "Die freie Diagnose-Zielauswahl ist derzeit nur für Windows verfügbar."
+            return
+        }
         try {
-            var target = defaultDiagnosticPath()
-            writeVerifiedCompactFile(target, diagnosticText(), "Diagnose")
-            lastDiagnosticPath = target
-            statusText = "Diagnose im Downloadordner gespeichert: " + target
+            diagnosticSourcePath = defaultDiagnosticPath()
+            diagnosticReceiptPath = diagnosticSourcePath + ".result.json"
+            writeVerifiedCompactFile(diagnosticSourcePath, diagnosticText(), "Diagnose vorbereiten")
+            var helperPath = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Export-" + root.version + ".ps1"))
+            writeVerifiedCompactFile(helperPath, diagnosticHelperScript, "Speicherhelfer vorbereiten")
+            diagnosticExportBusy = true
+            statusText = "Zielort im Fenster „Diagnose speichern unter“ wählen …"
+            var helperArgs = ["-NoProfile", "-STA", "-WindowStyle", "Hidden",
+                "-ExecutionPolicy", "Bypass", "-File", helperPath, "-Source", diagnosticSourcePath,
+                "-Receipt", diagnosticReceiptPath]
+            if (settings.diagnosticExportDirectory) helperArgs.push("-InitialDirectory", settings.diagnosticExportDirectory)
+            diagnosticExportProcess.startWithArgs("powershell.exe", helperArgs)
         } catch (e) {
-            statusText = "Diagnose konnte nicht im Downloadordner gespeichert werden: " + e
+            diagnosticExportBusy = false
+            statusText = "Diagnoseexport fehlgeschlagen: " + e
+        }
+    }
+
+    function finishDiagnosticExport() {
+        if (!diagnosticExportBusy) return
+        diagnosticExportBusy = false
+        try {
+            compactFile.source = diagnosticReceiptPath
+            var result = JSON.parse(String(compactFile.read()))
+            if (String(result.source || "").replace(/\\/g, "/") !== diagnosticSourcePath.replace(/\\/g, "/"))
+                throw Error("Rückmeldung gehört nicht zu diesem Export.")
+            if (result.status === "saved" && result.target && result.bytes > 0 && /^[A-Fa-f0-9]{64}$/.test(result.sha256)) {
+                lastDiagnosticPath = String(result.target).replace(/\\/g, "/")
+                settings.diagnosticExportDirectory = lastDiagnosticPath.substring(0, lastDiagnosticPath.lastIndexOf("/"))
+                statusText = "Diagnose gespeichert und geprüft: " + lastDiagnosticPath + " (" + result.bytes + " Bytes)"
+            } else if (result.status === "cancelled") {
+                statusText = "Diagnoseexport abgebrochen."
+            } else throw Error(result.message || "Ungültige Rückmeldung des Speicherhelfers.")
+            if (typeof compactFile.remove === "function") {
+                compactFile.source = diagnosticSourcePath
+                compactFile.remove()
+                compactFile.source = diagnosticReceiptPath
+                compactFile.remove()
+            }
+        } catch (e) {
+            statusText = "Diagnoseexport fehlgeschlagen: " + e + ". Vorbereitete Datei: " + diagnosticSourcePath
         }
     }
 
@@ -4153,50 +4203,6 @@ MuseScore {
 
     onRun: bootstrapRun()
 
-    // QtQuick.Dialogs fehlt in dieser MuseScore-Installation.
-    // Schreibbarer Pfad-Dialog ohne zusätzliche QML-Module.
-    Dialog {
-        id: diagnosticPathDialog
-        title: "Diagnose speichern unter"
-        modal: true
-        width: Math.min(740, root.width - 24)
-        standardButtons: Dialog.NoButton
-        contentItem: ColumnLayout {
-            spacing: 12
-            Label {
-                text: "Vollständigen Dateipfad angeben (Ordner und Dateiname):"
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-            TextField {
-                id: diagnosticPathBox
-                Layout.fillWidth: true
-                selectByMouse: true
-                placeholderText: "C:/Users/.../Dokumente/Diagnose.json"
-                onAccepted: finishDiagnosticSave(text)
-            }
-            Label {
-                text: "Der native Dateibrowser ist in dieser MuseScore-Installation nicht verfügbar."
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-                color: "#bbbbbb"
-            }
-            RowLayout {
-                Button {
-                    text: "Ordner im Explorer öffnen"
-                    onClicked: {
-                        var p = diagnosticPathBox.text.replace(/\\\\/g, "/")
-                        var slash = p.lastIndexOf("/")
-                        if (slash > 0) Qt.openUrlExternally(localPathToFileUrl(p.substring(0, slash + 1)))
-                    }
-                }
-                Item { Layout.fillWidth: true }
-                Button { text: "Abbrechen"; onClicked: diagnosticPathDialog.close() }
-                Button { text: "Speichern"; onClicked: finishDiagnosticSave(diagnosticPathBox.text) }
-            }
-        }
-    }
-
     Dialog {
         id: historyDialog
         title: "Kompositionsverlauf"
@@ -4486,7 +4492,7 @@ MuseScore {
                 Button { text: "Wiederholen"; font.pixelSize: 14; onClicked: redoMuseScore() }
                 Button { text: "Protokoll"; font.pixelSize: 14; onClicked: showCommunicationLog() }
                 Button { text: "Diagnose"; font.pixelSize: 14; onClicked: showDiagnostic() }
-                Button { text: "Diagnose speichern"; font.pixelSize: 14; onClicked: exportDiagnostic() }
+                Button { text: "Diagnose speichern"; font.pixelSize: 14; enabled: !diagnosticExportBusy; onClicked: exportDiagnostic() }
                 Button { text: "Speicher testen"; font.pixelSize: 14; onClicked: testStoragePaths() }
                 Button { text: "Verlauf"; font.pixelSize: 14; onClicked: { loadCompositionHistory(); historyDialog.open() } }
 
@@ -5050,7 +5056,7 @@ MuseScore {
                 color: "#aaaaaa"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
-                text: "v" + root.version + " · 11.10.2026: Qt-6-Ladefehler behoben; Diagnose-Export wiederhergestellt."
+                text: "v" + root.version + " · 12.10.2026: Diagnose speichern mit freier Windows-Zielauswahl."
             }
         }
         }

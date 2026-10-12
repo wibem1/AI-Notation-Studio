@@ -1,5 +1,11 @@
 # Testplan v0.7.0
 
+## Version 0.10.23 – 12.10.2026
+
+- Qt 5.15.2 / Qt 6.10.2: Oberfläche, Kopieren, Vorbereitung des Diagnoseexports, getrennte Prozessargumente, Erfolgs-/Abbruch-/Fehlerrückmeldungen und Update-Neustarttests.
+- `tests/test_diagnostic_helper.py`: realer PowerShell-Helfer, 46.137.355 Bytes, SHA-256, vorhandene Zieldatei ersetzen, Unicode/Leerzeichen/Shell-Sonderzeichen, ungültiger Zielordner, Schutz der Quelldatei.
+- MuseScore 4.7.5: QProcess startet den eingebetteten Helfer; 4.700.913 Bytes außerhalb der FileIO-Verzeichnisse erfolgreich gespeichert und nachgelesen. Der Zielpfad wurde für diesen automatisierten Test als Helferargument vorgegeben; die manuelle Windows-Dialogauswahl wurde nicht automatisiert.
+
 ## Version 0.10.22 – 12.10.2026
 
 - Qt 5.15.2 und Qt 6.10.2: echte QML-Oberfläche mit MuseScore-/FileIO-Testobjekten laden, Clipboard prüfen, Scrollen und Größenänderung prüfen.

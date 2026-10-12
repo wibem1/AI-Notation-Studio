@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.23 – 12.10.2026 / Starter 0.7.20
+
+- Diagnoseexport nach Downloads ersetzt durch eine freie Windows-Zielauswahl mit Dateiexport-Helfer.
+- Dateibasierte Übertragung ohne Zwischenablage; blockweises Kopieren, SHA-256-Nachkontrolle und atomarer Austausch vorhandener Zieldateien nach erfolgreicher Kopierprüfung.
+- Nicht blockierender Prozessstart über MuseScore QProcess, getrennte Argumente, Abbruch- und Fehleranzeige, Wiederherstellung über erhaltene Quelldatei.
+- Helfer in QML eingebettet, damit der bestehende Live-Updater die vollständige Funktion ausliefert.
+- Veralteten Pfad-Dialog mit nicht vorhandenen Speicherfunktionen entfernt.
+
 ## 0.10.22 – 12.10.2026 / Starter 0.7.19
 
 - Ergebnisfenster: vollständigen Text über „Ergebnis kopieren“ in die Zwischenablage übernehmen.

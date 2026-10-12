@@ -1,4 +1,12 @@
-# AI Notation Studio v0.10.22
+# AI Notation Studio v0.10.23
+
+## Diagnose an einem frei gewählten Ort speichern (Windows)
+
+**Diagnose speichern** bereitet die vollständige JSON-Datei im Pluginverzeichnis vor und öffnet über einen Windows-Speicherhelfer **Speichern unter …**. Ordner und Dateiname sind frei wählbar, auch außerhalb von MuseScores FileIO-Verzeichnissen. Große Dateien werden in Blöcken übertragen; SHA-256 prüft den kopierten Inhalt und die fertige Zieldatei. Die Statuszeile zeigt erst danach Erfolg und Zielpfad.
+
+Abbrechen meldet keinen Speichererfolg. Bei Fehlern bleibt die vorbereitete Datei erhalten und ihr Pfad wird angezeigt. Bei Erfolg oder Abbruch werden die temporäre Diagnose und Rückmeldung entfernt. Der zuletzt verwendete Zielordner wird gespeichert.
+
+Der Helfer ist als lesbarer PowerShell-Quelltext in der App enthalten und wird beim normalen Live-Update mitgeliefert. Es sind keine zusätzliche Installation und keine Zwischenablage nötig. MuseScores QProcess startet ihn mit getrennten Dateipfadargumenten; der Inhalt wird nicht als Befehlszeile übergeben. Quelle: `scripts/diagnostic-export.ps1`; nach Änderungen mit `scripts/embed-diagnostic-helper.py` einbetten. Die freie Zielauswahl ist derzeit Windows-spezifisch. Starter 0.7.20 enthält das Bundle 0.10.23.
 
 ## Ergebnis und Speichertest
 

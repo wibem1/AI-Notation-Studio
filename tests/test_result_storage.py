@@ -1,5 +1,5 @@
 """Actual QML clipboard and verified storage, including fallback and failure cases."""
-import os, sys, tempfile
+import os, sys, tempfile, json
 from pathlib import Path
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 os.environ['QT_QUICK_BACKEND'] = 'software'
@@ -72,3 +72,33 @@ for mode in ['ok', 'fallback', 'fail', 'corrupt']:
     js('studio.copyResult()')
     assert app.clipboard().text() == answer
 print('QML clipboard, Unicode, native read newlines, verified log, fallback and failures OK')
+
+# Exercise the actual QML export orchestration; the helper process is a test object.
+disk.mode = 'ok'
+process = r.findChild(QObject, 'diagnosticExportProcess')
+assert process
+js('studio.exportDiagnostic()')
+assert r.property('diagnosticExportBusy')
+source = r.property('diagnosticSourcePath')
+receipt = r.property('diagnosticReceiptPath')
+assert json.loads(disk.data[source])['pluginVersion'] == r.property('version')
+assert js('studio.diagnosticHelperScript') == (ROOT/'scripts/diagnostic-export.ps1').read_text()
+args = process.property('arguments')
+if hasattr(args, 'toVariant'): args = args.toVariant()
+assert '-File' in args and '-Source' in args and source in args
+assert not any('pluginVersion' in str(arg) for arg in args)
+for state in ['saved', 'cancelled', 'error', 'wrong-source']:
+    if not r.property('diagnosticExportBusy'):
+        js('studio.exportDiagnostic()')
+        source = r.property('diagnosticSourcePath')
+        receipt = r.property('diagnosticReceiptPath')
+    data = {'source': source, 'status': state, 'target': 'D:/Exports/Diagnose.json', 'bytes': 12345, 'sha256': 'A'*64, 'message': 'Testfehler'}
+    if state == 'wrong-source': data['source'] = 'other-export.json'
+    disk.data[receipt] = json.dumps(data)
+    js('studio.finishDiagnosticExport()')
+    assert not r.property('diagnosticExportBusy')
+    status = r.property('statusText')
+    if state == 'saved': assert 'gespeichert und geprüft' in status and r.property('lastDiagnosticPath') == data['target']
+    elif state == 'cancelled': assert 'abgebrochen' in status
+    else: assert 'fehlgeschlagen' in status and source in status
+print('Actual QML export: file preparation, separate arguments, verified receipt, cancellation and failures OK')
