@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const context=require(process.argv[2] || '../compactscore-context.js');
+const scope={};vm.createContext(scope);
+vm.runInContext(fs.readFileSync(process.argv[3] || require('path').join(__dirname,'../notation-structure.js'),'utf8'),scope);
+const api=scope.createNotationStructure(context);
+const note=(step,oct,dur,voice,type,ties='')=>`<note><pitch><step>${step}</step><octave>${oct}</octave></pitch><duration>${dur}</duration>${ties}<voice>${voice}</voice><type>${type}</type><staff>2</staff></note>`;
+const xml='<score-partwise><part-list/><part id="P1"><measure number="1"><attributes><divisions>4</divisions><time><beats>4</beats><beat-type>4</beat-type></time><staves>2</staves></attributes>'+note('E',2,16,8,'whole')+'<backup><duration>14</duration></backup>'+note('B',2,6,7,'quarter')+'<backup><duration>4</duration></backup>'+note('G',3,12,6,'half')+'<backup><duration>10</duration></backup>'+note('B',3,2,5,'eighth','<tie type="start"/>')+note('B',3,8,5,'half','<tie type="stop"/>')+'</measure></part></score-partwise>';
+const selection={partIndex:0,staffs:[2],startQuarter:0,endQuarter:4};
+const result=api.repair(xml,selection);
+assert.equal(result.changed,1);
+assert.equal(api.signature(xml),api.signature(result.xml));
+assert.equal(api.repair(result.xml,selection).changed,0);
+assert.equal(api.repair(xml,{...selection,startQuarter:.5}).changed,0);
+assert.equal(api.repair(xml,{...selection,staffs:[1]}).changed,0);
+assert.equal(api.repair(xml.replace('<type>eighth</type>','<type>eighth</type><notations><slur type="start"/></notations>'),selection).changed,0);
+assert.throws(()=>api.repair(xml,{...selection,endQuarter:0}));
+console.log('Generic structural repair, acoustic equality, idempotence, partial-bar/staff selection and unsupported notation: PASS');
