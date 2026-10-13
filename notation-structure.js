@@ -82,7 +82,7 @@ function createNotationStructure(context) {
         n.children.push(node('staff',staff));return n
     }
     function repair(xml,selection) {
-        var doc=context.parse(xml),before=signature(doc),reports=[],changed=0;
+        var doc=context.parse(xml),before=signature(doc),reports=[],changed=0,operations=[];
         if(!selection || !(selection.endQuarter>selection.startQuarter) || !selection.staffs.length)throw Error('Bitte vollständige Takte als Bereich markieren.');
         children(doc,'part').forEach(function(part,pi){
             // Staff numbering in selection is local to this part; caller resolves part IDs.
@@ -137,10 +137,19 @@ function createNotationStructure(context) {
                 Object.keys(replacements).forEach(function(s){replacements[s].forEach(function(lane){streams.push(lane)})});
                 streams.forEach(function(stream,i){if(i)rebuilt.push({name:'backup',open:'<backup>',close:'</backup>',children:[node('duration',row.length)]});rebuilt=rebuilt.concat(stream)});
                 row.node.children=rebuilt;row.node.open=row.node.open.replace(/\swidth=["'][^"']*["']/g,'');
+                Object.keys(replacements).forEach(function(s){
+                    var events=[];
+                    replacements[s].forEach(function(lane,voice){var position=0,previous=null;
+                        lane.forEach(function(n){var duration=Number(text(n,'duration',0)),p=pitch(n);
+                            if(first(n,'chord'))previous.notes.push({pitch:p,tieStart:tie(n,'start'),tieStop:tie(n,'stop')});
+                            else {previous={tick:Math.round((row.start+position/row.divisions)*480),durationTicks:Math.round(duration/row.divisions*480),voice:voice,notes:p===null?[]:[{pitch:p,tieStart:tie(n,'start'),tieStop:tie(n,'stop')}]};events.push(previous);position+=duration}
+                        })
+                    });operations.push({partIndex:pi,staff:Number(s),startTick:Math.round(row.start*480),endTick:Math.round((row.start+row.length/row.divisions)*480),events:events})
+                });
             });
         });
         if(signature(doc)!==before)throw Error('Die Klangprüfung ist fehlgeschlagen; die Änderung wird verworfen.');
-        return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),changed:changed,report:reports.join('\n')||'Keine Passage mit mindestens drei klingenden Stimmen in vollständig markierten Takten erkannt.'}
+        return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),changed:changed,operations:operations,report:reports.join('\n')||'Keine Passage mit mindestens drei klingenden Stimmen in vollständig markierten Takten erkannt.'}
     }
     return {repair:repair,signature:function(xml){return signature(context.parse(xml))}}
 }

@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.26"
+    version: "0.10.27"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -19,6 +19,7 @@ MuseScore {
     width: parent ? parent.width : implicitWidth
     height: parent ? parent.height : implicitHeight
 
+    property var notationDirect: createNotationDirect()
     property var notationStructure: createNotationStructure(compact.context)
     property var structureSnapshot: null
     property string structureReport: ""
@@ -3268,7 +3269,7 @@ MuseScore {
             n.children.push(node('staff',staff));return n
         }
         function repair(xml,selection) {
-            var doc=context.parse(xml),before=signature(doc),reports=[],changed=0;
+            var doc=context.parse(xml),before=signature(doc),reports=[],changed=0,operations=[];
             if(!selection || !(selection.endQuarter>selection.startQuarter) || !selection.staffs.length)throw Error('Bitte vollständige Takte als Bereich markieren.');
             children(doc,'part').forEach(function(part,pi){
                 // Staff numbering in selection is local to this part; caller resolves part IDs.
@@ -3323,14 +3324,132 @@ MuseScore {
                     Object.keys(replacements).forEach(function(s){replacements[s].forEach(function(lane){streams.push(lane)})});
                     streams.forEach(function(stream,i){if(i)rebuilt.push({name:'backup',open:'<backup>',close:'</backup>',children:[node('duration',row.length)]});rebuilt=rebuilt.concat(stream)});
                     row.node.children=rebuilt;row.node.open=row.node.open.replace(/\swidth=["'][^"']*["']/g,'');
+                    Object.keys(replacements).forEach(function(s){
+                        var events=[];
+                        replacements[s].forEach(function(lane,voice){var position=0,previous=null;
+                            lane.forEach(function(n){var duration=Number(text(n,'duration',0)),p=pitch(n);
+                                if(first(n,'chord'))previous.notes.push({pitch:p,tieStart:tie(n,'start'),tieStop:tie(n,'stop')});
+                                else {previous={tick:Math.round((row.start+position/row.divisions)*480),durationTicks:Math.round(duration/row.divisions*480),voice:voice,notes:p===null?[]:[{pitch:p,tieStart:tie(n,'start'),tieStop:tie(n,'stop')}]};events.push(previous);position+=duration}
+                            })
+                        });operations.push({partIndex:pi,staff:Number(s),startTick:Math.round(row.start*480),endTick:Math.round((row.start+row.length/row.divisions)*480),events:events})
+                    });
                 });
             });
             if(signature(doc)!==before)throw Error('Die Klangprüfung ist fehlgeschlagen; die Änderung wird verworfen.');
-            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),changed:changed,report:reports.join('\n')||'Keine Passage mit mindestens drei klingenden Stimmen in vollständig markierten Takten erkannt.'}
+            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),changed:changed,operations:operations,report:reports.join('\n')||'Keine Passage mit mindestens drei klingenden Stimmen in vollständig markierten Takten erkannt.'}
         }
         return {repair:repair,signature:function(xml){return signature(context.parse(xml))}}
     }
     
+    
+    // The adapter only uses the native Score/Cursor APIs; no import or new score.
+    function createNotationDirect() {
+        function same(a,b) { return a===b || (a && typeof a.is==='function' && a.is(b)) }
+        function cursorAt(score,staff,voice,tick) {
+            // Rewind through primary voice first, so empty secondary voices don't skip the requested position.
+            var c=score.newCursor();c.staffIdx=staff;c.voice=0;c.rewindToTick(tick);c.staffIdx=staff;c.voice=voice;
+            return c
+        }
+        function tickOf(note) { return Number(note.parent.parent.tick) }
+        function at(score,staff,voice,tick) {
+            var c=cursorAt(score,staff,voice,tick);
+            if(!c.segment || c.tick!==tick) return null;
+            return c.element
+        }
+        function apply(score,operations,api) {
+            if(!operations || !operations.length)throw Error('Kein Korrekturplan vorhanden.');
+            var chords=[],metadata=[],started=false;
+            // Collect live metadata before mutating any wrapper; inspect all four voices.
+            operations.forEach(function(op){
+                var staff=score.staves && score.staves[op.globalStaff];
+                if(staff && ['playbackVoice1','playbackVoice2','playbackVoice3','playbackVoice4'].some(function(key){return staff[key]===false}))
+                    throw Error('Systeme mit stummgeschalteten Stimmen werden nicht direkt umgebaut.');
+                for(var voice=0;voice<4;voice++){
+                    var c=cursorAt(score,op.globalStaff,voice,op.startTick);
+                    while(c.segment && c.tick<op.endTick){
+                        var el=c.element;
+                        if(el && el.name==='Chord'){
+                            if(el.staffMove)throw Error('Noten über mehrere Systeme werden nicht direkt umgebaut.');
+                            if(el.graceNotes && el.graceNotes.length)throw Error('Vorschlagsnoten werden nicht direkt umgebaut.');
+                            var tick=c.tick,duration=el.actualDuration.ticks;
+                            for(var n=0;n<el.notes.length;n++){
+                                var note=el.notes[n];
+                                if(note.pitch%1 || note.tuning)throw Error('Mikrotonale Noten werden nicht direkt umgebaut.');
+                                if(note.tpc1!==undefined && note.tpc2!==undefined && note.tpc1!==note.tpc2)throw Error('Transponierende Notation wird nicht direkt umgebaut.');
+                                if(note.elements && note.elements.length)throw Error('Noten mit zusätzlichen Zeichen werden nicht direkt umgebaut.');
+                                if(note.tieBack && note.tieBack.startNote && tickOf(note.tieBack.startNote)<op.startTick)throw Error('Haltebogen über den Auswahlbeginn: bitte weitere Takte markieren.');
+                                if(note.tieForward && note.tieForward.endNote && tickOf(note.tieForward.endNote)>=op.endTick)throw Error('Haltebogen über das Auswahlende: bitte weitere Takte markieren.');
+                                metadata.push({staff:op.globalStaff,tick:tick,end:tick+duration,pitch:note.pitch,tpc1:note.tpc1,tpc2:note.tpc2,tpc:note.tpc,veloType:note.veloType,userVelocity:note.userVelocity,visible:note.visible,play:note.play,color:note.color});
+                            }
+                            if(!chords.some(function(x){return same(x,el)}))chords.push(el)
+                        }
+                        c.next()
+                    }
+                }
+            });
+            // Resolve every new note to a real source note before starting the transaction.
+            operations.forEach(function(op){op.events.forEach(function(event){event.notes.forEach(function(n){
+                var candidates=metadata.filter(function(m){return m.staff===op.globalStaff && m.pitch===n.pitch && m.tick<=event.tick && m.end>event.tick});
+                if(candidates.length!==1)throw Error('Keine eindeutige Zuordnung zur ursprünglichen Note.');
+                n.source=candidates[0]
+            })})});
+            try{
+                score.startCmd('AI Notation Studio: Notendarstellung korrigieren');started=true;
+                chords.forEach(function(chord){api.removeElement(chord)});
+                operations.forEach(function(op){
+                    // Unused secondary voices may retain engine-created rests; hide these explicitly.
+                    for(var v=2;v<4;v++){
+                        var c=cursorAt(score,op.globalStaff,v,op.startTick);
+                        while(c.segment && c.tick<op.endTick){if(c.element && c.element.name==='Rest')c.element.visible=false;c.next()}
+                    }
+                    op.events.forEach(function(event){
+                        var c=cursorAt(score,op.globalStaff,event.voice,event.tick);
+                        if(!c.segment || c.tick!==event.tick)throw Error('MuseScore konnte die Einfügeposition nicht exakt erreichen.');
+                        c.setDuration(event.durationTicks,1920);
+                        if(!event.notes.length)c.addRest();
+                        else event.notes.forEach(function(n,index){
+                            var insert=cursorAt(score,op.globalStaff,event.voice,event.tick);insert.setDuration(event.durationTicks,1920);insert.addNote(n.pitch,index>0)
+                        });
+                        var el=at(score,op.globalStaff,event.voice,event.tick);
+                        if(!el || !el.actualDuration || el.actualDuration.ticks!==event.durationTicks)throw Error('MuseScore hat den Notenwert nicht exakt übernommen.');
+                        if(!event.notes.length){if(el.name!=='Rest')throw Error('Die Pause wurde nicht übernommen.');el.visible=true;return}
+                        if(el.name!=='Chord' || el.notes.length!==event.notes.length)throw Error('Der neue Akkord ist unvollständig.');
+                        el.stemDirection=event.voice===0?api.up:api.down;
+                        event.notes.forEach(function(n){
+                            var matches=[];for(var i=0;i<el.notes.length;i++)if(el.notes[i].pitch===n.pitch)matches.push(el.notes[i]);
+                            if(matches.length!==1)throw Error('MuseScore hat die Tonhöhe nicht exakt übernommen.');
+                            var live=matches[0],source=n.source;n.live=live;
+                            if(source.tpc1!==undefined)live.tpc1=source.tpc1;if(source.tpc2!==undefined)live.tpc2=source.tpc2;
+                            if(source.tpc1===undefined)live.tpc=source.tpc;
+                            ['veloType','userVelocity','visible','play','color'].forEach(function(key){if(source[key]!==undefined)live[key]=source[key]})
+                        })
+                    })
+                });
+                // Create native ties only after all destination notes exist. startCmd locks one undo macro.
+                api.cmd('escape');
+                operations.forEach(function(op){op.events.forEach(function(event){event.notes.forEach(function(n){if(n.tieStart){
+                    if(!score.selection.select(n.live,false))throw Error('Die Note konnte für den Haltebogen nicht gewählt werden.');
+                    api.cmd('tie');
+                    var expected=at(score,op.globalStaff,event.voice,event.tick+event.durationTicks);
+                    var tie=n.live.tieForward;
+                    if(!tie || !tie.endNote || !expected || !same(tie.endNote.parent,expected) || tie.endNote.pitch!==n.pitch)
+                        throw Error('MuseScore hat den benötigten Haltebogen nicht erstellt. Die Änderung wird zurückgenommen.')
+                }})})});
+                // Verify the complete intended rhythm and all tie endpoints, including absence of extra attacks.
+                operations.forEach(function(op){op.events.forEach(function(event){event.notes.forEach(function(n){
+                    if(n.live.pitch!==n.pitch || n.live.parent.actualDuration.ticks!==event.durationTicks || !!n.live.tieBack!==n.tieStop || !!n.live.tieForward!==n.tieStart)
+                        throw Error('Die abschließende Klangprüfung ist fehlgeschlagen.');
+                    ['userVelocity','veloType','play'].forEach(function(key){if(n.source[key]!==undefined && n.live[key]!==n.source[key])throw Error('Wiedergabeeigenschaften wurden verändert.')})
+                })});
+                    for(var v=2;v<4;v++){var c=cursorAt(score,op.globalStaff,v,op.startTick);while(c.segment&&c.tick<op.endTick){if(c.element&&c.element.name==='Chord')throw Error('Eine alte Stimme ist noch vorhanden.');c.next()}}
+                });
+                if(api.verify && !api.verify())throw Error('Die Kontrolle der vollständigen Partitur ist fehlgeschlagen.');
+                score.endCmd(false);started=false;
+                return {changed:operations.length}
+            }catch(e){if(started)score.endCmd(true);throw e}
+        }
+        return {apply:apply}
+    }
 
     // Notation proposals never pass through the composition/import pipeline.
 
@@ -3381,12 +3500,40 @@ MuseScore {
                 "Sondernotation wird übersprungen. Vorzeichen und Seitenkollisionen werden hier nicht beurteilt."
             if (result.changed) {
                 structureSnapshot = { score: curScore, sourceXml: xml, xml: result.xml,
-                    fingerprint: readSelectionForChat(), changed: result.changed }
-                structureReport += "\n\nKlangprüfung bestanden. Die Vorschau öffnet eine separate Partitur; " +
-                    "das Seitenlayout kann sich durch den MusicXML-Import ändern. Bitte vor dem Speichern vergleichen."
+                    fingerprint: readSelectionForChat(), changed: result.changed, operations: result.operations, selection: selection }
+                structureReport += "\n\nKlangprüfung bestanden. Mit „In der Partitur korrigieren“ wird die Passage direkt geändert. Rückgängig setzt den gesamten Schritt zurück."
             }
-            statusText = "Strukturprüfung: " + result.changed + " Takte/Systeme für die Vorschau korrigiert."
+            statusText = "Strukturprüfung: " + result.changed + " Takte/Systeme zur direkten Korrektur vorbereitet."
         } catch (e) { structureReport = String(e); statusText = "Strukturprüfung abgebrochen." }
+    }
+
+
+    function notationStructureApply() {
+        if (busy || !structureSnapshot) return
+        var snapshot = structureSnapshot
+        try {
+            if (mscoreMajorVersion < 4 || (mscoreMajorVersion === 4 && mscoreMinorVersion < 7))
+                throw Error("Die direkte Korrektur mit vollständiger Fehler-Rücknahme benötigt MuseScore 4.7 oder neuer.")
+            if (!curScore || !(curScore === snapshot.score || curScore.is(snapshot.score)) ||
+                readSelectionForChat() !== snapshot.fingerprint || notationStructureExport() !== snapshot.sourceXml)
+                throw Error("Partitur oder Auswahl wurde geändert. Bitte erneut prüfen.")
+            var score = curScore
+            var operations = JSON.parse(JSON.stringify(snapshot.operations))
+            operations.forEach(function(op) { op.globalStaff = score.parts[op.partIndex].startTrack / 4 + op.staff - 1 })
+            var result = notationDirect.apply(score, operations, {
+                removeElement: function(el) { removeElement(el) },
+                cmd: function(action) { cmd(action) }, up: Direction.UP, down: Direction.DOWN,
+                verify: function() { return notationStructure.signature(notationStructureExport()) === notationStructure.signature(snapshot.sourceXml) }
+            })
+            structureSnapshot = null
+            notationSnapshot = null; notationChanges = []
+            score.selection.selectRange(Math.round(snapshot.selection.startQuarter * 480),
+                Math.round(snapshot.selection.endQuarter * 480),
+                score.parts[snapshot.selection.partIndex].startTrack / 4 + Math.min.apply(null, snapshot.selection.staffs) - 1,
+                score.parts[snapshot.selection.partIndex].startTrack / 4 + Math.max.apply(null, snapshot.selection.staffs))
+            structureReport += "\n\nDirekt in der geöffneten Partitur korrigiert: " + result.changed + " Takte/Systeme. Mit Rückgängig kann die gesamte Änderung zurückgenommen werden."
+            statusText = "Notendarstellung direkt in der Partitur korrigiert."
+        } catch (e) { structureSnapshot = null; statusText = "Direktkorrektur nicht übernommen: " + String(e); structureReport += "\n\n" + statusText }
     }
 
     function notationStructureOpen() {
@@ -4916,7 +5063,7 @@ MuseScore {
                 selectByMouse: true
                 font.pixelSize: 15
                 text:
-                    "AI Notation Studio v0.10.26\n\n" +
+                    "AI Notation Studio v0.10.27\n\n" +
                     "KOMPOSITION / ANALYSE\n" +
                     "Dieser Bereich führt den eigentlichen musikalischen Auftrag aus. Der gewählte Modus bestimmt, ob analysiert, eine neue Stimme komponiert, frei komponiert, fortgesetzt, ein Motiv entwickelt, eine Variante erzeugt oder neu instrumentiert wird.\n\n" +
                     "PARTITUR-CHAT\n" +
@@ -5086,13 +5233,13 @@ MuseScore {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     color: "#c9c9c9"
-                    text: "Vollständige Takte eines Instruments markieren. Die Strukturprüfung erkennt verschachtelte Stimmen und erzeugt bei geeignetem gehaltenem Bass eine Vorschau mit zwei Stimmen. Tonhöhen, Einsätze und klingende Dauern werden geprüft. Die Strukturprüfung läuft ohne KI-Kosten. Vorzeichen können zusätzlich mit der KI geprüft werden."
+                    text: "Vollständige Takte eines Instruments markieren. Die Strukturprüfung erkennt verschachtelte Stimmen und ordnet bei geeignetem gehaltenem Bass die Passage in zwei Stimmen. Tonhöhen, Einsätze und klingende Dauern werden geprüft. Die Strukturprüfung läuft ohne KI-Kosten. Vorzeichen können zusätzlich mit der KI geprüft werden."
                 }
                 Flow {
                     Layout.fillWidth: true
                     spacing: 8
                     Button { objectName: "notationStructureCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationStructurePrepare() }
-                    Button { objectName: "notationStructureOpenButton"; text: "Korrigierte Partitur als Vorschau öffnen"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureOpen() }
+                    Button { objectName: "notationStructureApplyButton"; text: "In der Partitur korrigieren"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureApply() }
                     Button { objectName: "notationCheckButton"; text: "Vorzeichenschreibweise prüfen (KI)"; enabled: !busy; onClicked: notationCheck() }
                     Button { objectName: "notationApplyButton"; text: "Vorgeschlagene Schreibweisen übernehmen"; enabled: !busy && notationChanges.length > 0; onClicked: notationApply() }
                 }
