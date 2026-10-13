@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.24"
+    version: "0.10.25"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -18,6 +18,11 @@ MuseScore {
     implicitHeight: Math.max(240, Math.min(900, Screen.desktopAvailableHeight - 100))
     width: parent ? parent.width : implicitWidth
     height: parent ? parent.height : implicitHeight
+
+    property var notationSnapshot: null
+    property var notationChanges: []
+    property string notationReport: ""
+    property string notationPreview: ""
 
     property string selectionJson: ""
     property string statusText: "Bereit."
@@ -3174,6 +3179,178 @@ MuseScore {
         return info
     }
 
+
+    // Notation proposals never pass through the composition/import pipeline.
+    function notationPitchClass(tpc) {
+        return ((Number(tpc) - 14) * 7 % 12 + 12) % 12
+    }
+
+    function notationCapture() {
+        if (!curScore || !curScore.selection) throw Error("Bitte zuerst eine Passage markieren.")
+        var raw = curScore.selection.elements || []
+        var notes = [], refs = [], seen = [], context = []
+        function add(note) {
+            if (seen.indexOf(note) >= 0) return
+            seen.push(note)
+            var chord = note.parent
+            // Grace notes, tied chains and transposing instruments need a separate policy.
+            var locked = !!note.tieForward || !!note.tieBack ||
+                (note.tpc1 !== undefined && note.tpc2 !== undefined && note.tpc1 !== note.tpc2) ||
+                (chord && chord.noteType !== undefined && chord.noteType !== 0)
+            var tpc = Number(note.tpc)
+            var candidates = []
+            for (var t = 0; t <= 33; t++) {
+                if (notationPitchClass(t) === notationPitchClass(tpc))
+                    candidates.push({ tpc: t, name: tpcName(t) })
+            }
+            notes.push({ id: notes.length, tick: elementTick(chord), track: elementTrack(note),
+                pitch: Number(note.pitch), tpc: tpc, name: tpcName(tpc), locked: locked,
+                tieForward: !!note.tieForward, tieBack: !!note.tieBack,
+                durationTicks: chord && chord.actualDuration ? chord.actualDuration.ticks : 0,
+                candidates: candidates })
+            refs.push(note)
+        }
+        for (var i = 0; i < raw.length; i++) {
+            var el = raw[i]
+            var serialized = serializeSelectedElement(el)
+            if (serialized) context.push(serialized)
+            if (el.name === "Note") add(el)
+            else if (el.name === "Chord") {
+                var ns = el.notes || []
+                for (var j = 0; j < ns.length; j++) add(ns[j])
+            }
+        }
+        if (!notes.length) throw Error("Die Auswahl enthält keine Noten.")
+        // Get the active signature at each selected note in its own staff/voice.
+        for (var n = 0; n < notes.length; n++) {
+            try {
+                var c = curScore.newCursor()
+                c.staffIdx = Math.floor(notes[n].track / 4)
+                c.voice = notes[n].track % 4
+                c.rewind(0)
+                var key = Number(c.keySignature)
+                while (c.segment && c.tick <= notes[n].tick) {
+                    key = Number(c.keySignature)
+                    c.next()
+                }
+                if (isFinite(key)) notes[n].keySignature = key
+            } catch (ignoreKey) {}
+        }
+        return { score: curScore, refs: refs, notes: notes, context: context,
+            fingerprint: readSelectionForChat(), endTick: scoreEndTick(curScore) }
+    }
+
+    function notationValidate(answer, snapshot) {
+        if (!answer || typeof answer.report !== "string" || !Array.isArray(answer.changes))
+            throw Error("Die KI-Antwort enthält keinen gültigen Korrekturplan.")
+        var result = [], ids = {}
+        for (var i = 0; i < answer.changes.length; i++) {
+            var change = answer.changes[i]
+            if (!change || typeof change.id !== "number" || change.id % 1 !== 0 ||
+                change.id < 0 || change.id >= snapshot.notes.length || ids[change.id])
+                throw Error("Ungültige oder doppelte Notenreferenz im Korrekturplan.")
+            ids[change.id] = true
+            var original = snapshot.notes[change.id]
+            if (original.locked) throw Error("Der Plan verändert eine geschützte Note.")
+            if (typeof change.tpc !== "number" || change.tpc % 1 !== 0 || change.tpc < 0 || change.tpc > 33 ||
+                notationPitchClass(change.tpc) !== notationPitchClass(original.tpc))
+                throw Error("Der Plan enthält eine Änderung der Tonhöhe.")
+            if (change.tpc !== original.tpc)
+                result.push({ id: change.id, tpc: change.tpc, reason: String(change.reason || "") })
+        }
+        return result
+    }
+
+    function notationCheck() {
+        if (busy) return
+        notationSnapshot = null; notationChanges = []; notationPreview = ""; notationReport = ""
+        try {
+            var snapshot = notationCapture()
+            saveCurrentKey(); saveCurrentModel()
+            busy = true
+            statusText = "Notendarstellung wird geprüft …"
+            var format = 'Antworte ausschließlich als JSON: {"report":"Befund auf Deutsch",' +
+                '"changes":[{"id":0,"tpc":14,"reason":"musikalische Begründung"}]}.'
+            var prompt = "Du prüfst die Lesbarkeit einer MuseScore-Auswahl. Bewahre alle Tonhöhen, " +
+                "Einsatzzeiten, Dauern und Stimmen. Prüfe enharmonische Schreibweise im harmonischen " +
+                "und melodischen Kontext, Stimmen/Pausen, Bindungen und rhythmische Gliederung. " +
+                "Ändere im Plan ausschließlich tpc (Notenschreibweise), nur mit einer musikalischen " +
+                "Begründung und nur aus candidates. locked-Noten darfst du nicht ändern. " +
+                "Keine pauschale Umstellung aller Kreuze auf Be. Eine vorhandene plausible " +
+                "Schreibweise bleibt erhalten. Im report beschreibst du strukturelle Probleme " +
+                "mit Taktpositionen, soweit belegbar; deren Korrektur ist hier nur ein Vorschlag. " +
+                "Die Daten enthalten kein Bild: behaupte keine sichtbaren Kollisionen. " +
+                "Bei unklarem Kontext keine Änderung, sondern Hinweis.\n" +
+                "Zusätzlicher Nutzerwunsch: " + instructionBox.text.trim() + "\n" +
+                JSON.stringify({ notes: snapshot.notes, elements: snapshot.context })
+            callAI(prompt, function(ok, text) {
+                busy = false
+                if (!ok) { notationReport = String(text); statusText = "Notationsprüfung fehlgeschlagen."; return }
+                try {
+                    var answer = JSON.parse(extractJsonBlock(text))
+                    var changes = notationValidate(answer, snapshot)
+                    notationSnapshot = snapshot; notationChanges = changes; notationReport = answer.report
+                    var lines = []
+                    for (var i = 0; i < changes.length; i++) {
+                        var old = snapshot.notes[changes[i].id]
+                        lines.push("Position " + (old.tick / 480) + " Viertel · System " +
+                            (Math.floor(old.track / 4) + 1) + " · Stimme " + (old.track % 4 + 1) +
+                            ": " + old.name + " → " + tpcName(changes[i].tpc) + " — " + changes[i].reason)
+                    }
+                    notationPreview = lines.length ? lines.join("\n") : "Keine sichere Änderung der Notenschreibweise vorgeschlagen."
+                    statusText = "Notationsprüfung abgeschlossen: " + changes.length + " vorgeschlagene Änderungen."
+                } catch (e) { notationReport = String(e); statusText = "Korrekturplan abgelehnt. Bitte erneut prüfen." }
+            }, "Notendarstellung", format)
+        } catch (e) { busy = false; statusText = String(e) }
+    }
+
+    function notationApply() {
+        if (busy || !notationSnapshot || !notationChanges.length) return
+        var snapshot = notationSnapshot, changes = notationChanges
+        var score = curScore, started = false, originals = []
+        try {
+            if (score !== snapshot.score || scoreEndTick(score) !== snapshot.endTick ||
+                readSelectionForChat() !== snapshot.fingerprint)
+                throw Error("Partitur oder Auswahl wurde geändert. Bitte erneut prüfen.")
+            for (var i = 0; i < snapshot.notes.length; i++) {
+                var ref = snapshot.refs[i], before = snapshot.notes[i]
+                if (ref.pitch !== before.pitch || ref.tpc !== before.tpc ||
+                    elementTick(ref.parent) !== before.tick || elementTrack(ref) !== before.track ||
+                    (ref.parent.actualDuration ? ref.parent.actualDuration.ticks : 0) !== before.durationTicks ||
+                    !!ref.tieForward !== before.tieForward || !!ref.tieBack !== before.tieBack)
+                    throw Error("Noten wurden inzwischen verändert. Bitte erneut prüfen.")
+            }
+            notationValidate({ report: "", changes: changes }, snapshot)
+            for (var j = 0; j < changes.length; j++) {
+                var note = snapshot.refs[changes[j].id]
+                originals.push({ note: note, pitch: note.pitch, tpc: note.tpc,
+                    tpc1: note.tpc1, tpc2: note.tpc2 })
+            }
+            score.startCmd(); started = true
+            for (var k = 0; k < changes.length; k++) {
+                originals[k].note.tpc = changes[k].tpc
+                if (originals[k].note.pitch !== originals[k].pitch || originals[k].note.tpc !== changes[k].tpc)
+                    throw Error("MuseScore hat die Schreibweise nicht unverändert übernommen.")
+            }
+            score.endCmd(); started = false
+            notationSnapshot = null; notationChanges = []
+            notationPreview += "\n\nÜbernommen. Mit Rückgängig kann die gesamte Korrektur zurückgesetzt werden."
+            statusText = "Notenschreibweise korrigiert: " + changes.length + " Noten."
+        } catch (e) {
+            if (started) {
+                try {
+                    for (var r = 0; r < originals.length; r++) {
+                        originals[r].note.tpc = originals[r].tpc
+                        if (originals[r].tpc1 !== undefined) originals[r].note.tpc1 = originals[r].tpc1
+                        if (originals[r].tpc2 !== undefined) originals[r].note.tpc2 = originals[r].tpc2
+                    }
+                } finally { score.endCmd() }
+            }
+            notationSnapshot = null; notationChanges = []
+            statusText = "Korrektur nicht übernommen: " + String(e)
+        }
+    }
+
     function makeAnalysisPrompt() {
         return "Du bist ein musikalischer Assistent in MuseScore Studio.\n" +
                "Beziehe dich ausschließlich auf die übergebene Auswahl.\n" +
@@ -4516,7 +4693,7 @@ MuseScore {
                 selectByMouse: true
                 font.pixelSize: 15
                 text:
-                    "AI Notation Studio v0.10.13\n\n" +
+                    "AI Notation Studio v0.10.25\n\n" +
                     "KOMPOSITION / ANALYSE\n" +
                     "Dieser Bereich führt den eigentlichen musikalischen Auftrag aus. Der gewählte Modus bestimmt, ob analysiert, eine neue Stimme komponiert, frei komponiert, fortgesetzt, ein Motiv entwickelt, eine Variante erzeugt oder neu instrumentiert wird.\n\n" +
                     "PARTITUR-CHAT\n" +
@@ -4677,6 +4854,35 @@ MuseScore {
                 }
             }
 
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Label { text: "NOTENDARSTELLUNG"; color: "white"; font.bold: true; font.pixelSize: uiSize }
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: "#c9c9c9"
+                    text: "Markierte Passage auf Lesbarkeit prüfen. Vorschläge zur Notenschreibweise können übernommen werden. Stimmen, Pausen und rhythmische Gliederung werden beraten; ihre Struktur bleibt erhalten. Gebundene Noten, Vorschläge und transponierende Instrumente werden nicht umgeschrieben. Die Prüfung verwendet den gewählten KI-Anbieter und verursacht API-Kosten."
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    Button { objectName: "notationCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationCheck() }
+                    Button { objectName: "notationApplyButton"; text: "Vorgeschlagene Schreibweisen übernehmen"; enabled: !busy && notationChanges.length > 0; onClicked: notationApply() }
+                }
+                TextArea {
+                    objectName: "notationReportView"
+                    Layout.fillWidth: true
+                    visible: notationReport !== "" || notationPreview !== ""
+                    readOnly: true
+                    selectByMouse: true
+                    wrapMode: TextEdit.Wrap
+                    color: "#ededed"
+                    background: Rectangle { color: "#2b2d31"; radius: 4 }
+                    text: notationReport + "\n\n" + notationPreview
+                }
+            }
 
             GridLayout {
                 Layout.fillWidth: true
