@@ -16,7 +16,7 @@ function load(){
  const begin=qml.indexOf('    function notationStructureApplyNow()');const end=qml.indexOf('    function notationPitchClass',begin);
  vm.runInContext(qml.slice(begin,end),s);return s;
 }
-let s=load();s.notationStructureApplyNow();assert(s.structureSnapshot);assert(s.structureStatus.includes('Haltebogen'));assert(s.structureStatus.includes('Korrigierte Partitur öffnen'));
+let s=load();s.notationStructureApplyNow();assert(s.structureSnapshot);assert.equal(s.busy,false);assert(s.structureStatus.includes('Haltebogen'));assert(s.structureStatus.includes('Korrigierte Partitur öffnen'));
 s.readSelectionForChat=()=> 'selection-cleared-by-native-command';s.notationStructureOpen();assert.equal(s.reads.length,1);assert.equal(s.reads[0].noninteractive,false);assert.equal(s.writes[0].data,result.xml);assert.equal(s.structureSnapshot,null);assert.equal(s.notationSnapshot,null);assert.equal(s.notationChanges.length,0);assert(s.structureStatus.includes('Korrigierte Partitur geöffnet'));
 s=load();s.notationStructureExport=()=>xml+'<!-- user edit -->';s.notationStructureOpen();assert.equal(s.reads.length,0);assert(s.structureSnapshot);assert(s.structureStatus.includes('erneut prüfen'));
 s=load();s.structureSnapshot.xml=result.xml.replace('<step>C</step>','<step>D</step>');s.notationStructureOpen();assert.equal(s.reads.length,0);assert(s.structureStatus.includes('Klangprüfung'));assert(s.structureSnapshot);
@@ -24,3 +24,8 @@ s=load();s.readScore=()=>false;s.notationStructureOpen();assert(s.structureSnaps
 s=load();s.writeVerifiedCompactFile=()=>{throw Error('disk full')};s.notationStructureOpen();assert.equal(s.reads.length,0);assert(s.structureSnapshot);assert(s.structureStatus.includes('disk full'));
 assert(qml.includes('objectName: "notationStructureOpenButton"'));assert(qml.includes('onClicked: notationStructureOpen()'));assert(qml.includes('objectName: "notationStructureStatusView"'));
 console.log('Actual QML correction-copy flow: real structural output, sound equality, native-failure recovery, selection independence, stale-score guard, acoustic rejection, read/write failure and retry: PASS. MuseScore readScore is a test substitute.');
+
+const applyBegin=qml.indexOf('    function notationStructureApply()');const applyEnd=qml.indexOf('    function notationStructureApplyNow()',applyBegin);
+const wrapper=qml.slice(applyBegin,applyEnd);assert(!wrapper.includes('.hide('));assert(!wrapper.includes('Timer'));assert(!qml.includes('directApplyTimer'));
+let calls=0,hideCalls=0;const host={busy:false,structureSnapshot:{},notationStructureApplyNow(){calls++},root:{Window:{window:{hide(){hideCalls++}}}}};vm.createContext(host);vm.runInContext(wrapper,host);host.notationStructureApply();assert.equal(calls,1);assert.equal(hideCalls,0);host.busy=true;host.notationStructureApply();assert.equal(calls,1);
+console.log('Direct correction wrapper runs immediately, keeps host visible, rejects duplicate busy requests PASS');

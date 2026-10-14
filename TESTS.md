@@ -1,3 +1,7 @@
+## v0.10.31 – 14.10.2026
+
+Qt-5-UI-Test: der tatsächliche direkte Button lässt das Fenster sichtbar und das QML-Objekt geladen. Ein absichtlich nicht gültiger Score-Kontext erzeugt eine sichtbare Fehlermeldung und setzt busy zurück. Loader und dauerhafter Update-/Neustart 0.10.30 → 0.10.31 bestehen. JS-Regressionsprüfungen bestätigen sofortigen Aufruf ohne hide/Timer sowie die unveränderten Adapter-Sicherungen. Kein Windows-MuseScore-Praxistest.
+
 ## v0.10.30 – 14.10.2026
 
 Bestanden: Node-Tests für Struktur, direkte Bearbeitung und Kopieweg; Qt-5-Oberfläche und Update-/Neustart. Neue Regressionen reproduzieren MuseScores stimmabhängigen Cursor-Sprung sowie einen Bassbogen zwischen zwei vollständig umgebauten Takten. Ein Bogen außerhalb des Plans bleibt vor Mutation abgewiesen.

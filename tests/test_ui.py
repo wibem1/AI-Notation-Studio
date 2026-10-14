@@ -86,3 +86,13 @@ app.processEvents()
 status=r.findChild(QQuickItem,'notationStructureStatusView')
 assert status and status.property('visible') and status.property('text')==r.property('structureStatus')
 print('Correction-copy button activates with a plan; result status is visible in the notation area')
+
+# A direct correction attempt must leave the hosted dialog alive and visible.
+direct=r.findChild(QQuickItem,'notationStructureApplyButton')
+assert direct and direct.property('enabled') and v.isVisible()
+QMetaObject.invokeMethod(direct,'clicked');app.processEvents()
+assert v.isVisible(), 'Direct correction hid the extension window'
+assert v.rootObject() is r, 'Direct correction unloaded the extension content'
+assert not r.property('busy'), 'Failed correction left controls blocked'
+assert r.property('structureStatus').startswith('Direktkorrektur nicht übernommen:'),r.property('structureStatus')
+print('Direct button keeps the native Qt host visible/alive and reports a failure without blocking controls')

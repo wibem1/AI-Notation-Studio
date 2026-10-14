@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.30"
+    version: "0.10.31"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -3530,38 +3530,19 @@ MuseScore {
 
 
 
-    property var directApplyWindow: null
-    Timer {
-        id: directApplyTimer
-        interval: 250
-        repeat: false
-        onTriggered: {
-            busy = false
-            try { notationStructureApplyNow() }
-            finally {
-                var window = directApplyWindow
-                directApplyWindow = null
-                if (window) { window.show(); window.requestActivate() }
-            }
-        }
-    }
-
     function notationStructureApply() {
         if (busy || !structureSnapshot) return
-        // Native notation actions require score-window context, not the plugin dialog.
-        var window = root.Window.window
-        if (!window || !window.visible) { notationStructureApplyNow(); return }
-        directApplyWindow = window
-        busy = true
-        statusText = "Korrektur wird direkt in der Partitur übernommen …"
-        window.hide()
-        if (window.transientParent) window.transientParent.requestActivate()
-        directApplyTimer.start()
+        // Keep MuseScore's extension window alive; hiding a hosted dialog can
+        // close/unload its content before a deferred timer can run.
+        notationStructureApplyNow()
     }
 
     function notationStructureApplyNow() {
         if (busy || !structureSnapshot) return
         var snapshot = structureSnapshot
+        busy = true
+        structureStatus = "Korrektur wird direkt in der geöffneten Partitur übernommen …"
+        statusText = structureStatus
         try {
             if (mscoreMajorVersion < 4 || (mscoreMajorVersion === 4 && mscoreMinorVersion < 7))
                 throw Error("Die direkte Korrektur mit vollständiger Fehler-Rücknahme benötigt MuseScore 4.7 oder neuer.")
@@ -3589,6 +3570,8 @@ MuseScore {
             structureStatus = "Direktkorrektur nicht übernommen: " + String(e) + " Der Korrekturplan bleibt verfügbar. Bitte „Korrigierte Partitur öffnen“ verwenden."
             statusText = structureStatus
             structureReport += "\n\n" + structureStatus
+        } finally {
+            busy = false
         }
     }
 
@@ -5129,7 +5112,7 @@ MuseScore {
                 selectByMouse: true
                 font.pixelSize: 15
                 text:
-                    "AI Notation Studio v0.10.30\n\n" +
+                    "AI Notation Studio v0.10.31\n\n" +
                     "KOMPOSITION / ANALYSE\n" +
                     "Dieser Bereich führt den eigentlichen musikalischen Auftrag aus. Der gewählte Modus bestimmt, ob analysiert, eine neue Stimme komponiert, frei komponiert, fortgesetzt, ein Motiv entwickelt, eine Variante erzeugt oder neu instrumentiert wird.\n\n" +
                     "PARTITUR-CHAT\n" +

@@ -1,3 +1,11 @@
+# v0.10.31 – 14.10.2026
+
+- Keine Ausblendung des Pluginfensters vor der direkten Korrektur; verzögerter Timer und gespeicherte Window-Referenz entfernt.
+- Direkte Korrektur unmittelbar ausführen und ihren Status im sichtbaren Fenster melden.
+- Busy-Zustand zuverlässig mit finally zurücksetzen; Doppelaufrufe bleiben ausgeschlossen.
+- Qt-5-Regression des echten Buttons: Host bleibt sichtbar und geladen; Fehler wird angezeigt, Bedienelemente bleiben nutzbar.
+- Starter 0.7.23 / Bundle 0.10.31.
+
 # v0.10.30 – 14.10.2026
 
 - Exakte Fraction-Cursorposition statt stimmabhängigem Vorwärtssprung.

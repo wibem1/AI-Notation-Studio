@@ -1,4 +1,12 @@
-# AI Notation Studio v0.10.30 – 14.10.2026
+# AI Notation Studio v0.10.31 – 14.10.2026
+
+## Pluginfenster bei direkter Korrektur geöffnet halten
+
+Die direkte Korrektur blendet das Pluginfenster nicht mehr aus und wartet nicht mehr auf einen Timer. Der Nutzer meldete für 0.10.30, dass nach dem Korrekturbutton ausschließlich das Pluginfenster verschwindet, während MuseScore geöffnet bleibt. Der bisherige Code versteckte genau dieses Fenster vor der Bearbeitung. Dieser Ablauf ist entfernt. Die Korrektur läuft unmittelbar; ein Fehler bleibt im sichtbaren Notationsbereich lesbar und der Beschäftigtzustand wird auch bei Fehlern zurückgesetzt.
+
+**Update prüfen → Update installieren**, dann **Notendarstellung prüfen → In der Partitur korrigieren**. Neuer Starter 0.7.23 / Bundle 0.10.31 für manuelle Installation. Der Windows-MuseScore-Praxistest steht aus. Das Öffnen einer Kopie bleibt optional.
+
+# Änderungen in v0.10.30
 
 ## Direkte Korrektur der geöffneten Partitur
 
