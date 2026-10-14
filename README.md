@@ -1,4 +1,14 @@
-# AI Notation Studio v0.10.31 – 14.10.2026
+# AI Notation Studio v0.10.32 – 14.10.2026
+
+## Haltebogen-Befehle über die registrierte Host-API
+
+Das Windows-Protokoll von MuseScore 4.7.5 meldet bei 0.10.31 für cancel und chord-tie „no one can handle the action“. Die Korrektur nimmt anschließend ihre Änderungen zurück. Der nachgeladene MuseScore-App-Knoten wird nicht durch ExtensionBuilder.setup registriert; diese Registrierung gilt dem ursprünglichen Starter. 0.10.32 leitet native Korrekturbefehle deshalb ausdrücklich über api.engraving.cmd an die registrierte Host-API weiter.
+
+Vor jeder Bearbeitung und jedem Befehl wird geprüft, dass Host-API und App denselben Score referenzieren. Bei fehlender API oder anderem Score gibt es eine Fehlermeldung. Der Notationsadapter und seine Rücknahmesicherungen bleiben unverändert. Das Pluginfenster bleibt sichtbar.
+
+Routing-, Guards-, UI-, Loader- und Update-Neustarttests mit Testobjekten bestehen. Der konkrete Windows-Befehlsweg ist noch nicht praktisch bestätigt; 0.10.32 ist die gezielte Prüffassung für diesen Unterschied, keine bereits bestätigte Lösung des Windows-Problems.
+
+# Änderungen in v0.10.31
 
 ## Pluginfenster bei direkter Korrektur geöffnet halten
 

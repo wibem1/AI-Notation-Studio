@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.31"
+    version: "0.10.32"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -3537,6 +3537,17 @@ MuseScore {
         notationStructureApplyNow()
     }
 
+    function notationHostCommand(action) {
+        // ExtensionBuilder binds this facade to the original registered PluginAPI.
+        // The hot-loaded second MuseScore object is not registered with setup().
+        if (typeof api === "undefined" || !api.engraving || typeof api.engraving.cmd !== "function")
+            throw Error("MuseScores registrierte Plugin-Befehls-API ist nicht verfügbar.")
+        var hostScore = api.engraving.curScore
+        if (!curScore || !hostScore || !(curScore === hostScore || curScore.is(hostScore)))
+            throw Error("Der registrierte Plugin-Kontext gehört nicht zur geöffneten Partitur. Bitte das Plugin in diesem Partiturfenster erneut öffnen.")
+        if (action) api.engraving.cmd(action)
+    }
+
     function notationStructureApplyNow() {
         if (busy || !structureSnapshot) return
         var snapshot = structureSnapshot
@@ -3549,12 +3560,13 @@ MuseScore {
             if (!curScore || !(curScore === snapshot.score || curScore.is(snapshot.score)) ||
                 readSelectionForChat() !== snapshot.fingerprint || notationStructureExport() !== snapshot.sourceXml)
                 throw Error("Partitur oder Auswahl wurde geändert. Bitte erneut prüfen.")
+            notationHostCommand(null)
             var score = curScore
             var operations = JSON.parse(JSON.stringify(snapshot.operations))
             operations.forEach(function(op) { op.globalStaff = score.parts[op.partIndex].startTrack / 4 + op.staff - 1 })
             var result = notationDirect.apply(score, operations, {
                 removeElement: function(el) { removeElement(el) },
-                cmd: function(action) { cmd(action) }, up: Direction.UP, down: Direction.DOWN,
+                cmd: function(action) { notationHostCommand(action) }, up: Direction.UP, down: Direction.DOWN,
                 verify: function() { return notationStructure.signature(notationStructureExport()) === notationStructure.signature(snapshot.sourceXml) }
             })
             structureSnapshot = null
@@ -5112,7 +5124,7 @@ MuseScore {
                 selectByMouse: true
                 font.pixelSize: 15
                 text:
-                    "AI Notation Studio v0.10.31\n\n" +
+                    "AI Notation Studio v0.10.32\n\n" +
                     "KOMPOSITION / ANALYSE\n" +
                     "Dieser Bereich führt den eigentlichen musikalischen Auftrag aus. Der gewählte Modus bestimmt, ob analysiert, eine neue Stimme komponiert, frei komponiert, fortgesetzt, ein Motiv entwickelt, eine Variante erzeugt oder neu instrumentiert wird.\n\n" +
                     "PARTITUR-CHAT\n" +

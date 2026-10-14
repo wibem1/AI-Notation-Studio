@@ -1,3 +1,11 @@
+# v0.10.32 – 14.10.2026
+
+- Direkte Notationsbefehle über die registrierte Host-Fassade api.engraving.cmd senden.
+- Host-Score vor Bearbeitungsbeginn und pro Befehl mit der geöffneten Partitur vergleichen.
+- Fehlende Host-API und falscher Partiturkontext werden sichtbar gemeldet.
+- Neue Routing-/Kontextregressionen; Adapter und Fensterlebensdauer unverändert.
+- Starter 0.7.24 / Bundle 0.10.32. Windows-Prüffassung; Erfolg dort noch nicht bestätigt.
+
 # v0.10.31 – 14.10.2026
 
 - Keine Ausblendung des Pluginfensters vor der direkten Korrektur; verzögerter Timer und gespeicherte Window-Referenz entfernt.

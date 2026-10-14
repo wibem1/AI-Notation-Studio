@@ -11,7 +11,7 @@ function load(){
  const score={is(other){return this===other},parts:[{startTrack:0}],selection:{}};
  const snapshot={score,sourceXml:xml,xml:result.xml,changed:result.changed,operations:result.operations,selection:{partIndex:0,staffs:[1],startQuarter:0,endQuarter:4},fingerprint:'initial'};
  const s={busy:false,curScore:score,structureSnapshot:snapshot,notationSnapshot:{},notationChanges:[{}],structureReport:'Prepared',structureStatus:'',statusText:'',notationStructure:structure,
- notationStructureExport(){return xml},fileUrlToLocalPath(x){return x},Qt:{resolvedUrl(x){return x}},writes:[],reads:[],writeVerifiedCompactFile(path,data){s.writes.push({path,data})},readScore(path,noninteractive){s.reads.push({path,noninteractive});return true},mscoreMajorVersion:4,mscoreMinorVersion:7,readSelectionForChat(){return 'initial'},notationDirect:{apply(){throw Error('Haltebogen nicht übernommen')}},Direction:{UP:1,DOWN:2}};
+ notationHostCommand(){},notationStructureExport(){return xml},fileUrlToLocalPath(x){return x},Qt:{resolvedUrl(x){return x}},writes:[],reads:[],writeVerifiedCompactFile(path,data){s.writes.push({path,data})},readScore(path,noninteractive){s.reads.push({path,noninteractive});return true},mscoreMajorVersion:4,mscoreMinorVersion:7,readSelectionForChat(){return 'initial'},notationDirect:{apply(){throw Error('Haltebogen nicht übernommen')}},Direction:{UP:1,DOWN:2}};
  vm.createContext(s);
  const begin=qml.indexOf('    function notationStructureApplyNow()');const end=qml.indexOf('    function notationPitchClass',begin);
  vm.runInContext(qml.slice(begin,end),s);return s;
@@ -29,3 +29,13 @@ const applyBegin=qml.indexOf('    function notationStructureApply()');const appl
 const wrapper=qml.slice(applyBegin,applyEnd);assert(!wrapper.includes('.hide('));assert(!wrapper.includes('Timer'));assert(!qml.includes('directApplyTimer'));
 let calls=0,hideCalls=0;const host={busy:false,structureSnapshot:{},notationStructureApplyNow(){calls++},root:{Window:{window:{hide(){hideCalls++}}}}};vm.createContext(host);vm.runInContext(wrapper,host);host.notationStructureApply();assert.equal(calls,1);assert.equal(hideCalls,0);host.busy=true;host.notationStructureApply();assert.equal(calls,1);
 console.log('Direct correction wrapper runs immediately, keeps host visible, rejects duplicate busy requests PASS');
+
+// Actual host bridge: ignore the unregistered hot-app command object, route to
+// the registered API only when it owns the same live score.
+const bridge=qml.slice(qml.indexOf('    function notationHostCommand('),qml.indexOf('    function notationStructureApplyNow('));
+const boundScore={is(other){return this===other}},bridgeCalls=[];
+const bridged={curScore:boundScore,api:{engraving:{curScore:boundScore,cmd(action){bridgeCalls.push(action)}}},cmd(){throw Error('wrong hot-app context')}};
+vm.createContext(bridged);vm.runInContext(bridge,bridged);bridged.notationHostCommand('chord-tie');assert.deepEqual(bridgeCalls,['chord-tie']);
+bridged.api.engraving.curScore={};assert.throws(()=>bridged.notationHostCommand('chord-tie'),/Plugin-Kontext/);assert.equal(bridgeCalls.length,1);
+delete bridged.api.engraving;assert.throws(()=>bridged.notationHostCommand('chord-tie'),/nicht verfügbar/);
+console.log('Registered host command routing, wrong-score and missing-API guards PASS');

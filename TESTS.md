@@ -1,3 +1,7 @@
+## v0.10.32 – 14.10.2026
+
+Host-Routing und Partiturkontext werden im tatsächlichen QML-Funktionscode geprüft; falscher Score und fehlende API lassen keinen Befehl durch. Adapter-, Qt-5-UI-, Loader- und Update-/Neustarttests bleiben grün. Die Befehlsannahme unter dem tatsächlichen Windows-MuseScore-4.7.5-Pluginhost ist noch nicht geprüft; v0.10.32 ist eine dafür bestimmte Prüffassung.
+
 ## v0.10.31 – 14.10.2026
 
 Qt-5-UI-Test: der tatsächliche direkte Button lässt das Fenster sichtbar und das QML-Objekt geladen. Ein absichtlich nicht gültiger Score-Kontext erzeugt eine sichtbare Fehlermeldung und setzt busy zurück. Loader und dauerhafter Update-/Neustart 0.10.30 → 0.10.31 bestehen. JS-Regressionsprüfungen bestätigen sofortigen Aufruf ohne hide/Timer sowie die unveränderten Adapter-Sicherungen. Kein Windows-MuseScore-Praxistest.
