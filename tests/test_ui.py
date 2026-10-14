@@ -74,3 +74,15 @@ evaluate('primary.editText="gpt-own-model";primary.accepted();')
 app.processEvents();assert evaluate('studio.providerModel("OpenAI")')=='gpt-own-model'
 assert primary.property('text')=='gpt-own-model'
 print('Both actual model selectors save selections; manual model names remain usable')
+
+# Notation output must be accessible from the actual UI, not only an unused function.
+copy=r.findChild(QQuickItem,'notationStructureOpenButton')
+assert copy and not copy.property('enabled')
+r.setProperty('structureSnapshot',{'changed':4})
+app.processEvents()
+assert copy.property('enabled')
+r.setProperty('structureStatus','Korrigierte Partitur geöffnet: 4 Takte/Systeme.')
+app.processEvents()
+status=r.findChild(QQuickItem,'notationStructureStatusView')
+assert status and status.property('visible') and status.property('text')==r.property('structureStatus')
+print('Correction-copy button activates with a plan; result status is visible in the notation area')

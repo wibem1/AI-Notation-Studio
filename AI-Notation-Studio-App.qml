@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.27"
+    version: "0.10.30"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -19,10 +19,11 @@ MuseScore {
     width: parent ? parent.width : implicitWidth
     height: parent ? parent.height : implicitHeight
 
-    property var notationDirect: createNotationDirect()
+    property var notationDirect: createNotationDirect(function(tick) { return root.fractionFromTicks(tick) })
     property var notationStructure: createNotationStructure(compact.context)
     property var structureSnapshot: null
     property string structureReport: ""
+    property string structureStatus: ""
 
     property var notationSnapshot: null
     property var notationChanges: []
@@ -3343,11 +3344,13 @@ MuseScore {
     
     
     // The adapter only uses the native Score/Cursor APIs; no import or new score.
-    function createNotationDirect() {
+    function createNotationDirect(toFraction) {
         function same(a,b) { return a===b || (a && typeof a.is==='function' && a.is(b)) }
         function cursorAt(score,staff,voice,tick) {
-            // Rewind through primary voice first, so empty secondary voices don't skip the requested position.
-            var c=score.newCursor();c.staffIdx=staff;c.voice=0;c.rewindToTick(tick);c.staffIdx=staff;c.voice=voice;
+            // rewindToTick scans forward in the selected voice and skips staggered onsets.
+            // rewindToFraction preserves the exact segment, including empty target voices.
+            if(typeof toFraction!=='function')throw Error('Exakte Cursorpositionierung ist nicht verfügbar.');
+            var c=score.newCursor();c.staffIdx=staff;c.voice=voice;c.rewindToFraction(toFraction(tick));
             return c
         }
         function tickOf(note) { return Number(note.parent.parent.tick) }
@@ -3359,6 +3362,10 @@ MuseScore {
         function apply(score,operations,api) {
             if(!operations || !operations.length)throw Error('Kein Korrekturplan vorhanden.');
             var chords=[],metadata=[],started=false;
+            function rewritten(note) {
+                var tick=tickOf(note),staff=Math.floor(note.parent.track/4);
+                return operations.some(function(op){return op.globalStaff===staff && tick>=op.startTick && tick<op.endTick})
+            }
             // Collect live metadata before mutating any wrapper; inspect all four voices.
             operations.forEach(function(op){
                 var staff=score.staves && score.staves[op.globalStaff];
@@ -3377,8 +3384,8 @@ MuseScore {
                                 if(note.pitch%1 || note.tuning)throw Error('Mikrotonale Noten werden nicht direkt umgebaut.');
                                 if(note.tpc1!==undefined && note.tpc2!==undefined && note.tpc1!==note.tpc2)throw Error('Transponierende Notation wird nicht direkt umgebaut.');
                                 if(note.elements && note.elements.length)throw Error('Noten mit zusätzlichen Zeichen werden nicht direkt umgebaut.');
-                                if(note.tieBack && note.tieBack.startNote && tickOf(note.tieBack.startNote)<op.startTick)throw Error('Haltebogen über den Auswahlbeginn: bitte weitere Takte markieren.');
-                                if(note.tieForward && note.tieForward.endNote && tickOf(note.tieForward.endNote)>=op.endTick)throw Error('Haltebogen über das Auswahlende: bitte weitere Takte markieren.');
+                                if(note.tieBack && note.tieBack.startNote && !rewritten(note.tieBack.startNote))throw Error('Haltebogen über den Auswahlbeginn: bitte weitere Takte markieren.');
+                                if(note.tieForward && note.tieForward.endNote && !rewritten(note.tieForward.endNote))throw Error('Haltebogen über das Auswahlende: bitte weitere Takte markieren.');
                                 metadata.push({staff:op.globalStaff,tick:tick,end:tick+duration,pitch:note.pitch,tpc1:note.tpc1,tpc2:note.tpc2,tpc:note.tpc,veloType:note.veloType,userVelocity:note.userVelocity,visible:note.visible,play:note.play,color:note.color});
                             }
                             if(!chords.some(function(x){return same(x,el)}))chords.push(el)
@@ -3425,15 +3432,28 @@ MuseScore {
                         })
                     })
                 });
-                // Create native ties only after all destination notes exist. startCmd locks one undo macro.
+                // Reuse the already constructed destination chord through chord-tie.
+                // The generic toggle action can enter note-input/toggle behaviour.
                 api.cmd('escape');
                 operations.forEach(function(op){op.events.forEach(function(event){event.notes.forEach(function(n){if(n.tieStart){
-                    if(!score.selection.select(n.live,false))throw Error('Die Note konnte für den Haltebogen nicht gewählt werden.');
-                    api.cmd('tie');
                     var expected=at(score,op.globalStaff,event.voice,event.tick+event.durationTicks);
+                    if(!expected || expected.name!=='Chord')throw Error('Der Zielakkord des Haltebogens fehlt.');
+                    var target=null;
+                    for(var i=0;i<expected.notes.length;i++)if(expected.notes[i].pitch===n.pitch){
+                        if(target)throw Error('Mehrdeutige Zielnote für den Haltebogen.');target=expected.notes[i]
+                    }
+                    if(!target || target.tpc1!==n.live.tpc1 || target.tpc2!==n.live.tpc2)
+                        throw Error('Die Zielnote des Haltebogens hat eine abweichende Tonhöhe oder Schreibweise.');
+                    var existing=n.live.tieForward;
+                    if(existing){
+                        if(!existing.endNote || !same(existing.endNote,target))throw Error('Ein unerwarteter Haltebogen ist bereits vorhanden.');
+                    }else{
+                        if(!score.selection.select(n.live,false))throw Error('Die Note konnte für den Haltebogen nicht gewählt werden.');
+                        api.cmd('chord-tie');
+                    }
                     var tie=n.live.tieForward;
-                    if(!tie || !tie.endNote || !expected || !same(tie.endNote.parent,expected) || tie.endNote.pitch!==n.pitch)
-                        throw Error('MuseScore hat den benötigten Haltebogen nicht erstellt. Die Änderung wird zurückgenommen.')
+                    if(!tie || !tie.endNote || !same(tie.endNote,target))
+                        throw Error('Haltebogen nicht übernommen bei Tick '+event.tick+', System '+(op.globalStaff+1)+', Stimme '+(event.voice+1)+', Ton '+n.pitch+'. Änderung zurückgenommen.')
                 }})})});
                 // Verify the complete intended rhythm and all tie endpoints, including absence of extra attacks.
                 operations.forEach(function(op){op.events.forEach(function(event){event.notes.forEach(function(n){
@@ -3489,7 +3509,7 @@ MuseScore {
 
     function notationStructurePrepare() {
         if (busy) return
-        structureSnapshot = null; structureReport = ""
+        structureSnapshot = null; structureReport = ""; structureStatus = ""
         try {
             var selection = notationStructureSelection(), xml = notationStructureExport()
             var result = notationStructure.repair(xml, selection)
@@ -3501,14 +3521,45 @@ MuseScore {
             if (result.changed) {
                 structureSnapshot = { score: curScore, sourceXml: xml, xml: result.xml,
                     fingerprint: readSelectionForChat(), changed: result.changed, operations: result.operations, selection: selection }
-                structureReport += "\n\nKlangprüfung bestanden. Mit „In der Partitur korrigieren“ wird die Passage direkt geändert. Rückgängig setzt den gesamten Schritt zurück."
+                structureReport += "\n\nKlangprüfung bestanden. Mit „In der Partitur korrigieren“ wird die vorhandene Partitur direkt geändert. Rückgängig setzt den gesamten Schritt zurück."
             }
-            statusText = "Strukturprüfung: " + result.changed + " Takte/Systeme zur direkten Korrektur vorbereitet."
-        } catch (e) { structureReport = String(e); statusText = "Strukturprüfung abgebrochen." }
+            structureStatus = "Strukturprüfung: " + result.changed + " Takte/Systeme zur Korrektur vorbereitet."
+            statusText = structureStatus
+        } catch (e) { structureReport = String(e); structureStatus = "Strukturprüfung abgebrochen: " + String(e); statusText = structureStatus }
     }
 
 
+
+    property var directApplyWindow: null
+    Timer {
+        id: directApplyTimer
+        interval: 250
+        repeat: false
+        onTriggered: {
+            busy = false
+            try { notationStructureApplyNow() }
+            finally {
+                var window = directApplyWindow
+                directApplyWindow = null
+                if (window) { window.show(); window.requestActivate() }
+            }
+        }
+    }
+
     function notationStructureApply() {
+        if (busy || !structureSnapshot) return
+        // Native notation actions require score-window context, not the plugin dialog.
+        var window = root.Window.window
+        if (!window || !window.visible) { notationStructureApplyNow(); return }
+        directApplyWindow = window
+        busy = true
+        statusText = "Korrektur wird direkt in der Partitur übernommen …"
+        window.hide()
+        if (window.transientParent) window.transientParent.requestActivate()
+        directApplyTimer.start()
+    }
+
+    function notationStructureApplyNow() {
         if (busy || !structureSnapshot) return
         var snapshot = structureSnapshot
         try {
@@ -3532,23 +3583,38 @@ MuseScore {
                 score.parts[snapshot.selection.partIndex].startTrack / 4 + Math.min.apply(null, snapshot.selection.staffs) - 1,
                 score.parts[snapshot.selection.partIndex].startTrack / 4 + Math.max.apply(null, snapshot.selection.staffs))
             structureReport += "\n\nDirekt in der geöffneten Partitur korrigiert: " + result.changed + " Takte/Systeme. Mit Rückgängig kann die gesamte Änderung zurückgenommen werden."
-            statusText = "Notendarstellung direkt in der Partitur korrigiert."
-        } catch (e) { structureSnapshot = null; statusText = "Direktkorrektur nicht übernommen: " + String(e); structureReport += "\n\n" + statusText }
+            structureStatus = "Notendarstellung direkt in der Partitur korrigiert."
+            statusText = structureStatus
+        } catch (e) {
+            structureStatus = "Direktkorrektur nicht übernommen: " + String(e) + " Der Korrekturplan bleibt verfügbar. Bitte „Korrigierte Partitur öffnen“ verwenden."
+            statusText = structureStatus
+            structureReport += "\n\n" + structureStatus
+        }
     }
 
     function notationStructureOpen() {
         if (busy || !structureSnapshot) return
         var snapshot = structureSnapshot
         try {
-            if (curScore !== snapshot.score || readSelectionForChat() !== snapshot.fingerprint ||
+            // Opening a copy does not depend on the current selection. Native commands
+            // may clear the selection even when their score transaction rolls back.
+            if (!curScore || !(curScore === snapshot.score || curScore.is(snapshot.score)) ||
                 notationStructureExport() !== snapshot.sourceXml)
-                throw Error("Partitur oder Auswahl wurde geändert. Bitte erneut prüfen.")
+                throw Error("Die Partitur wurde geändert. Bitte erneut prüfen.")
+            if (!snapshot.xml || notationStructure.signature(snapshot.xml) !== notationStructure.signature(snapshot.sourceXml))
+                throw Error("Die Klangprüfung der korrigierten Fassung ist fehlgeschlagen.")
             var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Structure-" + new Date().getTime() + ".musicxml"))
-            writeVerifiedCompactFile(path, snapshot.xml, "Strukturvorschau")
-            if (!readScore(path, false)) throw Error("MuseScore konnte die Vorschau nicht öffnen.")
+            writeVerifiedCompactFile(path, snapshot.xml, "Korrigierte Partitur")
+            if (!readScore(path, false)) throw Error("MuseScore konnte die korrigierte Partitur nicht öffnen. Datei: " + path)
             structureSnapshot = null
-            statusText = "Korrigierte Struktur als neue Partitur geöffnet. Original und Vorschau vergleichen."
-        } catch (e) { structureSnapshot = null; statusText = String(e) }
+            notationSnapshot = null; notationChanges = []
+            structureStatus = "Korrigierte Partitur geöffnet: " + snapshot.changed + " Takte/Systeme. Das Original bleibt geöffnet. Bitte die neue Fassung in MuseScore speichern."
+            structureReport += "\n\n" + structureStatus
+            statusText = structureStatus
+        } catch (e) {
+            structureStatus = "Korrigierte Partitur nicht geöffnet: " + String(e)
+            statusText = structureStatus
+        }
     }
 
     function notationPitchClass(tpc) {
@@ -5063,7 +5129,7 @@ MuseScore {
                 selectByMouse: true
                 font.pixelSize: 15
                 text:
-                    "AI Notation Studio v0.10.27\n\n" +
+                    "AI Notation Studio v0.10.30\n\n" +
                     "KOMPOSITION / ANALYSE\n" +
                     "Dieser Bereich führt den eigentlichen musikalischen Auftrag aus. Der gewählte Modus bestimmt, ob analysiert, eine neue Stimme komponiert, frei komponiert, fortgesetzt, ein Motiv entwickelt, eine Variante erzeugt oder neu instrumentiert wird.\n\n" +
                     "PARTITUR-CHAT\n" +
@@ -5233,15 +5299,27 @@ MuseScore {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     color: "#c9c9c9"
-                    text: "Vollständige Takte eines Instruments markieren. Die Strukturprüfung erkennt verschachtelte Stimmen und ordnet bei geeignetem gehaltenem Bass die Passage in zwei Stimmen. Tonhöhen, Einsätze und klingende Dauern werden geprüft. Die Strukturprüfung läuft ohne KI-Kosten. Vorzeichen können zusätzlich mit der KI geprüft werden."
+                    text: "Vollständige Takte eines Instruments markieren und „Notendarstellung prüfen“ wählen. Danach übernimmt „In der Partitur korrigieren“ die Änderungen direkt im geöffneten Notenfenster. Mit Rückgängig lässt sich der gesamte Schritt zurücknehmen. Die Strukturprüfung bündelt geeignete verschachtelte Stimmen zu zwei Stimmen und prüft Tonhöhen, Einsätze und klingende Dauern ohne KI-Kosten. Vorzeichen können zusätzlich mit der KI geprüft werden."
                 }
                 Flow {
                     Layout.fillWidth: true
                     spacing: 8
                     Button { objectName: "notationStructureCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationStructurePrepare() }
                     Button { objectName: "notationStructureApplyButton"; text: "In der Partitur korrigieren"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureApply() }
+                    Button { objectName: "notationStructureOpenButton"; text: "Korrigierte Partitur öffnen"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureOpen() }
                     Button { objectName: "notationCheckButton"; text: "Vorzeichenschreibweise prüfen (KI)"; enabled: !busy; onClicked: notationCheck() }
                     Button { objectName: "notationApplyButton"; text: "Vorgeschlagene Schreibweisen übernehmen"; enabled: !busy && notationChanges.length > 0; onClicked: notationApply() }
+                }
+                TextArea {
+                    objectName: "notationStructureStatusView"
+                    Layout.fillWidth: true
+                    visible: structureStatus !== ""
+                    readOnly: true
+                    selectByMouse: true
+                    wrapMode: TextEdit.Wrap
+                    color: "#ededed"
+                    text: structureStatus
+                    background: Rectangle { color: "#2b2d31"; radius: 4 }
                 }
                 TextArea {
                     objectName: "notationStructureReportView"

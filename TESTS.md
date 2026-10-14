@@ -1,3 +1,17 @@
+## v0.10.30 – 14.10.2026
+
+Bestanden: Node-Tests für Struktur, direkte Bearbeitung und Kopieweg; Qt-5-Oberfläche und Update-/Neustart. Neue Regressionen reproduzieren MuseScores stimmabhängigen Cursor-Sprung sowie einen Bassbogen zwischen zwei vollständig umgebauten Takten. Ein Bogen außerhalb des Plans bleibt vor Mutation abgewiesen.
+
+Native MuseScore-4.7.0-Ausführung und die unabhängig geprüfte reale MusicXML-Ausgabe: zwei Takte direkt umgebaut, dieselben klingenden Noten, keine weitere Strukturkorrektur. Der native Makroprozess stürzt danach beim Beenden ab; Kontrollmakro ohne Notenänderung reproduziert dies ebenfalls. Siehe tests/NATIVE-NOTATION-0.10.30.md. Windows-GUI nicht getestet.
+
+## v0.10.29 – 14.10.2026
+
+Bestanden: `node tests/test_notation_open.js`, `node tests/test_notation_structure.js`, `node tests/test_notation_direct.js`, `python tests/test_ui.py`, `python tests/test_ui.py --qt5`, `python tests/test_update_restart.py --qt5` und `git diff --check`.
+
+Der neue Test prüft den tatsächlichen QML-Funktionscode mit der echten Strukturengine. Geprüft sind korrigierte Ausgabe mit unveränderten klingenden Noten, verfügbarer Plan nach direktem Fehler, Öffnen trotz aufgehobener Auswahl, Ablehnung bei veränderter Ausgangspartitur oder Klangsignatur, Datei-/Importfehler ohne Erfolgsmeldung und anschließende Wiederholung. Der tatsächliche QML-Button und die sichtbare Statusanzeige wurden unter Qt 5 und Qt 6 geprüft. Der Update-Neustarttest wurde auf 0.10.28 → 0.10.29 angepasst und prüft auch einen frischen Prozess.
+
+Qt 6.12.0 reproduziert im Update-Neustarttest den bereits dokumentierten „File name case mismatch“-Fehler. Qt 5.15.11 besteht. Die Import-/Direkt-APIs sind Testobjekte; kein nativer MuseScore-Praxistest. Die konkrete Ursache des direkten Haltebogenfehlers bleibt offen.
+
 # Testplan v0.7.0
 
 ## Version 0.10.24 – 12.10.2026

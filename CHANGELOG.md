@@ -1,3 +1,21 @@
+# v0.10.30 – 14.10.2026
+
+- Exakte Fraction-Cursorposition statt stimmabhängigem Vorwärtssprung.
+- Haltebögen zwischen mehreren umgebauten Takten zugelassen; Grenzen des tatsächlichen Korrekturplans weiterhin geprüft.
+- Vorhandene Haltebogen-Zielnote prüfen und per chord-tie wiederverwenden; unerwartete/mehrdeutige Endpunkte lösen Rücknahme aus.
+- Direkte Bearbeitung ist wieder der vorrangige Arbeitsweg.
+- Starter 0.7.22 lädt das Bundle 0.10.30 auch bei älterer gespeicherter Aktivierung.
+- Regressions-, Qt-5-Update-/Neustart- und UI-Tests; synthetische Bearbeitung in echter MuseScore-4.7.0-Laufzeit. Grenzen separat dokumentiert.
+
+# v0.10.29 – 14.10.2026
+
+- Vorbereitete korrigierte MusicXML-Fassung über einen sichtbaren Button in MuseScore öffnen.
+- Korrekturplan nach fehlgeschlagener direkter Übernahme nicht mehr verwerfen.
+- Beim Öffnen genügt die unveränderte Ausgangspartitur; Auswahlverlust durch native Befehle blockiert den Vorgang nicht.
+- Klangsignatur vor dem Öffnen erneut prüfen; fehlgeschlagenes Schreiben/Öffnen erlaubt Wiederholung und meldet keinen Erfolg.
+- Ergebnis und Fehlermeldung unmittelbar bei den Notationsbuttons anzeigen.
+- Ausgangsstand ist die vom Nutzer hochgeladene v0.10.28, einschließlich deren Timer und genauer Haltebogenfehlermeldung.
+
 # Changelog
 
 ## 0.10.24 / Starter 0.7.21 – 12.10.2026

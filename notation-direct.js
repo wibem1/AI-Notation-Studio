@@ -1,9 +1,10 @@
-// The adapter only uses the native Score/Cursor APIs; no import or new score.
-function createNotationDirect() {
+function createNotationDirect(toFraction) {
     function same(a,b) { return a===b || (a && typeof a.is==='function' && a.is(b)) }
     function cursorAt(score,staff,voice,tick) {
-        // Rewind through primary voice first, so empty secondary voices don't skip the requested position.
-        var c=score.newCursor();c.staffIdx=staff;c.voice=0;c.rewindToTick(tick);c.staffIdx=staff;c.voice=voice;
+        // rewindToTick scans forward in the selected voice and skips staggered onsets.
+        // rewindToFraction preserves the exact segment, including empty target voices.
+        if(typeof toFraction!=='function')throw Error('Exakte Cursorpositionierung ist nicht verfügbar.');
+        var c=score.newCursor();c.staffIdx=staff;c.voice=voice;c.rewindToFraction(toFraction(tick));
         return c
     }
     function tickOf(note) { return Number(note.parent.parent.tick) }
@@ -15,6 +16,10 @@ function createNotationDirect() {
     function apply(score,operations,api) {
         if(!operations || !operations.length)throw Error('Kein Korrekturplan vorhanden.');
         var chords=[],metadata=[],started=false;
+        function rewritten(note) {
+            var tick=tickOf(note),staff=Math.floor(note.parent.track/4);
+            return operations.some(function(op){return op.globalStaff===staff && tick>=op.startTick && tick<op.endTick})
+        }
         // Collect live metadata before mutating any wrapper; inspect all four voices.
         operations.forEach(function(op){
             var staff=score.staves && score.staves[op.globalStaff];
@@ -33,8 +38,8 @@ function createNotationDirect() {
                             if(note.pitch%1 || note.tuning)throw Error('Mikrotonale Noten werden nicht direkt umgebaut.');
                             if(note.tpc1!==undefined && note.tpc2!==undefined && note.tpc1!==note.tpc2)throw Error('Transponierende Notation wird nicht direkt umgebaut.');
                             if(note.elements && note.elements.length)throw Error('Noten mit zusätzlichen Zeichen werden nicht direkt umgebaut.');
-                            if(note.tieBack && note.tieBack.startNote && tickOf(note.tieBack.startNote)<op.startTick)throw Error('Haltebogen über den Auswahlbeginn: bitte weitere Takte markieren.');
-                            if(note.tieForward && note.tieForward.endNote && tickOf(note.tieForward.endNote)>=op.endTick)throw Error('Haltebogen über das Auswahlende: bitte weitere Takte markieren.');
+                            if(note.tieBack && note.tieBack.startNote && !rewritten(note.tieBack.startNote))throw Error('Haltebogen über den Auswahlbeginn: bitte weitere Takte markieren.');
+                            if(note.tieForward && note.tieForward.endNote && !rewritten(note.tieForward.endNote))throw Error('Haltebogen über das Auswahlende: bitte weitere Takte markieren.');
                             metadata.push({staff:op.globalStaff,tick:tick,end:tick+duration,pitch:note.pitch,tpc1:note.tpc1,tpc2:note.tpc2,tpc:note.tpc,veloType:note.veloType,userVelocity:note.userVelocity,visible:note.visible,play:note.play,color:note.color});
                         }
                         if(!chords.some(function(x){return same(x,el)}))chords.push(el)
@@ -81,15 +86,28 @@ function createNotationDirect() {
                     })
                 })
             });
-            // Create native ties only after all destination notes exist. startCmd locks one undo macro.
+            // Reuse the already constructed destination chord through chord-tie.
+            // The generic toggle action can enter note-input/toggle behaviour.
             api.cmd('escape');
             operations.forEach(function(op){op.events.forEach(function(event){event.notes.forEach(function(n){if(n.tieStart){
-                if(!score.selection.select(n.live,false))throw Error('Die Note konnte für den Haltebogen nicht gewählt werden.');
-                api.cmd('tie');
                 var expected=at(score,op.globalStaff,event.voice,event.tick+event.durationTicks);
+                if(!expected || expected.name!=='Chord')throw Error('Der Zielakkord des Haltebogens fehlt.');
+                var target=null;
+                for(var i=0;i<expected.notes.length;i++)if(expected.notes[i].pitch===n.pitch){
+                    if(target)throw Error('Mehrdeutige Zielnote für den Haltebogen.');target=expected.notes[i]
+                }
+                if(!target || target.tpc1!==n.live.tpc1 || target.tpc2!==n.live.tpc2)
+                    throw Error('Die Zielnote des Haltebogens hat eine abweichende Tonhöhe oder Schreibweise.');
+                var existing=n.live.tieForward;
+                if(existing){
+                    if(!existing.endNote || !same(existing.endNote,target))throw Error('Ein unerwarteter Haltebogen ist bereits vorhanden.');
+                }else{
+                    if(!score.selection.select(n.live,false))throw Error('Die Note konnte für den Haltebogen nicht gewählt werden.');
+                    api.cmd('chord-tie');
+                }
                 var tie=n.live.tieForward;
-                if(!tie || !tie.endNote || !expected || !same(tie.endNote.parent,expected) || tie.endNote.pitch!==n.pitch)
-                    throw Error('MuseScore hat den benötigten Haltebogen nicht erstellt. Die Änderung wird zurückgenommen.')
+                if(!tie || !tie.endNote || !same(tie.endNote,target))
+                    throw Error('Haltebogen nicht übernommen bei Tick '+event.tick+', System '+(op.globalStaff+1)+', Stimme '+(event.voice+1)+', Ton '+n.pitch+'. Änderung zurückgenommen.')
             }})})});
             // Verify the complete intended rhythm and all tie endpoints, including absence of extra attacks.
             operations.forEach(function(op){op.events.forEach(function(event){event.notes.forEach(function(n){

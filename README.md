@@ -1,4 +1,26 @@
-# AI Notation Studio v0.10.24
+# AI Notation Studio v0.10.30 – 14.10.2026
+
+## Direkte Korrektur der geöffneten Partitur
+
+Die Cursorpositionierung verwendet jetzt `rewindToFraction(fractionFromTicks(tick))`. `rewindToTick` kann in MuseScore zu einem späteren Einsatz der gewählten Stimme springen. Haltebögen zwischen zwei tatsächlich umgebauten Takten sind jetzt zugelassen; ein Bogen zu einer Note außerhalb des Korrekturplans bleibt ausgeschlossen. Die Haltebogenerstellung verwendet `chord-tie` und prüft die bereits vorhandene Zielnote vor und nach dem Befehl.
+
+Vollständige Takte eines Instruments markieren → **Notendarstellung prüfen** → **In der Partitur korrigieren**. Der direkte Weg ändert den geöffneten Score, öffnet keine neue Partitur und bleibt als ein Schritt rückgängig machbar. Der optionale Kopieweg aus 0.10.29 bleibt verfügbar.
+
+Manuelle Installation: MuseScore schließen. `AI-Notation-Studio.qml` und `AI-Notation-Studio-App-0.10.30.qml` aus dem ZIP in den bisherigen Pluginordner kopieren; den Starter ersetzen. Nur `AI-Notation-Studio.qml` im Pluginmanager aktivieren. Neue Anzeige: v0.10.30. Die bestehende Active.json mit einer älteren Version wird vom neuen Starter ignoriert. Provider-Einstellungen werden nicht geändert.
+
+Ein synthetischer Zwei-Takt-Test wurde in MuseScore 4.7.0 ausgeführt: 0.10.28 lehnt den innerhalb der Auswahl liegenden Taktgrenzenbogen ab, 0.10.30 bearbeitet beide Takte und exportiert dieselben klingenden Noten in zwei Stimmen. Der native Kommandozeilentestprozess stürzt bei der API-v1-Makros-Bereinigung anschließend ab; derselbe Fehler tritt im Kontrollmakro ohne Notenbearbeitung auf. Kein bestätigter Windows-4.7.5-GUI-Praxistest. Details: `RELEASE-0.10.30.md` und `tests/NATIVE-NOTATION-0.10.30.md`.
+
+# Änderungen in v0.10.29
+
+## Korrigierte Notendarstellung öffnen
+
+Nach **Notendarstellung prüfen** öffnet der neue Button **Korrigierte Partitur öffnen** die vollständige korrigierte MusicXML-Fassung in MuseScore. Das Original bleibt geöffnet. Die neue Fassung anschließend in MuseScore speichern. Dieser Import erzeugt eine neue Partitur; MuseScore kann dabei das Layout und die Klangeinstellungen neu setzen. Die Kontrolle prüft die klingenden Tonhöhen, Einsätze und Dauern, nicht das komplette Seitenlayout oder alle Wiedergabeparameter.
+
+**In der Partitur korrigieren** bleibt als alternative direkte Bearbeitung verfügbar. Scheitert diese, bleibt der Korrekturplan für das Öffnen der korrigierten Fassung erhalten. Eine durch MuseScores Befehle aufgehobene Auswahl verhindert das Öffnen nicht mehr. Änderungen der Ausgangspartitur verhindern dagegen die Übernahme eines veralteten Plans. Der Status steht unmittelbar unter den Notationsbuttons.
+
+Installation über **Update prüfen → Update installieren**. Die hochgeladene v0.10.28 ist als Ausgangsstand unter `versions/` erhalten. Der native Fehler bei der direkten Haltebogen-Erstellung ist damit nicht als behoben ausgewiesen; siehe `RELEASE-0.10.29.md`.
+
+# Diagnose ab v0.10.24
 
 ## Vollständige Komposition und ursprüngliche KI-Nutzung in der Diagnose
 
