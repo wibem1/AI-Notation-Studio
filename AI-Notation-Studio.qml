@@ -1,5 +1,5 @@
 import QtQuick 2.2
-import QtQuick.Window 2.2
+import QtQuick.Window 2.15
 import MuseScore 3.0
 import FileIO 3.0
 
@@ -7,9 +7,9 @@ MuseScore {
     id: root
     menuPath: "Plugins.AI Notation Studio"
     description: "Starter für AI Notation Studio"
-    version: "0.7.24"
+    version: "0.7.25"
     requiresScore: true
-    pluginType: "dialog"
+    pluginType: ""
     title: "AI Notation Studio"
     implicitWidth: Math.max(320, Math.min(900, Screen.desktopAvailableWidth - 80))
     implicitHeight: Math.max(240, Math.min(900, Screen.desktopAvailableHeight - 100))
@@ -107,8 +107,8 @@ MuseScore {
     }
 
     function tryBundledApp() {
-        var url = String(Qt.resolvedUrl("AI-Notation-Studio-App-0.10.32.qml"))
-        return activateHotApp(url, "0.10.32")
+        var url = String(Qt.resolvedUrl("AI-Notation-Studio-App-0.10.33.qml"))
+        return activateHotApp(url, "0.10.33")
     }
 
     function readStartupRecord() {
@@ -129,79 +129,107 @@ MuseScore {
     function startApp() {
         startupDetails = ""
         var record = readStartupRecord()
-        if (record && compareVersions(record.version, "0.10.32") >= 0) {
+        if (record && compareVersions(record.version, "0.10.33") >= 0) {
             if (activateHotApp(String(Qt.resolvedUrl(record.file)), record.version)) return
         }
         tryBundledApp()
     }
 
-    onRun: Qt.callLater(startApp)
-
-    Rectangle {
-        anchors.fill: parent
-        color: "#202124"
-        visible: !hotAppActive
-        Column {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 24
-            spacing: 20
-            Text {
-                text: "AI Notation Studio · Starter " + root.version
-                color: "white"
-                font.pixelSize: 26
-            }
-            Text {
-                width: parent.width
-                text: updateStatus
-                color: "white"
-                font.pixelSize: 20
-                wrapMode: Text.Wrap
-            }
-            TextEdit {
-                width: parent.width
-                text: startupDetails
-                color: "#dddddd"
-                font.pixelSize: 15
-                readOnly: true
-                selectByMouse: true
-                wrapMode: TextEdit.Wrap
-            }
-            Rectangle {
-                width: 260
-                height: 46
-                color: "#42464c"
-                Text { anchors.centerIn: parent; text: "Erneut laden"; color: "white"; font.pixelSize: 18 }
-                MouseArea { anchors.fill: parent; onClicked: startApp() }
-            }
-            Text {
-                width: parent.width
-                text: "Beide QML-Dateien müssen im selben Ordner liegen. Bei einem Fehler bitte den angezeigten Text kopieren oder fotografieren."
-                color: "#bbbbbb"
-                wrapMode: Text.Wrap
-                font.pixelSize: 16
-            }
-        }
+    // Run as a legacy macro. A MuseScore Form is opened under the legacy URI,
+    // which 4.7.5 classifies as DialogOpened and blocks notation actions.
+    // Our ordinary Qt window leaves MuseScore's notation URI untouched.
+    onRun: {
+        studioWindow.show()
+        studioWindow.requestActivate()
+        Qt.callLater(startApp)
     }
 
-    Loader {
-        id: hotAppLoader
-        anchors.fill: parent
-        active: hotAppRequested
-        visible: hotAppActive
-        onLoaded: {
-            try {
-                if (!item || typeof item.bootstrapRun !== "function") throw Error("App-Einstieg fehlt.")
-                item.bootstrapRun()
-                hotAppActive = true
-                updateStatus = "App geladen."
-            } catch (e) { restoreAfterAppFailure(String(e)) }
+    Window {
+        id: studioWindow
+        objectName: "notationStudioWindow"
+        title: root.title
+        width: root.implicitWidth
+        height: root.implicitHeight
+        minimumWidth: 320
+        minimumHeight: 240
+        color: "#202124"
+        flags: Qt.Window
+        transientParent: null
+        modality: Qt.NonModal
+        onClosing: {
+            // Do not hide/unload this window during a score transaction.
+            // Clearing the loader on normal close also stops running requests.
+            hotAppRequested = false
+            hotAppActive = false
+            hotAppLoader.source = ""
         }
-        onStatusChanged: {
-            if (status === Loader.Error) {
-                var detail = pendingComponent ? pendingComponent.errorString() : ""
-                restoreAfterAppFailure(detail || "QML-Datei konnte nicht geladen werden.")
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#202124"
+            visible: !hotAppActive
+            Column {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 20
+                Text {
+                    text: "AI Notation Studio · Starter " + root.version
+                    color: "white"
+                    font.pixelSize: 26
+                }
+                Text {
+                    width: parent.width
+                    text: updateStatus
+                    color: "white"
+                    font.pixelSize: 20
+                    wrapMode: Text.Wrap
+                }
+                TextEdit {
+                    width: parent.width
+                    text: startupDetails
+                    color: "#dddddd"
+                    font.pixelSize: 15
+                    readOnly: true
+                    selectByMouse: true
+                    wrapMode: TextEdit.Wrap
+                }
+                Rectangle {
+                    width: 260
+                    height: 46
+                    color: "#42464c"
+                    Text { anchors.centerIn: parent; text: "Erneut laden"; color: "white"; font.pixelSize: 18 }
+                    MouseArea { anchors.fill: parent; onClicked: startApp() }
+                }
+                Text {
+                    width: parent.width
+                    text: "Beide QML-Dateien müssen im selben Ordner liegen. Bei einem Fehler bitte den angezeigten Text kopieren oder fotografieren."
+                    color: "#bbbbbb"
+                    wrapMode: Text.Wrap
+                    font.pixelSize: 16
+                }
+            }
+        }
+
+        Loader {
+            id: hotAppLoader
+            anchors.fill: parent
+            active: hotAppRequested
+            visible: hotAppActive
+            onLoaded: {
+                try {
+                    if (!item || typeof item.bootstrapRun !== "function") throw Error("App-Einstieg fehlt.")
+                    item.bootstrapRun()
+                    hotAppActive = true
+                    updateStatus = "App geladen."
+                } catch (e) { restoreAfterAppFailure(String(e)) }
+            }
+            onStatusChanged: {
+                if (status === Loader.Error) {
+                    var detail = pendingComponent ? pendingComponent.errorString() : ""
+                    restoreAfterAppFailure(detail || "QML-Datei konnte nicht geladen werden.")
+                }
             }
         }
     }

@@ -38,8 +38,26 @@ for i in range(10):app.processEvents()
 assert r.property('width')==v.width() and r.property('height')==v.height(),(r.property('width'),r.property('height'),v.width(),v.height())
 assert r.property('hotAppActive'),r.property('updateStatus')
 assert r.property('title')=='AI Notation Studio'
-assert any(x.property('version')=='0.10.32' for x in r.findChildren(QObject))
+assert any(x.property('version')=='0.10.33' for x in r.findChildren(QObject))
 assert not any(x.property('version')=='0.10.3' for x in r.findChildren(QObject))
+studio=next((w for w in app.allWindows() if w.objectName()=='notationStudioWindow'),None)
+assert studio and studio.property('visible')
+assert studio.property('modality')==0  # Qt.NonModal
+studio.setProperty('width',620);studio.setProperty('height',440)
+for i in range(10):app.processEvents()
+hot=next(x for x in r.findChildren(QObject) if x.property('version')=='0.10.33')
+assert hot.property('width')==620 and hot.property('height')==440
+e.globalObject().setProperty('windowApp',e.newQObject(hot))
+windowGuard=e.evaluate('try {windowApp.notationHostCommand(null); "unexpected"} catch(e) {String(e)}').toString()
+assert 'keine Partitur' in windowGuard,windowGuard
+QMetaObject.invokeMethod(studio,'close')
+for i in range(10):app.processEvents()
+assert not studio.property('visible') and not r.property('hotAppRequested')
+assert not any(x.property('version')=='0.10.33' for x in r.findChildren(QObject))
+QMetaObject.invokeMethod(r,'run')
+for i in range(10):app.processEvents()
+assert studio.property('visible') and r.property('hotAppActive')
+print('Standalone nonmodal window: resize, unload on close and reopen PASS')
 if '--qt5' not in sys.argv:assert not v.grabWindow().isNull()
 e.globalObject().setProperty('host',e.newQObject(r))
 def js(code):
@@ -53,14 +71,14 @@ for source,path in cases:
  assert js('host.fileUrlToLocalPath(host.normalizedAppUrl('+json.dumps(source)+'))')==path
 assert js('host.normalizedAppUrl("C:\\\\Users\\\\Wilhelm\\\\Plugins\\\\a.qml")')=='file:///C:/Users/Wilhelm/Plugins/a.qml'
 # A missing cached file must not conceal the functional host surface.
-js('host.activateHotApp("file:///no-such-app.qml","0.10.32")')
+js('host.activateHotApp("file:///no-such-app.qml","0.10.33")')
 for i in range(10):app.processEvents()
 assert not r.property('hotAppActive') and not r.property('hotAppRequested')
 assert 'nicht gestartet' in r.property('updateStatus')
 assert 'no-such-app.qml' in r.property('startupDetails')
 # Compilation errors (including missing imports) must be visible, not only logged.
 bad=Path(config.name)/'BadApp.qml';bad.write_text('import MissingModuleForStartupTest 1.0\nItem {}')
-js('host.activateHotApp('+json.dumps(QUrl.fromLocalFile(str(bad)).toString())+',"0.10.32")')
+js('host.activateHotApp('+json.dumps(QUrl.fromLocalFile(str(bad)).toString())+',"0.10.33")')
 for i in range(10):app.processEvents()
 assert not r.property('hotAppActive')
 assert 'MissingModuleForStartupTest' in r.property('startupDetails')
@@ -69,11 +87,11 @@ if '--qt5' not in sys.argv:
  assert shot.save(str(Path(config.name)/'startup-fallback.png'))
 # The complete actual app must load through the host, not only as a standalone root.
 url=QUrl.fromLocalFile(str(ROOT/'AI-Notation-Studio-App.qml')).toString()
-js('host.activateHotApp('+json.dumps(url)+',"0.10.32")')
+js('host.activateHotApp('+json.dumps(url)+',"0.10.33")')
 for i in range(30):app.processEvents()
 assert r.property('hotAppActive'),r.property('updateStatus')
 assert r.property('hotAppRequested')
 assert r.property('width')==v.width() and r.property('height')==v.height(),(r.property('width'),r.property('height'),v.width(),v.height())
 if '--qt5' not in sys.argv:assert not v.grabWindow().isNull()
-assert any(x.property('version')=='0.10.32' and x.property('title')=='AI Notation Studio – interne App (nicht starten)' for x in r.findChildren(QObject))
+assert any(x.property('version')=='0.10.33' and x.property('title')=='AI Notation Studio – interne App (nicht starten)' for x in r.findChildren(QObject))
 print('Host rendered, Windows/UNC paths and missing-app fallback OK; full app loaded:',qVersion())

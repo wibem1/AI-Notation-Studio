@@ -30,12 +30,14 @@ const wrapper=qml.slice(applyBegin,applyEnd);assert(!wrapper.includes('.hide('))
 let calls=0,hideCalls=0;const host={busy:false,structureSnapshot:{},notationStructureApplyNow(){calls++},root:{Window:{window:{hide(){hideCalls++}}}}};vm.createContext(host);vm.runInContext(wrapper,host);host.notationStructureApply();assert.equal(calls,1);assert.equal(hideCalls,0);host.busy=true;host.notationStructureApply();assert.equal(calls,1);
 console.log('Direct correction wrapper runs immediately, keeps host visible, rejects duplicate busy requests PASS');
 
-// Actual host bridge: ignore the unregistered hot-app command object, route to
-// the registered API only when it owns the same live score.
+// The standalone macro host leaves MuseScore's notation context untouched.
 const bridge=qml.slice(qml.indexOf('    function notationHostCommand('),qml.indexOf('    function notationStructureApplyNow('));
-const boundScore={is(other){return this===other}},bridgeCalls=[];
-const bridged={curScore:boundScore,api:{engraving:{curScore:boundScore,cmd(action){bridgeCalls.push(action)}}},cmd(){throw Error('wrong hot-app context')}};
+const bridgeCalls=[];
+const bridged={curScore:{},root:{Window:{window:{objectName:"notationStudioWindow"}},cmd(action){bridgeCalls.push(action)}}};
 vm.createContext(bridged);vm.runInContext(bridge,bridged);bridged.notationHostCommand('chord-tie');assert.deepEqual(bridgeCalls,['chord-tie']);
-bridged.api.engraving.curScore={};assert.throws(()=>bridged.notationHostCommand('chord-tie'),/Plugin-Kontext/);assert.equal(bridgeCalls.length,1);
-delete bridged.api.engraving;assert.throws(()=>bridged.notationHostCommand('chord-tie'),/nicht verfügbar/);
-console.log('Registered host command routing, wrong-score and missing-API guards PASS');
+bridged.curScore=null;assert.throws(()=>bridged.notationHostCommand('chord-tie'),/keine Partitur/);assert.equal(bridgeCalls.length,1);
+
+console.log('Standalone host command routing and no-score guard PASS');
+
+bridged.curScore={};bridged.root.Window.window.objectName='oldHostedDialog';assert.throws(()=>bridged.notationHostCommand('chord-tie'),/Starter 0.7.25/);assert.equal(bridgeCalls.length,1);
+console.log('Old dialog starter rejected before notation command PASS');

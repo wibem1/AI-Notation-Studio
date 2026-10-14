@@ -1,12 +1,18 @@
-# AI Notation Studio v0.10.32 – 14.10.2026
+# AI Notation Studio v0.10.33 – 14.10.2026
 
-## Haltebogen-Befehle über die registrierte Host-API
+## Eigener Fensterhost für die Direktkorrektur
 
-Das Windows-Protokoll von MuseScore 4.7.5 meldet bei 0.10.31 für cancel und chord-tie „no one can handle the action“. Die Korrektur nimmt anschließend ihre Änderungen zurück. Der nachgeladene MuseScore-App-Knoten wird nicht durch ExtensionBuilder.setup registriert; diese Registrierung gilt dem ursprünglichen Starter. 0.10.32 leitet native Korrekturbefehle deshalb ausdrücklich über api.engraving.cmd an die registrierte Host-API weiter.
+MuseScore 4.7.5 lehnt cancel und chord-tie auch mit v0.10.32 ab. Der Wechsel zu api.engraving.cmd war wirkungslos: beide Wege benutzen denselben ActionsDispatcher. Im Quellcode von MuseScore wird der alte Plugin-Dialog unter einer eigenen Legacy-Adresse geöffnet; der UiContextResolver behandelt nur die allgemeine ExtensionViewer-Adresse als Ausnahme von DialogOpened. Dies erklärt die im Windows-Protokoll sichtbare Ablehnung der Partitur-Befehle.
 
-Vor jeder Bearbeitung und jedem Befehl wird geprüft, dass Host-API und App denselben Score referenzieren. Bei fehlender API oder anderem Score gibt es eine Fehlermeldung. Der Notationsadapter und seine Rücknahmesicherungen bleiben unverändert. Das Pluginfenster bleibt sichtbar.
+Starter 0.7.25 läuft als Makro und öffnet ein gewöhnliches, nicht modales Qt-Fenster. Er benutzt keinen ExtensionViewer-Dialog und verändert dessen URI-Stapel nicht. Die App, ihre Scrollansicht und ihre dauerhaften Updates laufen im neuen Fenster. Die Direktkorrektur prüft vor dem Umbau, dass sie in diesem Fenster läuft; ein alter Starter bekommt eine Installationsanweisung statt eines erneuten Umbaus mit anschließender Rücknahme.
 
-Routing-, Guards-, UI-, Loader- und Update-Neustarttests mit Testobjekten bestehen. Der konkrete Windows-Befehlsweg ist noch nicht praktisch bestätigt; 0.10.32 ist die gezielte Prüffassung für diesen Unterschied, keine bereits bestätigte Lösung des Windows-Problems.
+**Einmalige vollständige Installation:** MuseScore schließen. Die beiden QML-Dateien aus `releases/AI-Notation-Studio-v0.10.33.zip` in den bisherigen Pluginordner kopieren und `AI-Notation-Studio.qml` ersetzen. MuseScore starten und nur den Starter aktivieren. Anschließend vollständige Takte markieren → Notendarstellung prüfen → In der Partitur korrigieren. Die eingebaute App-Aktualisierung allein ersetzt den Starter nicht. Die bisherige Active.json und Provider-Einstellungen können erhalten bleiben.
+
+Geprüft: Qt-5-Fenster öffnen, verkleinern, schließen, App entladen und neu öffnen; dauerhaftes Update und Neustart; direkte Notationsregressionen. Ein natives Legacy-QML-Makro mit gewöhnlichem Qt-Fenster hat in MuseScore 4.7.0 die vier problematischen Takte in derselben Partitur auf zwei Stimmen reduziert und alle Haltebögen angelegt; die Klangsignatur der Auswahl (20 Ereignisse) bleibt gleich. Dieser native Test war ein Kommandozeilentest. Der Windows-4.7.5-GUI-Praxistest steht noch aus.
+
+# Änderungen in v0.10.32
+
+Die Weiterleitung über api.engraving.cmd wurde getestet, behebt aber laut anschließendem Windows-Protokoll die Befehlsablehnung nicht. v0.10.33 ersetzt diesen Ansatz durch einen eigenen Fensterhost.
 
 # Änderungen in v0.10.31
 

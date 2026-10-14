@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.10.32"
+    version: "0.10.33"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -3538,14 +3538,13 @@ MuseScore {
     }
 
     function notationHostCommand(action) {
-        // ExtensionBuilder binds this facade to the original registered PluginAPI.
-        // The hot-loaded second MuseScore object is not registered with setup().
-        if (typeof api === "undefined" || !api.engraving || typeof api.engraving.cmd !== "function")
-            throw Error("MuseScores registrierte Plugin-Befehls-API ist nicht verfügbar.")
-        var hostScore = api.engraving.curScore
-        if (!curScore || !hostScore || !(curScore === hostScore || curScore.is(hostScore)))
-            throw Error("Der registrierte Plugin-Kontext gehört nicht zur geöffneten Partitur. Bitte das Plugin in diesem Partiturfenster erneut öffnen.")
-        if (action) api.engraving.cmd(action)
+        // All PluginAPI cmd implementations use the same ActionsDispatcher.
+        // The standalone starter keeps its UI context on the notation page.
+        var hostWindow = root.Window.window
+        if (!hostWindow || hostWindow.objectName !== "notationStudioWindow")
+            throw Error("Die Direktkorrektur benötigt Starter 0.7.25. Bitte das komplette Paket v0.10.33 in den Pluginordner entpacken und MuseScore neu starten.")
+        if (!curScore) throw Error("Es ist keine Partitur geöffnet.")
+        if (action) root.cmd(action)
     }
 
     function notationStructureApplyNow() {
@@ -5124,7 +5123,7 @@ MuseScore {
                 selectByMouse: true
                 font.pixelSize: 15
                 text:
-                    "AI Notation Studio v0.10.32\n\n" +
+                    "AI Notation Studio v0.10.33\n\n" +
                     "KOMPOSITION / ANALYSE\n" +
                     "Dieser Bereich führt den eigentlichen musikalischen Auftrag aus. Der gewählte Modus bestimmt, ob analysiert, eine neue Stimme komponiert, frei komponiert, fortgesetzt, ein Motiv entwickelt, eine Variante erzeugt oder neu instrumentiert wird.\n\n" +
                     "PARTITUR-CHAT\n" +

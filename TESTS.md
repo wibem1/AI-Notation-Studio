@@ -1,3 +1,7 @@
+## v0.10.33 – 14.10.2026
+
+Qt-5-Loader prüft das tatsächliche eigene Fenster: nicht modal, sichtbar, App folgt 620×440, normales Schließen entlädt die App, Neustart lädt sie erneut. Update-, UI-, strukturelle und direkte Adaptertests bestehen. QML-Befehlsfunktion weist einen alten Fensterhost ab, bevor sie einen nativen Befehl aufruft. Native Legacy-QML-Makro-Ausführung unter MuseScore 4.7.0 baut vier reale Takte in zwei Stimmen um; Auswahlklang stimmt für 20 Ereignisse, 16 Tie-Starts vorhanden, Prozess erfolgreich beendet. Kein Windows-GUI-Test. Details: RELEASE-0.10.33.md.
+
 ## v0.10.32 – 14.10.2026
 
 Host-Routing und Partiturkontext werden im tatsächlichen QML-Funktionscode geprüft; falscher Score und fehlende API lassen keinen Befehl durch. Adapter-, Qt-5-UI-, Loader- und Update-/Neustarttests bleiben grün. Die Befehlsannahme unter dem tatsächlichen Windows-MuseScore-4.7.5-Pluginhost ist noch nicht geprüft; v0.10.32 ist eine dafür bestimmte Prüffassung.

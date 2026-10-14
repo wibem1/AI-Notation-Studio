@@ -1,3 +1,11 @@
+# v0.10.33 – 14.10.2026
+
+- Starter 0.7.25: eigene nicht modale Qt-Window als Makro, kein ExtensionViewer-Dialog.
+- v0.10.32 löste die dokumentierte Befehlsablehnung nicht; beide APIs benutzen denselben Dispatcher.
+- Alte Starter werden vor der Direktkorrektur mit einer Installationsanweisung abgewiesen.
+- Fenstergröße, Entladen/Neustart und dauerhafte Updates geprüft; natives Legacy-QML-Makro bearbeitet vier Takte mit Haltebögen und unverändertem Auswahlklang.
+- Vollständiges ZIP einmalig erforderlich. Windows-4.7.5-GUI-Erfolg noch nicht bestätigt.
+
 # v0.10.32 – 14.10.2026
 
 - Direkte Notationsbefehle über die registrierte Host-Fassade api.engraving.cmd senden.
