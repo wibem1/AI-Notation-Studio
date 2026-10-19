@@ -10,14 +10,14 @@ if '--qt5' in sys.argv:
  from PyQt5.QtQml import QQmlComponent
 else:
  from PySide6.QtGui import QGuiApplication
- from PySide6.QtQuick import QQuickView
+ from PySide6.QtQuick import QQuickView,QQuickWindow
  from PySide6.QtCore import QUrl,QObject,QMetaObject,qVersion
  from PySide6.QtQml import QQmlComponent
 ROOT=Path(__file__).resolve().parents[1]
 app=QGuiApplication([]);app.setOrganizationName('LoaderTests');app.setApplicationName('LoaderTests')
 v=QQuickView();e=v.engine();e.addImportPath(str(ROOT/'tests/qml-stubs'))
 # The earlier missing-Settings claim was a test-stub defect: MuseScore exports it.
-old=subprocess.check_output(['git','show','ece06db88dcbb9d22488947ca7ab6882e2a127df:AI-Notation-Studio.qml'])
+old=(ROOT/'tests/fixtures/legacy-loader.qml').read_bytes()
 c=QQmlComponent(e);c.setData(old,QUrl.fromLocalFile(str(ROOT/'OldHost.qml')))
 assert not c.errors(),[x.toString() for x in c.errors()]
 print('Original host Settings resolves with faithful API stub:',qVersion())
@@ -38,14 +38,15 @@ for i in range(10):app.processEvents()
 assert r.property('width')==v.width() and r.property('height')==v.height(),(r.property('width'),r.property('height'),v.width(),v.height())
 assert r.property('hotAppActive'),r.property('updateStatus')
 assert r.property('title')=='AI Notation Studio'
-assert any(x.property('version')=='0.10.33' for x in r.findChildren(QObject))
+assert any(x.property('version')=='0.11.1' for x in r.findChildren(QObject))
 assert not any(x.property('version')=='0.10.3' for x in r.findChildren(QObject))
 studio=next((w for w in app.allWindows() if w.objectName()=='notationStudioWindow'),None)
 assert studio and studio.property('visible')
-assert studio.property('modality')==0  # Qt.NonModal
+e.globalObject().setProperty('studioWindow',e.newQObject(studio))
+assert e.evaluate('studioWindow.modality===0').toBool()  # Qt.NonModal
 studio.setProperty('width',620);studio.setProperty('height',440)
 for i in range(10):app.processEvents()
-hot=next(x for x in r.findChildren(QObject) if x.property('version')=='0.10.33')
+hot=next(x for x in r.findChildren(QObject) if x.property('version')=='0.11.1')
 assert hot.property('width')==620 and hot.property('height')==440
 e.globalObject().setProperty('windowApp',e.newQObject(hot))
 windowGuard=e.evaluate('try {windowApp.notationHostCommand(null); "unexpected"} catch(e) {String(e)}').toString()
@@ -53,7 +54,7 @@ assert 'keine Partitur' in windowGuard,windowGuard
 QMetaObject.invokeMethod(studio,'close')
 for i in range(10):app.processEvents()
 assert not studio.property('visible') and not r.property('hotAppRequested')
-assert not any(x.property('version')=='0.10.33' for x in r.findChildren(QObject))
+assert not any(x.property('version')=='0.11.1' for x in r.findChildren(QObject))
 QMetaObject.invokeMethod(r,'run')
 for i in range(10):app.processEvents()
 assert studio.property('visible') and r.property('hotAppActive')
@@ -71,27 +72,29 @@ for source,path in cases:
  assert js('host.fileUrlToLocalPath(host.normalizedAppUrl('+json.dumps(source)+'))')==path
 assert js('host.normalizedAppUrl("C:\\\\Users\\\\Wilhelm\\\\Plugins\\\\a.qml")')=='file:///C:/Users/Wilhelm/Plugins/a.qml'
 # A missing cached file must not conceal the functional host surface.
-js('host.activateHotApp("file:///no-such-app.qml","0.10.33")')
+js('host.activateHotApp("file:///no-such-app.qml","0.11.1")')
 for i in range(10):app.processEvents()
 assert not r.property('hotAppActive') and not r.property('hotAppRequested')
 assert 'nicht gestartet' in r.property('updateStatus')
 assert 'no-such-app.qml' in r.property('startupDetails')
 # Compilation errors (including missing imports) must be visible, not only logged.
 bad=Path(config.name)/'BadApp.qml';bad.write_text('import MissingModuleForStartupTest 1.0\nItem {}')
-js('host.activateHotApp('+json.dumps(QUrl.fromLocalFile(str(bad)).toString())+',"0.10.33")')
+js('host.activateHotApp('+json.dumps(QUrl.fromLocalFile(str(bad)).toString())+',"0.11.1")')
 for i in range(10):app.processEvents()
 assert not r.property('hotAppActive')
 assert 'MissingModuleForStartupTest' in r.property('startupDetails')
 if '--qt5' not in sys.argv:
- shot=v.grabWindow();assert shot.pixelColor(4,4).name()=='#202124'
+ from PySide6.QtTest import QTest
+ studio.show();studio.requestUpdate();QTest.qWait(100)
+ shot=studio.grabWindow();assert shot.pixelColor(4,4).name()=='#202124',shot.pixelColor(4,4).name()
  assert shot.save(str(Path(config.name)/'startup-fallback.png'))
 # The complete actual app must load through the host, not only as a standalone root.
 url=QUrl.fromLocalFile(str(ROOT/'AI-Notation-Studio-App.qml')).toString()
-js('host.activateHotApp('+json.dumps(url)+',"0.10.33")')
+js('host.activateHotApp('+json.dumps(url)+',"0.11.1")')
 for i in range(30):app.processEvents()
 assert r.property('hotAppActive'),r.property('updateStatus')
 assert r.property('hotAppRequested')
 assert r.property('width')==v.width() and r.property('height')==v.height(),(r.property('width'),r.property('height'),v.width(),v.height())
 if '--qt5' not in sys.argv:assert not v.grabWindow().isNull()
-assert any(x.property('version')=='0.10.33' and x.property('title')=='AI Notation Studio – interne App (nicht starten)' for x in r.findChildren(QObject))
+assert any(x.property('version')=='0.11.1' and x.property('title')=='AI Notation Studio – interne App (nicht starten)' for x in r.findChildren(QObject))
 print('Host rendered, Windows/UNC paths and missing-app fallback OK; full app loaded:',qVersion())

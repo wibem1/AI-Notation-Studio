@@ -13,6 +13,8 @@ def function(name):
  a=qml.index('    function '+name+'(');b=qml.find('\n    function ',a+5);return qml[a:b]
 a=qml.index('function createCompactRuntime()');b=qml.index('    // END COMPACTSCORE RUNTIME',a)
 run(qml[a:b]+';var compact=createCompactRuntime();')
+run(function('createSharedWorkflowCore')+';var workflowCore=createSharedWorkflowCore(),workflowTransitionBars=0,workflowAnalysis=null;')
+for name in ['workflowGuard','workflowCombine','readWorkflowSource']:run(function(name))
 class R(etree.Resolver):
  def resolve(self,url,pubid,context):
   if url.startswith('http'):return self.resolve_filename(str(ROOT/'tests/schema'/url.split('/')[-1]),context)

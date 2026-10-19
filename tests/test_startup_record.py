@@ -6,7 +6,7 @@ app=QCoreApplication([]);e=QJSEngine();root=Path(__file__).resolve().parents[1]
 def run(code):
  v=e.evaluate(code);assert not v.isError(),v.toString();return v.toString()
 def helpers(path):
- s=path.read_text();a=s.index('    function readStartupRecord()');b=s.index('    property var modelLists:',a);return s[a:b]
+ s=path.read_text();a=s.index('\n    function readStartupRecord()');b=s.index('    property var modelLists:',a);return s[a:b]
 run('''var root={version:"0.10.10"},stored="",writes=0;
 var Qt={resolvedUrl:function(s){return "file:///plugins/"+s;}};
 function fileUrlToLocalPath(s){return s.replace("file://","");}

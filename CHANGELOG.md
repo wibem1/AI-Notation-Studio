@@ -1,3 +1,11 @@
+# 0.11.1 · 19.10.2026
+
+Auslieferung über das eingebaute Updateverfahren. Qt-Dateicache beim Nachladen neuer QML-Dateien umgangen: gespeicherter, versionsgeprüfter Quelltext wird bei diesem Cachefehler direkt kompiliert und mit denselben Startprüfungen aktiviert. Fehlerhafte QML lässt die bisherige Oberfläche verfügbar. Der Starter wird gesichert und auf 0.7.27 aktualisiert; Live-Objekte werden beim Schließen bereinigt. Tests aus der tatsächlich bisherigen 0.10.33 sowie Update/Neustart unter Qt 5 und Qt 6. Anleitung: INSTALLATION-0.11.1.md.
+
+# 0.11.0 · 19.10.2026 · TEST CANDIDATE
+
+Gemeinsamer Kern 1.0.0, Analyse → Überarbeitung mit Modellwahl, Originalprüfung vor Übernahme, in Ergebnissen mitgesicherte Originalmusik, Verlauf auch für Analyse/fehlerhafte Antworten, optionale 2/3/4 Übergangstakte. Native MusicXML-Übernahme erhält die Noten vor und nach dem freigegebenen Bereich. Installation: INSTALLATION-0.11.0.md. Noch nicht veröffentlicht; praktischer Test steht aus.
+
 # v0.10.33 – 14.10.2026
 
 - Starter 0.7.25: eigene nicht modale Qt-Window als Makro, kein ExtensionViewer-Dialog.

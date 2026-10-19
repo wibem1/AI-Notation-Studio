@@ -1,0 +1,236 @@
+import QtQuick 2.2
+import QtQuick.Window 2.15
+import MuseScore 3.0
+import FileIO 3.0
+
+MuseScore {
+    id: root
+    menuPath: "Plugins.AI Notation Studio"
+    description: "Starter für AI Notation Studio"
+    version: "0.7.25"
+    requiresScore: true
+    pluginType: ""
+    title: "AI Notation Studio"
+    implicitWidth: Math.max(320, Math.min(900, Screen.desktopAvailableWidth - 80))
+    implicitHeight: Math.max(240, Math.min(900, Screen.desktopAvailableHeight - 100))
+    width: parent ? parent.width : implicitWidth
+    height: parent ? parent.height : implicitHeight
+
+    property bool hotAppActive: false
+    property bool hotAppRequested: false
+    property string hotAppVersion: ""
+    property string updateStatus: "App wird vorbereitet …"
+    property string startupDetails: ""
+    property var pendingComponent: null
+
+    FileIO {
+        id: updaterFile
+        onError: function(msg) { startupDetails = String(msg) }
+    }
+
+    function versionParts(v) {
+        var raw = String(v || "").replace(/^v/i, "").split(".")
+        var out = []
+        for (var i = 0; i < 3; i++) {
+            var n = i < raw.length ? parseInt(raw[i], 10) : 0
+            out.push(isNaN(n) ? 0 : n)
+        }
+        return out
+    }
+
+    function compareVersions(a, b) {
+        var av = versionParts(a)
+        var bv = versionParts(b)
+        for (var i = 0; i < 3; i++) {
+            if (av[i] < bv[i]) return -1
+            if (av[i] > bv[i]) return 1
+        }
+        return 0
+    }
+
+    function fileUrlToLocalPath(urlText) {
+        var s = String(urlText || "")
+        if (!/^file:/i.test(s)) return s.replace(/\\/g, "/")
+        s = s.substring(5).replace(/\\/g, "/")
+        if (/^\/\/localhost\//i.test(s)) s = s.substring(11)
+        else if (s.indexOf("///") === 0) s = s.substring(2)
+        else if (/^\/\/[A-Za-z]:\//.test(s)) s = s.substring(2)
+        if (/^\/[A-Za-z]:\//.test(s)) s = s.substring(1)
+        try { s = decodeURIComponent(s) } catch (ignoreDecode) {}
+        return s
+    }
+
+    function localPathToFileUrl(pathText) {
+        var s = String(pathText || "").replace(/\\/g, "/")
+        var escaped = encodeURI(s).replace(/#/g, "%23").replace(/\?/g, "%3F")
+        if (/^[A-Za-z]:\//.test(s)) return "file:///" + escaped
+        if (s.indexOf("//") === 0) return "file:" + escaped
+        if (s.indexOf("/") === 0) return "file://" + escaped
+        return String(Qt.resolvedUrl(s))
+    }
+
+    function normalizedAppUrl(sourceUrl) {
+        var s = String(sourceUrl || "")
+        if (/^file:/i.test(s)) return localPathToFileUrl(fileUrlToLocalPath(s))
+        if (/^[A-Za-z]:[\\/]/.test(s) || /^[\\/]/.test(s)) return localPathToFileUrl(s)
+        return s
+    }
+
+    function activateHotApp(sourceUrl, versionText) {
+        if (!sourceUrl) return false
+        sourceUrl = normalizedAppUrl(sourceUrl)
+        hotAppRequested = false
+        hotAppActive = false
+        hotAppLoader.source = ""
+        hotAppVersion = versionText || ""
+        startupDetails = "Datei: " + sourceUrl
+        updateStatus = "App wird geladen …"
+        pendingComponent = Qt.createComponent(sourceUrl)
+        if (pendingComponent.status === Component.Error) {
+            restoreAfterAppFailure(pendingComponent.errorString())
+            return false
+        }
+        hotAppLoader.source = sourceUrl
+        hotAppRequested = true
+        return true
+    }
+
+    function restoreAfterAppFailure(message) {
+        hotAppActive = false
+        updateStatus = "Die App konnte nicht gestartet werden."
+        startupDetails += "\n\n" + String(message)
+        var failedSource = String(hotAppLoader.source)
+        Qt.callLater(function() {
+            if (String(hotAppLoader.source) !== failedSource) return
+            hotAppRequested = false
+        })
+    }
+
+    function tryBundledApp() {
+        var url = String(Qt.resolvedUrl("AI-Notation-Studio-App-0.10.33.qml"))
+        return activateHotApp(url, "0.10.33")
+    }
+
+    function readStartupRecord() {
+        try {
+            updaterFile.source = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Active.json"))
+            var record = JSON.parse(String(updaterFile.read()))
+            if (record.format !== "AI-Notation-Studio-Active-1" ||
+                record.file !== "AI-Notation-Studio-App-" + record.version + ".qml" ||
+                !/^[0-9]+\.[0-9]+\.[0-9]+$/.test(record.version)) return null
+            updaterFile.source = fileUrlToLocalPath(Qt.resolvedUrl(record.file))
+            var source = String(updaterFile.read())
+            var versionMatch = source.match(/version\s*:\s*"([0-9]+\.[0-9]+\.[0-9]+)"/)
+            if (!versionMatch || versionMatch[1] !== record.version) return null
+            return record
+        } catch (e) { return null }
+    }
+
+    function startApp() {
+        startupDetails = ""
+        var record = readStartupRecord()
+        if (record && compareVersions(record.version, "0.10.33") >= 0) {
+            if (activateHotApp(String(Qt.resolvedUrl(record.file)), record.version)) return
+        }
+        tryBundledApp()
+    }
+
+    // Run as a legacy macro. A MuseScore Form is opened under the legacy URI,
+    // which 4.7.5 classifies as DialogOpened and blocks notation actions.
+    // Our ordinary Qt window leaves MuseScore's notation URI untouched.
+    onRun: {
+        studioWindow.show()
+        studioWindow.requestActivate()
+        Qt.callLater(startApp)
+    }
+
+    Window {
+        id: studioWindow
+        objectName: "notationStudioWindow"
+        title: root.title
+        width: root.implicitWidth
+        height: root.implicitHeight
+        minimumWidth: 320
+        minimumHeight: 240
+        color: "#202124"
+        flags: Qt.Window
+        transientParent: null
+        modality: Qt.NonModal
+        onClosing: {
+            // Do not hide/unload this window during a score transaction.
+            // Clearing the loader on normal close also stops running requests.
+            hotAppRequested = false
+            hotAppActive = false
+            hotAppLoader.source = ""
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#202124"
+            visible: !hotAppActive
+            Column {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 20
+                Text {
+                    text: "AI Notation Studio · Starter " + root.version
+                    color: "white"
+                    font.pixelSize: 26
+                }
+                Text {
+                    width: parent.width
+                    text: updateStatus
+                    color: "white"
+                    font.pixelSize: 20
+                    wrapMode: Text.Wrap
+                }
+                TextEdit {
+                    width: parent.width
+                    text: startupDetails
+                    color: "#dddddd"
+                    font.pixelSize: 15
+                    readOnly: true
+                    selectByMouse: true
+                    wrapMode: TextEdit.Wrap
+                }
+                Rectangle {
+                    width: 260
+                    height: 46
+                    color: "#42464c"
+                    Text { anchors.centerIn: parent; text: "Erneut laden"; color: "white"; font.pixelSize: 18 }
+                    MouseArea { anchors.fill: parent; onClicked: startApp() }
+                }
+                Text {
+                    width: parent.width
+                    text: "Beide QML-Dateien müssen im selben Ordner liegen. Bei einem Fehler bitte den angezeigten Text kopieren oder fotografieren."
+                    color: "#bbbbbb"
+                    wrapMode: Text.Wrap
+                    font.pixelSize: 16
+                }
+            }
+        }
+
+        Loader {
+            id: hotAppLoader
+            anchors.fill: parent
+            active: hotAppRequested
+            visible: hotAppActive
+            onLoaded: {
+                try {
+                    if (!item || typeof item.bootstrapRun !== "function") throw Error("App-Einstieg fehlt.")
+                    item.bootstrapRun()
+                    hotAppActive = true
+                    updateStatus = "App geladen."
+                } catch (e) { restoreAfterAppFailure(String(e)) }
+            }
+            onStatusChanged: {
+                if (status === Loader.Error) {
+                    var detail = pendingComponent ? pendingComponent.errorString() : ""
+                    restoreAfterAppFailure(detail || "QML-Datei konnte nicht geladen werden.")
+                }
+            }
+        }
+    }
+}

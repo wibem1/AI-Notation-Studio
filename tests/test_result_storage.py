@@ -73,6 +73,11 @@ for mode in ['ok', 'fallback', 'fail', 'corrupt']:
     assert app.clipboard().text() == answer
 print('QML clipboard, Unicode, native read newlines, verified log, fallback and failures OK')
 
+# Native Windows-only export requires the matching Qt platform.
+if os.name != 'nt':
+    print('SKIP Windows diagnostic-export orchestration; clipboard and storage tests passed')
+    sys.exit(0)
+
 # Exercise the actual QML export orchestration; the helper process is a test object.
 disk.mode = 'ok'
 process = r.findChild(QObject, 'diagnosticExportProcess')

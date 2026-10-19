@@ -21,7 +21,7 @@ var historyFile=compactFile;
 var curScore={metaTag:function(k){return tags[k]||'';},setMetaTag:function(k,v){tags[k]=v;}};
 function scoreMemoryTagName(){return 'memory';}
 function writeScore(score,path,ext){writes++;disk[path]='<score-partwise><part-list/><part id="edited"><measure number="99"/></part></score-partwise>';return !failExport;}
-var musicalDraft='stale draft',compositionJson='stale json',compactSourceText='stale cs',compositionCosts=[],compositionHistory=[],historyError='',statusText='';
+var workflowAnalysis=null;var musicalDraft='stale draft',compositionJson='stale json',compactSourceText='stale cs',compositionCosts=[],compositionHistory=[],historyError='',statusText='';
 function currentScoreMemoryObject(){return {compositionCosts:compositionCosts};}
 ''')
 run(block('compositionRecordTag()', 'diagnosticText('))

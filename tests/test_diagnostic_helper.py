@@ -1,6 +1,10 @@
 """Run the real Windows helper with large files and difficult paths, without a dialog."""
 import hashlib, json, subprocess, tempfile
 from pathlib import Path
+import shutil,sys
+if not shutil.which("powershell.exe"):
+    print("SKIP Windows PowerShell diagnostic helper: powershell.exe unavailable")
+    sys.exit(0)
 ROOT = Path(__file__).resolve().parents[1]
 def digest(path):
     with path.open('rb') as stream:

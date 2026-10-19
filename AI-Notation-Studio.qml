@@ -7,7 +7,7 @@ MuseScore {
     id: root
     menuPath: "Plugins.AI Notation Studio"
     description: "Starter für AI Notation Studio"
-    version: "0.7.25"
+    version: "0.7.27"
     requiresScore: true
     pluginType: ""
     title: "AI Notation Studio"
@@ -16,6 +16,7 @@ MuseScore {
     width: parent ? parent.width : implicitWidth
     height: parent ? parent.height : implicitHeight
 
+    property var hotAppLiveObject: null
     property bool hotAppActive: false
     property bool hotAppRequested: false
     property string hotAppVersion: ""
@@ -76,6 +77,39 @@ MuseScore {
         return s
     }
 
+    function releaseLiveApp() {
+        if(hotAppLiveObject) { hotAppLiveObject.destroy(); hotAppLiveObject=null }
+    }
+
+    function finishHotApp(item) {
+        if(!item || typeof item.bootstrapRun!=="function") throw Error("App-Einstieg fehlt.")
+        if(String(item.version)!==String(hotAppVersion)) throw Error("Die geladene Version stimmt nicht überein.")
+        item.bootstrapRun()
+        if(hotAppLiveObject && hotAppLiveObject!==item) releaseLiveApp()
+        hotAppActive=true
+        updateStatus="App geladen."
+    }
+
+    function activateVerifiedSource(sourceUrl) {
+        var candidate=null
+        try {
+            updaterFile.source=fileUrlToLocalPath(sourceUrl)
+            var text=String(updaterFile.read())
+            var match=text.match(/version\s*:\s*"([0-9]+\.[0-9]+\.[0-9]+)"/)
+            if(!match || match[1]!==hotAppVersion) throw Error("Gespeicherte Version stimmt nicht überein.")
+            candidate=Qt.createQmlObject(text,hotAppLoader,sourceUrl)
+            finishHotApp(candidate)
+            releaseLiveApp()
+            hotAppLiveObject=candidate
+            hotAppRequested=true
+            return true
+        } catch(e) {
+            if(candidate) candidate.destroy()
+            restoreAfterAppFailure(String(e))
+            return false
+        }
+    }
+
     function activateHotApp(sourceUrl, versionText) {
         if (!sourceUrl) return false
         sourceUrl = normalizedAppUrl(sourceUrl)
@@ -87,6 +121,8 @@ MuseScore {
         updateStatus = "App wird geladen …"
         pendingComponent = Qt.createComponent(sourceUrl)
         if (pendingComponent.status === Component.Error) {
+            if(pendingComponent.errorString().indexOf("File name case mismatch")>=0)
+                return activateVerifiedSource(sourceUrl)
             restoreAfterAppFailure(pendingComponent.errorString())
             return false
         }
@@ -107,8 +143,8 @@ MuseScore {
     }
 
     function tryBundledApp() {
-        var url = String(Qt.resolvedUrl("AI-Notation-Studio-App-0.10.33.qml"))
-        return activateHotApp(url, "0.10.33")
+        var url = String(Qt.resolvedUrl("AI-Notation-Studio-App-0.11.1.qml"))
+        return activateHotApp(url, "0.11.1")
     }
 
     function readStartupRecord() {
@@ -129,7 +165,7 @@ MuseScore {
     function startApp() {
         startupDetails = ""
         var record = readStartupRecord()
-        if (record && compareVersions(record.version, "0.10.33") >= 0) {
+        if (record && compareVersions(record.version, "0.11.1") >= 0) {
             if (activateHotApp(String(Qt.resolvedUrl(record.file)), record.version)) return
         }
         tryBundledApp()
@@ -159,6 +195,7 @@ MuseScore {
         onClosing: {
             // Do not hide/unload this window during a score transaction.
             // Clearing the loader on normal close also stops running requests.
+            releaseLiveApp()
             hotAppRequested = false
             hotAppActive = false
             hotAppLoader.source = ""
@@ -218,12 +255,8 @@ MuseScore {
             active: hotAppRequested
             visible: hotAppActive
             onLoaded: {
-                try {
-                    if (!item || typeof item.bootstrapRun !== "function") throw Error("App-Einstieg fehlt.")
-                    item.bootstrapRun()
-                    hotAppActive = true
-                    updateStatus = "App geladen."
-                } catch (e) { restoreAfterAppFailure(String(e)) }
+                try { finishHotApp(item) }
+                catch(e) { restoreAfterAppFailure(String(e)) }
             }
             onStatusChanged: {
                 if (status === Loader.Error) {
