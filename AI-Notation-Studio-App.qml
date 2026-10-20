@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.1"
+    version: "0.11.2"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -386,6 +386,8 @@ MuseScore {
 
     function prepareCompositionJob(mode) {
         var bounds = mode === 2 ? { startTick: 0, endTick: 0 } : selectionBounds()
+        if (mode !== 2 && !(bounds.endTick > bounds.startTick))
+            throw Error("Die Auswahl hat keine erkennbare Dauer. Bitte einen Taktbereich markieren.")
         if (mode === 3 && bounds.endTick < scoreEndTick(curScore)) throw Error("Fortsetzen benötigt eine Auswahl am Partiturende.")
         var instruments = mode === 1 ? [instrumentBox.currentText] : mode === 2 ? normalizedInstrumentation() : contextTargetInstruments(mode)
         if (!instruments.length) throw Error("Bitte eine Zielbesetzung angeben.")
@@ -3349,12 +3351,34 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         return String(el.type)
     }
 
+    // MuseScore exposes ticks both as integers and as Fraction wrappers.
+    function numericTick(value) {
+        if (value === undefined || value === null) return -1
+        var n = Number(value.ticks !== undefined ? value.ticks : value)
+        return isFinite(n) && n >= 0 ? n : -1
+    }
+
     function elementTick(el) {
-        if (!el) return -1
-        if (el.tick !== undefined) return el.tick
-        if (el.parent && el.parent.tick !== undefined) return el.parent.tick
-        if (el.segment && el.segment.tick !== undefined) return el.segment.tick
+        // A Note belongs to a Chord, which belongs to its timed Segment.
+        for (var depth = 0; el && depth < 8; depth++, el = el.parent) {
+            var tick = numericTick(el.tick)
+            if (tick >= 0) return tick
+            if (el.segment) {
+                tick = numericTick(el.segment.tick)
+                if (tick >= 0) return tick
+            }
+        }
         return -1
+    }
+
+    function rangeSelectionBounds(selection) {
+        if (!selection || !selection.isRange) return null
+        var start = selection.startSegment ? elementTick(selection.startSegment) : -1
+        // A null exclusive end segment means the selection reaches score end.
+        var end = selection.endSegment ? elementTick(selection.endSegment) : scoreEndTick(curScore)
+        if (start < 0 || end <= start)
+            throw Error("Die Grenzen der Bereichsauswahl konnten nicht gelesen werden. Bitte die Passage erneut markieren.")
+        return { startTick: start, endTick: end, lengthTicks: end - start }
     }
 
     function elementTrack(el) {
@@ -3433,7 +3457,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             var raw = selection.elements
             var count = raw ? raw.length : 0
 
-            if (!raw || count === 0) {
+            if ((!raw || count === 0) && !selection.isRange) {
                 statusText = "MuseScore meldet 0 ausgewählte Elemente."
                 selectionJson = ""
                 return false
@@ -3441,9 +3465,10 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
             var data = {
                 format: "AI-Notation-Studio-Selection",
-                version: "0.10.13",
+                version: "0.11.2",
                 scoreTitle: curScore.title || "",
                 isRange: selection.isRange ? true : false,
+                bounds: rangeSelectionBounds(selection),
                 elementCount: count,
                 elements: []
             }
@@ -3458,7 +3483,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             statusText = "Auswahl gelesen: " + data.elements.length +
                          " konkrete MuseScore-Elemente" +
                          (data.isRange ? " (Bereichsauswahl)." : " (Listenauswahl).")
-            return data.elements.length > 0
+            return data.elements.length > 0 || (data.bounds && data.bounds.lengthTicks > 0)
         } catch (e) {
             statusText = "Fehler beim Lesen der Auswahl: " + e
             selectionJson = ""
@@ -3472,13 +3497,19 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
         try {
             var d = JSON.parse(selectionJson)
+            if (d.isRange) {
+                if (!d.bounds || !(d.bounds.endTick > d.bounds.startTick))
+                    throw Error("Bereichsgrenzen fehlen. Bitte die Auswahl neu lesen.")
+                return { startTick: d.bounds.startTick, endTick: d.bounds.endTick,
+                    lengthTicks: d.bounds.endTick - d.bounds.startTick }
+            }
             var els = d.elements || []
             var minTick = -1
             var maxEnd = -1
 
             for (var i = 0; i < els.length; i++) {
                 var e = els[i]
-                var t = Number(e.tick)
+                var t = numericTick(e.tick)
                 if (isNaN(t) || t < 0) continue
                 var dur = Number(e.durationTicks || 0)
                 var end = t + Math.max(0, dur)
@@ -3490,7 +3521,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             if (minTick >= 0) info.startTick = minTick
             if (maxEnd >= 0) info.endTick = maxEnd
             info.lengthTicks = Math.max(0, info.endTick - info.startTick)
-        } catch (e) {}
+        } catch (e) { throw Error("Auswahlgrenzen ungültig: " + e) }
 
         return info
     }
@@ -4585,7 +4616,9 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
     function scoreEndTick(score) {
         if (!score || !score.lastMeasure) return 0
-        return score.lastMeasure.tick.ticks + score.lastMeasure.ticks.ticks
+        var start = numericTick(score.lastMeasure.tick)
+        var length = numericTick(score.lastMeasure.ticks)
+        return start >= 0 && length > 0 ? start + length : 0
     }
 
     function measureTicks(score) {
@@ -4597,7 +4630,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
     function selectionMeasureCount() {
         var b = selectionBounds()
         var mt = measureTicks(curScore)
-        if (b.lengthTicks <= 0) return 1
+        if (b.lengthTicks <= 0) throw Error("Die Auswahl hat keine erkennbare Dauer. Bitte einen Taktbereich markieren.")
         return Math.max(1, Math.ceil(b.lengthTicks / mt))
     }
 
