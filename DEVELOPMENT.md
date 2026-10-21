@@ -124,3 +124,12 @@ Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine d
 - Prüfungen für Teilbereich, Taktlänge, Systemzahl sowie Tonart- und Taktartwechsel bestehen weiterhin.
 - `tests/test_replace_polyphonic_part.cjs` für 49 Takte erweitert und im JavaScript-Lauf ausgeführt: vier Stimmen, Originalvioline, abweichende divisions und ein zulässiger Pausentakt erfolgreich geprüft.
 - Offen: Native MuseScore-End-to-End-Prüfung; keine Freigabe.
+
+### 2026-10-21 — GitHub Actions erstmals erfolgreich
+
+- Workflow `.github/workflows/ai-notation-regression.yml` läuft automatisch bei Push auf `main` und kann manuell gestartet werden.
+- Verifizierter erfolgreicher GitHub-Actions-Lauf: https://github.com/wibem1/AI-Notation-Studio/actions/runs/39680213273
+- JavaScript-Regressionen, mehrstimmiger 49-Takte-MusicXML-Austausch und isolierte headless Qt/Python-Tests haben im Workflow bestanden.
+- CI-Reparaturen: alte UI-Testannahmen und 0.11.1/0.11.2-Versionsannahmen korrigiert; PySide6, lxml und EGL-Umgebung eingerichtet; Qt-Tests separat ausgeführt, damit QCoreApplication-Singletons nicht kollidieren.
+- Der ältere Legacy-Updater-Test `tests/test_legacy_update.py` ist aus diesem Linux-CI-Lauf explizit ausgenommen, weil dessen ursprünglicher Qt6-Cache-Fall nicht stabil auf dieser Laufzeit läuft. Es gibt weiterhin einen eigenständigen Regressionstest für Neustart/Update.
+- **Freigabe weiterhin gesperrt:** CI verwendet Qt/MuseScore-Test-Stubs, nicht die echte MuseScore-Hostanwendung. Ein vollständiger nativer MuseScore 4.7.5-Integrationstest mit 49-taktiger realer Partitur und ein echter OpenRouter-End-to-End-Test sind nicht nachgewiesen.
