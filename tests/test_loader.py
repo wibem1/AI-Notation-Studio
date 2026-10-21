@@ -36,7 +36,7 @@ for child in r.findChildren(QObject):
 QMetaObject.invokeMethod(r,'run');v.show()
 for i in range(10):app.processEvents()
 assert r.property('width')==v.width() and r.property('height')==v.height(),(r.property('width'),r.property('height'),v.width(),v.height())
-assert r.property('hotAppActive'),r.property('updateStatus')
+assert r.property('hotAppActive'),str(r.property('updateStatus'))+' DETAILS='+str(r.property('startupDetails'))
 assert r.property('title')=='AI Notation Studio'
 assert any(x.property('version')=='0.11.1' for x in r.findChildren(QObject))
 assert not any(x.property('version')=='0.10.3' for x in r.findChildren(QObject))
