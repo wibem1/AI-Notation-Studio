@@ -421,23 +421,23 @@ MuseScore {
         if (mode !== 2 && !(bounds.endTick > bounds.startTick))
             throw Error("Die Auswahl hat keine erkennbare Dauer. Bitte einen Taktbereich markieren.")
         if (mode === 3 && bounds.endTick < scoreEndTick(curScore)) throw Error("Fortsetzen benötigt eine Auswahl am Partiturende.")
-        var instruments = (mode === 1 || mode === 7) ? [instrumentBox.currentText] : mode === 2 ? normalizedInstrumentation() : contextTargetInstruments(mode)
+        var instruments = (mode === 1 || mode === 7 || mode === 8) ? [instrumentBox.currentText] : mode === 2 ? normalizedInstrumentation() : contextTargetInstruments(mode)
         if (!instruments.length) throw Error("Bitte eine Zielbesetzung angeben.")
         var replacePartIndex = -1, replaceStaffNumber = 1
-        if(mode === 7) {
+        if(mode === 7 || mode === 8) {
             var selected = curScore.selection ? curScore.selection.elements || [] : []
             var staffs = []
             for(var si=0; si<selected.length; si++) {
                 var tr = elementTrack(selected[si])
                 if(tr>=0 && staffs.indexOf(Math.floor(tr/4))<0) staffs.push(Math.floor(tr/4))
             }
-            if(staffs.length!==1) throw Error("Stimme ersetzen: Bitte exakt ein Notensystem eines einstimmigen Instruments markieren.")
+            if(staffs.length!==1) throw Error("Bitte genau ein Notensystem des Zielinstruments markieren.");
             var targetStaff=staffs[0], ps=curScore.parts||[]
             for(var pi=0;pi<ps.length;pi++)
                 if(targetStaff>=ps[pi].startTrack/4 && targetStaff<ps[pi].endTrack/4) {
                     if(replacePartIndex>=0)throw Error("Zielinstrument nicht eindeutig.")
                     replacePartIndex=pi
-                    if((ps[pi].endTrack-ps[pi].startTrack)!==4) {
+                    if(mode===7 && (ps[pi].endTrack-ps[pi].startTrack)!==4) {
                         if((ps[pi].endTrack-ps[pi].startTrack)!==8) throw Error("Dieses Instrument hat eine nicht unterstützte Systemanzahl.")
                         replaceStaffNumber=targetStaff-ps[pi].startTrack/4+1
                         if(replaceStaffNumber!==1 && replaceStaffNumber!==2)throw Error("Klaviersystem nicht eindeutig.")
@@ -456,7 +456,7 @@ MuseScore {
         if (strategy !== 0 && (!second.model || !providerKey(second.provider))) throw Error("Modell oder gespeicherter API-Key für Stufe 2 (" + second.provider + ") fehlt. Im Bereich Technisches den Anbieter wählen und seinen Key speichern.")
         var job = { id: String(new Date().getTime()), created: new Date().toISOString(), mode: mode, modeName: modeBox.currentText,
             strategy: strategy, first: first, second: second, instruments: instruments, instruction: instructionBox.text.trim(),
-            measures: (mode === 1 || mode === 7) ? selectionMeasureCount() : mode === 2 ? freeMeasures : contextMeasures(mode),
+            measures: (mode === 1 || mode === 7 || mode === 8) ? selectionMeasureCount() : mode === 2 ? freeMeasures : contextMeasures(mode),
             selection: selectionJson, preferences: settings.generalMemoryText, sourcePath: "", replacePartIndex: replacePartIndex, replaceStaffNumber: replaceStaffNumber, startQuarter: mode === 3 ? bounds.endTick / 480 : bounds.startTick / 480, endQuarter: bounds.endTick / 480,
             prefixQuarter: 0, startMeasure: 1, sourceTime: "", idea: "", draft: "" }
         if (mode !== 2) {
@@ -484,13 +484,14 @@ MuseScore {
             var context = compact.context.inspect(source, job.startQuarter)
             job.sourcePath = path; job.prefixQuarter = context.prefixQuarter; job.startMeasure = context.startMeasure; job.sourceTime = context.timeSignature
             job.sourceMeters = context.meters.slice(context.startMeasure - 1, context.startMeasure - 1 + job.measures)
-            if (mode === 1 || mode === 5 || mode === 6 || mode === 7) {
+            if (mode === 1 || mode === 5 || mode === 6 || mode === 7 || mode === 8) {
                 var ending = compact.context.inspect(source, bounds.endTick / 480)
                 job.measures = Math.max(1, ending.startMeasure - context.startMeasure + (ending.prefixQuarter > 0 ? 1 : 0))
                 job.sourceMeters = context.meters.slice(context.startMeasure - 1, context.startMeasure - 1 + job.measures)
             }
             job.sourceTitle = String(curScore.title || "")
         }
+        if(mode===8) { job.workflowKind="replaceInstrumentPart"; job.instruments=[String(instruments[0])]; }
         if(mode===7) { job.workflowKind=replaceStaffNumber===1 && (curScore.parts[replacePartIndex].endTrack-curScore.parts[replacePartIndex].startTrack)===4 ? "replaceVoice" : "replacePianoStaff"; job.instruments=[String(instruments[0])]; }
         workflowCore.check("request",{mode:mode===3 ? "continue" : mode===1 ? "instruments" : "compose",task:job.instruction,transition_bars:mode===3 ? workflowTransitionBars : 0})
         job.workflowState="draft"
@@ -522,7 +523,8 @@ MuseScore {
             "Entwickle aus dem Motiv der Referenzpassage ein vollständiges Stück; das Motiv soll erkennbar bleiben.",
             "Erzeuge genau eine eigenständige Variante der Referenzpassage und bewahre ihre Identität und Funktion.",
             "Bearbeite die Referenzpassage idiomatisch für die Zielbesetzung und bewahre ihre musikalische Identität.",
-            "Ersetze ausschließlich die ausdrücklich ausgewählte einstimmige Instrumentalstimme durch eine neue, vollständig notierte Stimme. Alle anderen Instrumente und Takte bleiben unverändert."][job.mode]
+            "Ersetze ausschließlich die ausdrücklich ausgewählte einstimmige Instrumentalstimme durch eine neue, vollständig notierte Stimme. Alle anderen Instrumente und Takte bleiben unverändert.",
+            "Komponiere den ausgewählten Instrumentpart vollständig neu. Bei Klavier: beide Hände, alle unabhängigen Stimmen, Akkorde und vollständige Spielanweisungen. Die übrigen Instrumente bleiben unverändert."][job.mode]
         if(job.transitionBars) action += " Zuerst "+job.transitionBars+" freigegebene Schlusstakte ersetzen, danach "+job.newMeasures+" neue Takte. Frühere Takte erhalten."
         if(job.analysis) action="Überarbeite die markierten Takte derselben Besetzung gemäß Analyse. Keine zusätzlichen Stimmen."
         var task = action + "\nAUFTRAG:\n" + job.instruction + "\nZIELBESETZUNG (Reihenfolge verbindlich): " + job.instruments.join(", ") +
@@ -531,6 +533,7 @@ MuseScore {
         if (job.mode !== 2) task += "\nREFERENZAUSWAHL:\n" + job.selection +
             "\nTaktart am Beginn: " + job.sourceTime + ". Taktarten und tatsächliche Taktlängen der Ausgangspartitur: " + JSON.stringify(job.sourceMeters) + ". Die Taktlängen müssen damit übereinstimmen. Die Ergebnis-Takte werden ab 1 gezählt und ab Ausgangstakt " + job.startMeasure + " eingefügt."
         if (job.prefixQuarter > 0) task += "\nDie Auswahl beginnt " + job.prefixQuarter + " Viertel nach Taktanfang. In jeder Ergebnisstimme den ersten Takt mit genau dieser Dauer als Pausen beginnen; danach die Musik der Auswahl bearbeiten."
+        if (job.mode === 8) task += "\nErsetze nur den ausgewählten Instrumentpart über alle "+job.measures+" Takte, mit vollständiger mehrstimmiger Notation. Keine weiteren Instrumente erzeugen.";
         if (job.mode === 7) task += "\nNur die Zielstimme neu komponieren, genau "+job.measures+" vollständige Takte; keine anderen Stimmen ausgeben. Bei Klavier genau ein System wählen, andere Stimmen unverändert.";
         if (job.mode === 1) task += "\nDie neue Stimme muss genau den Zeitraum der Auswahl abdecken; danach im letzten Takt gegebenenfalls Pausen. Keine vorhandenen Stimmen kopieren."
         return workflowCore.prompt(job.mode===3 ? "continue" : job.analysis ? "revise" : "compose")+"\n"+task+(job.analysis ? "\nFREIGEGEBENE ANALYSE:\n"+job.analysis : "")
@@ -5780,7 +5783,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 ComboBox {
                     id: modeBox
                     Layout.fillWidth: true
-                    model: ["Auswahl analysieren", "Neue Stimme zu Auswahl", "Freie Komposition ohne Vorlage", "Fortsetzen", "Aus Motiv entwickeln", "Variante erzeugen", "Für andere Besetzung bearbeiten", "Stimme ersetzen (auch Klavier)"]
+                    model: ["Auswahl analysieren", "Neue Stimme zu Auswahl", "Freie Komposition ohne Vorlage", "Fortsetzen", "Aus Motiv entwickeln", "Variante erzeugen", "Für andere Besetzung bearbeiten", "Stimme ersetzen (auch Klavier)", "Instrumentpart ersetzen (mehrstimmig)"]
                     currentIndex: 0
                     font.pixelSize: uiSize
                     onCurrentIndexChanged: saveGeneralDefaults()
