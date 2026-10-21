@@ -370,7 +370,7 @@ MuseScore {
                 throw Error("Zeitversatz erkannt: Die Ausgangspartitur beginnt mit einem Pausentakt, die Begleitung dagegen mit Noten. Nichts wurde eingefügt.")
         }
         return compact.context.combine(job.sourceXml || readWorkflowSource(job),xml,
-            {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter})
+            {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter,targetInstrument:job.instruments[0]})
     }
     function readWorkflowSource(job) {
         compactFile.source=job.sourcePath
@@ -451,8 +451,11 @@ MuseScore {
                 var duplicate = names.some(function(name) {
                     return name === target || (isPiano && /klavier|piano/.test(name))
                 })
-                if (duplicate)
-                    throw Error("Sicherheitsabbruch: ‚Neue Stimme zu Auswahl‘ erzeugt derzeit ein weiteres Instrument statt einer Stimme im vorhandenen " + instruments[0] + ". Die vorhandene Partitur bleibt unverändert. Diese Einfügeart muss vor Freigabe technisch korrigiert werden.")
+                if (duplicate) {
+                    if(!isPiano || names.filter(function(name){return /klavier|piano/.test(name)}).length !== 1)
+                        throw Error("Vorhandenes Zielinstrument kann nicht eindeutig für eine zusätzliche Stimme bestimmt werden.")
+                    job.workflowKind = "overlay"
+                }
             }
             var context = compact.context.inspect(source, job.startQuarter)
             job.sourcePath = path; job.prefixQuarter = context.prefixQuarter; job.startMeasure = context.startMeasure; job.sourceTime = context.timeSignature
