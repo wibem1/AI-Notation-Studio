@@ -30,8 +30,8 @@ const generated49 = '<score-partwise><part-list><score-part id="X"><part-name>Kl
 const merged49 = context.combine(score49,generated49,{kind:'overlay',startQuarter:0,endQuarter:196,targetInstrument:'Klavier'}).xml;
 assert.equal((merged49.match(/<part id=/g)||[]).length,2, 'must not create a third instrument');
 assert(merged49.includes('<part id="P1">'+violin49+'</part>'), 'original violin must be unchanged');
-assert.equal((merged49.match(/<voice>3<\\/voice>/g)||[]).length,49,'RH overlay should span all 49 measures');
-assert.equal((merged49.match(/<voice>4<\\/voice>/g)||[]).length,49,'LH overlay should span all 49 measures');
+assert.equal((merged49.match(/<voice>3<\/voice>/g)||[]).length,49,'RH overlay should span all 49 measures');
+assert.equal((merged49.match(/<voice>4<\/voice>/g)||[]).length,49,'LH overlay should span all 49 measures');
 assert(merged49.includes('<measure number="49">'), 'last measure must be present');
 assert.throws(()=>context.combine(score49,generated49,{kind:'overlay',startQuarter:4,endQuarter:196,targetInstrument:'Klavier'}), 'mismatched selection should fail');
 console.log('49-bar regression PASS');
