@@ -137,8 +137,90 @@ function replaceRange(baseXML,addedXML,options){
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(base),warnings:['Überarbeitung als neue Partitur; Original bleibt erhalten. Layout kann sich durch MusicXML ändern.']};
 }
 
+
+// Insert a new independent voice into an existing two-staff piano part.
+// Deliberately reject unsupported layouts rather than misaligning the source.
+function overlayVoice(baseXML,addedXML,options){
+ var base=parse(baseXML),added=parse(addedXML),baseParts=children(base,'part'),newParts=children(added,'part');
+ if(newParts.length!==1)throw Error('Eine zusätzliche Stimme benötigt genau einen erzeugten Instrumentpart.');
+ var list=first(base,'part-list'),defs=children(list,'score-part'),target=String(options.targetInstrument||'').toLowerCase();
+ var matches=[];
+ defs.forEach(function(d,i){var name=text(d,'part-name','').toLowerCase();if(name===target||(/piano|klavier/.test(target)&&/piano|klavier/.test(name)))matches.push(i);});
+ if(matches.length!==1)throw Error('Das Zielinstrument ist nicht eindeutig zugeordnet. Kein Einfügen.');
+ var p=baseParts[matches[0]],old=timeline(p),fresh=timeline(newParts[0]),start=Number(options.startQuarter),end=Number(options.endQuarter);
+ var info=inspect(baseXML,start),finish=inspect(baseXML,end),from=info.startMeasure-1;
+ if(info.prefixQuarter>1e-7||finish.prefixQuarter>1e-7||end<=start)throw Error('Zusätzliche Stimmen erfordern vollständige Takte.');
+ if(fresh.rows.length!==finish.startMeasure-info.startMeasure)throw Error('Die Länge der zusätzlichen Stimme stimmt nicht.');
+ if(!old.rows[from]||old.rows[from].staves!==2||fresh.rows[0].staves!==2)throw Error('Für das sichere Einfügen werden zwei Klaviersysteme benötigt.');
+ function own(n,tag){return first(n,tag);}
+ function element(tag,val){return {name:tag,open:'<'+tag+'>',close:'</'+tag+'>',children:[String(val)]};}
+ for(var k=0;k<fresh.rows.length;k++){
+  var src=children(newParts[0],'measure')[k],dst=children(p,'measure')[from+k],a=old.rows[from+k],b=fresh.rows[k];
+  if(!dst||Math.abs(a.length-b.length)>1e-7||a.division!==b.division||a.staves!==2||b.staves!==2)
+   throw Error('Takt '+(from+k+1)+' hat eine abweichende Notendauer, divisions oder Systemzahl.');
+  var originalVoices={};
+  children(dst,'note').forEach(function(n){var staff=text(n,'staff','1');var voice=text(n,'voice','1');originalVoices[staff+':'+voice]=true;});
+  // Additional voices must not collide with voices already present on either staff.
+  var streams={},cursor=0,div=a.division;
+  src.children.forEach(function(n){
+   if(typeof n==='string'||n.name==='attributes')return;
+   if(n.name==='backup'){cursor-=Number(text(n,'duration',0));return;}
+   if(n.name==='forward'){cursor+=Number(text(n,'duration',0));return;}
+   if(n.name==='note'){
+    var staff=text(n,'staff','1'),dur=Number(text(n,'duration',0));
+    if(staff!=='1'&&staff!=='2')throw Error('Unerwartetes Klaviersystem.');
+    if(!streams[staff])streams[staff]=[];
+    var cp=clone(n),v=own(cp,'voice'),st=own(cp,'staff');
+    if(!v){v=element('voice',staff==='1'?'3':'4');cp.children.push(v);}else v.children=[staff==='1'?'3':'4'];
+    if(!st)cp.children.push(element('staff',staff));
+    streams[staff].push(cp);
+    if(!own(n,'chord')&&!own(n,'grace'))cursor+=dur;
+   }else if(n.name==='direction'||n.name==='harmony'){
+    // Exclude directions from the overlay: source expression stays intact and
+    // generated voice dynamics need a dedicated positioning implementation.
+   }else throw Error('Zusätzliche Stimme enthält derzeit nicht unterstützte XML-Elemente: '+n.name);
+  });
+  if(originalVoices['1:3']||originalVoices['2:4'])throw Error('Zielstimme ist bereits belegt; kein Überschreiben.');
+  if(!streams['1']||!streams['2'])throw Error('Eine Klavierhand fehlt.');
+  // Source must finish at the measure end; otherwise an unconditional backup is unsafe.
+  var pos=0;
+  dst.children.forEach(function(n){
+   if(typeof n==='string')return;
+   if(n.name==='note'&&!own(n,'chord')&&!own(n,'grace'))pos+=Number(text(n,'duration',0));
+   if(n.name==='backup')pos-=Number(text(n,'duration',0));
+   if(n.name==='forward')pos+=Number(text(n,'duration',0));
+  });
+  var full=a.length*div;
+  if(Math.abs(pos-full)>1e-7)throw Error('Zielpartitur hat einen nicht unterstützten mehrstimmigen Taktabschluss.');
+  // Require complete coverage by each added staff stream; no implicit shifts.
+  ['1','2'].forEach(function(staff){
+   var duration=0;
+   streams[staff].forEach(function(n){if(!own(n,'chord')&&!own(n,'grace'))duration+=Number(text(n,'duration',0));});
+   if(Math.abs(duration-full)>1e-7)throw Error('Zusatzstimme in System '+staff+' füllt Takt '+(from+k+1)+' nicht vollständig.');
+  });
+ }
+ // All validation above runs before modification of the output copy.
+ for(var j=0;j<fresh.rows.length;j++){
+  var sourceMeasure=children(newParts[0],'measure')[j],targetMeasure=children(p,'measure')[from+j],divisions=old.rows[from+j].division;
+  var byStaff={'1':[],'2':[]};
+  sourceMeasure.children.forEach(function(n){
+   if(typeof n==='string'||n.name!=='note')return;
+   var st=text(n,'staff','1'),cp=clone(n),voice=own(cp,'voice');
+   if(voice)voice.children=[st==='1'?'3':'4'];else cp.children.push(element('voice',st==='1'?'3':'4'));
+   if(!own(cp,'staff'))cp.children.push(element('staff',st));
+   byStaff[st].push(cp);
+  });
+  ['1','2'].forEach(function(st){
+   targetMeasure.children.push({name:'backup',open:'<backup>',close:'</backup>',children:[element('duration',Math.round(old.rows[from+j].length*divisions))]});
+   byStaff[st].forEach(function(n){targetMeasure.children.push(n);});
+  });
+ }
+ return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(base),warnings:['Zusätzliche Klavierstimmen in den vorhandenen Klavierpart übernommen; Originalpartitur unverändert.']};
+}
+
 function combine(baseXML,addedXML,options){
  if(options.kind==="replace"||options.kind==="replaceTail")return replaceRange(baseXML,addedXML,options);
+ if(options.kind==="overlay")return overlayVoice(baseXML,addedXML,options);
  var base=parse(baseXML),added=parse(addedXML),baseParts=children(base,'part'),newParts=children(added,'part'),baseList=first(base,'part-list'),newList=first(added,'part-list');
  if(!baseList||!newList||!baseParts.length||!newParts.length)throw Error('MusicXML-Partstruktur fehlt.');
  var start=Number(options.startQuarter||0),info=inspect(baseXML,start),index=info.startMeasure-1,baseTime=timeline(baseParts[0]),addTime=timeline(newParts[0]),rows=baseTime.rows.slice(0),warnings=[];
