@@ -331,6 +331,7 @@ function replaceInstrumentPart(baseXML,addedXML,options){
  var part=parts[index],original=timeline(part),replacement=timeline(newParts[0]);
  if(replacement.rows.length!==count)throw Error('Die erzeugte Musik deckt nicht alle ausgewählten Takte ab.');
  var oldMeasures=children(part,'measure'),newMeasures=children(newParts[0],'measure');
+ var soundingBars=0;
  if(!oldMeasures[from]||!oldMeasures[from+count-1])throw Error('Zielbereich liegt außerhalb der Partitur.');
  for(var i=0;i<count;i++){
   var old=original.rows[from+i],fresh=replacement.rows[i];
@@ -341,12 +342,12 @@ function replaceInstrumentPart(baseXML,addedXML,options){
   if(old.division!==fresh.division)
    throw Error('Takt '+(from+i+1)+': unterschiedliche MusicXML-divisions; die Notenwerte würden verfälscht.');
   var incomingNotes=children(newMeasures[i],'note');
-  if(!incomingNotes.some(function(n){return !!first(n,'pitch')}))
-   throw Error('Takt '+(from+i+1)+': neue Instrumentalbegleitung enthält keine klingenden Noten.');
+  if(incomingNotes.some(function(n){return !!first(n,'pitch')}))soundingBars++;
   // Source meter/key changes inside the range must not be silently overwritten.
   if(i>0 && (old.time!==fresh.time||old.key!==fresh.key))
    throw Error('Takt '+(from+i+1)+': Tonart oder Taktart ist nicht deckungsgleich.');
  }
+ if(count>1 && soundingBars<=1)throw Error('Die neue Begleitung enthält in '+count+' Takten nur '+soundingBars+' klingende Takte.');
  // Reject spanners crossing the replacement boundary; do not silently orphan ties.
  checkBoundaries(baseXML,start,end);
  // Retain the original clefs, keys, staff layout and global meter at the start.
