@@ -51,7 +51,9 @@ function saveScoreMemory(){saved++;}function logEvent(){};
 function callAI(prompt,callback,stage,format,options){requests.push({prompt:prompt,stage:stage,format:format,options:options});queue.push(callback);}
 function acceptCompactText(text){var d=compact.score.decode(text),r=compact.xml.convert(d);compositionJson=JSON.stringify(d);compactSourceText=text;compactWarnings=r.warnings;}
 '''+function('compositionAccounting')+qml[a:b])
-for mode in range(1,7):
+for mode in range(2,7):
+ # Mode 1 now has distinct add-voice semantics and is covered by
+ # test_piano_voice_overlay.cjs / test_embedded_polyphonic.cjs.
  for strategy in range(3):
   run(f'settings.compositionStrategy={strategy};requests=[];queue=[];compositionJson="";modeBox.currentIndex={mode};compositionJob=prepareCompositionJob({mode});runCompositionJob(compositionJob);')
   assert run('requests.length')=='1'
