@@ -84,3 +84,11 @@ Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine d
 - Ersetzung wird bei mehrsystemigen Instrumenten (insbesondere Klavier), mehrstimmigen Zieltakten, ungenauen Grenzen und inkompatiblen Notendauern abgebrochen, damit keine ungewollte Ersetzung erfolgt.
 - Synthetischer JavaScript-Funktionstest einschließlich Negativfällen erfolgreich; Regressionstest: `tests/test_replace_voice.cjs`.
 - **Offen:** Auswahl der konkreten Stimme im MuseScore-UI, vollwertige Klavierstimmen-Ersetzung unter Wahrung anderer Stimmen, Ausdruckszeichen-Behandlung und nativer MuseScore-Test. `replaceVoice` ist bislang eine Engine-Funktion und keine freigegebene Benutzeroption. Keine Veröffentlichung.
+
+### 2026-10-21 — UI-Anbindung von „Stimme ersetzen“
+
+- Neuer Modus 7 in der Kompositionsmodus-Auswahl: `Stimme ersetzen (einstimmig)`.
+- Die Auswahl muss genau ein Notensystem enthalten; der Zielpart wird aus den MuseScore-Tracks ermittelt und an die `replaceVoice`-Engine übergeben.
+- Mehrsystemige Parts (Klavier) werden bis zur separaten Stimmen-/System-Zuordnung bewusst abgelehnt.
+- Statischer UI-Regressionstest `tests/test_replace_voice_ui.cjs` ergänzt; noch kein MuseScore-Integrationstest ausgeführt.
+- Nicht freigegeben: Test in nativer MuseScore-Umgebung, Ausdruckszeichen/komplexe Stimmen, echte Klavierbegleitungs-Ersetzung.
