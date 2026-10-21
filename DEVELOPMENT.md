@@ -76,3 +76,11 @@ Die Bedienoptionen sind strikt zu trennen:
 Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine destruktive Ersetzung ohne explizit ausgewählten Bearbeitungsmodus auslösen. Für Ersetzen einen eigenen UI-Modus, gezielte Spur-/Stimmenauswahl und getrennte Integrationstests einführen. Der zuletzt eingeführte Overlay-Code gehört ausschließlich zu **Stimme hinzufügen** und ist keine Implementierung von **Stimme ersetzen**.
 
 **Freigabesperre:** Kein Release, bevor diese Semantik und die Integrität unbeteiligter Stimmen in MuseScore geprüft wurden.
+
+### 2026-10-21 — Implementierungsstufe „Stimme ersetzen“
+
+- Neuer separat ansprechbarer MusicXML-Kontextmodus `replaceVoice` für die gezielte Ersetzung genau einer Stimme in einem explizit gewählten einstimmigen Instrumentpart, innerhalb vollständiger Takte.
+- Die Originalpartitur wird nicht überschrieben; nicht ausgewählte Parts und Takte bleiben in der erzeugten Kopie unangetastet.
+- Ersetzung wird bei mehrsystemigen Instrumenten (insbesondere Klavier), mehrstimmigen Zieltakten, ungenauen Grenzen und inkompatiblen Notendauern abgebrochen, damit keine ungewollte Ersetzung erfolgt.
+- Synthetischer JavaScript-Funktionstest einschließlich Negativfällen erfolgreich; Regressionstest: `tests/test_replace_voice.cjs`.
+- **Offen:** Auswahl der konkreten Stimme im MuseScore-UI, vollwertige Klavierstimmen-Ersetzung unter Wahrung anderer Stimmen, Ausdruckszeichen-Behandlung und nativer MuseScore-Test. `replaceVoice` ist bislang eine Engine-Funktion und keine freigegebene Benutzeroption. Keine Veröffentlichung.
