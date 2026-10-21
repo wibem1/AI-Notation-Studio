@@ -440,6 +440,20 @@ MuseScore {
             if (!writeScore(curScore, path, "musicxml")) throw Error("Ausgangspartitur konnte nicht für den Kontext gesichert werden.")
             compactFile.source = path
             var source = String(compactFile.read())
+            if (mode === 1) {
+                // This workflow appends an instrument, NOT a voice on an existing staff.
+                // Refuse duplicate target instruments until a real in-part voice merge is implemented.
+                var target = String(instruments[0] || "").toLowerCase()
+                var names = [], nameMatch, namePattern = /<part-name(?:\\s[^>]*)?>([^<]*)<\\/part-name>/gi
+                while ((nameMatch = namePattern.exec(source)) !== null)
+                    names.push(nameMatch[1].replace(/&amp;/g, "&").toLowerCase())
+                var isPiano = /klavier|piano/.test(target)
+                var duplicate = names.some(function(name) {
+                    return name === target || (isPiano && /klavier|piano/.test(name))
+                })
+                if (duplicate)
+                    throw Error("Sicherheitsabbruch: ‚Neue Stimme zu Auswahl‘ erzeugt derzeit ein weiteres Instrument statt einer Stimme im vorhandenen " + instruments[0] + ". Die vorhandene Partitur bleibt unverändert. Diese Einfügeart muss vor Freigabe technisch korrigiert werden.")
+            }
             var context = compact.context.inspect(source, job.startQuarter)
             job.sourcePath = path; job.prefixQuarter = context.prefixQuarter; job.startMeasure = context.startMeasure; job.sourceTime = context.timeSignature
             job.sourceMeters = context.meters.slice(context.startMeasure - 1, context.startMeasure - 1 + job.measures)
