@@ -21,6 +21,5 @@ assert.throws(()=>ctx.combine(base,incompatibleDivisions,{kind:'replaceInstrumen
  'Different MusicXML divisions must be rejected');
 const silentBar=measure(49,['G','A','B','C']).replaceAll('<pitch><step>G</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>A</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>B</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>C</step><octave>4</octave></pitch>','<rest/>');
 const silentOutput=added.replace(measure(49,['G','A','B','C']),silentBar);
-assert.throws(()=>ctx.combine(base,silentOutput,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}),
- 'Empty accompaniment bar must be rejected');
-console.log('Division mismatch and empty-bar guards PASS');
+assert(ctx.combine(base,silentOutput,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}).xml.includes('<measure number="49">'), 'Single rest bar must be allowed');
+console.log('Division mismatch and intentional rest bar PASS');
