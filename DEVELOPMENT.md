@@ -100,3 +100,10 @@ Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine d
 - Vorsätzliche Schutzgrenzen: Nur zweisystemige Klavierparts mit jeweils einer Stimme pro System und gleicher MusicXML-Division; Takte mit weiteren Stimmen, Ausdruckszeichen, Harmonieobjekten oder komplexen Strukturen werden zurückgewiesen. Ersetzung einzelner Stimmen innerhalb eines mehrfach belegten Systems bleibt offen.
 - JavaScript-Probe für Austausch von rechter und linker Hand und Negativfälle bestanden. `tests/test_replace_piano_staff.cjs` im Repository.
 - Echte MuseScore-Ausführung und musikalische Integration mit KI sind weiterhin ungetestet: keine neue Version freigeben.
+
+### 2026-10-21 — Weitere Sicherheitstests zur Klavier-Ersetzung
+
+- `replacePianoStaff` lehnt nun Haltebögen, Vorschlagsnoten, Tuplets und andere nicht zuverlässig erhaltbare XML-Angaben explizit ab; insbesondere werden Metadaten der neu erzeugten Stimme nicht stillschweigend entfernt.
+- Testreihe auf 49 Takte erweitert: Austausch im oberen System, Erhaltung aller 49 unteren Takte, keine Übernahme der nicht angeforderten unteren neuen Stimme.
+- JavaScript-Regressionstest `tests/test_replace_piano_staff.cjs` erfolgreich ausgeführt, einschließlich negativem Haltebogenfall.
+- Noch KEIN nativer MuseScore-Test und KEIN vollständiger KI-Praxistest. Die Klavier-Funktion bleibt ausdrücklich auf einfache einlagige Systeme begrenzt und ist nicht zur Release-Freigabe geeignet.
