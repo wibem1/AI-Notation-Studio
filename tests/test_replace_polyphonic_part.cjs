@@ -15,3 +15,12 @@ assert.equal((result.match(/<step>B<\/step>/g)||[]).length,49,'Missing generated
 assert.throws(()=>ctx.combine(base,added,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:1,endQuarter:196}));
 assert.throws(()=>ctx.combine(base,added,{kind:'replaceInstrumentPart',partIndex:2,startQuarter:0,endQuarter:196}));
 console.log('49-bar polyphonic piano replacement PASS');
+
+const incompatibleDivisions=added.replace('<divisions>1</divisions>','<divisions>2</divisions>');
+assert.throws(()=>ctx.combine(base,incompatibleDivisions,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}),
+ 'Different MusicXML divisions must be rejected');
+const silentBar=measure(49,['G','A','B','C']).replaceAll('<pitch><step>G</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>A</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>B</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>C</step><octave>4</octave></pitch>','<rest/>');
+const silentOutput=added.replace(measure(49,['G','A','B','C']),silentBar);
+assert.throws(()=>ctx.combine(base,silentOutput,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}),
+ 'Empty accompaniment bar must be rejected');
+console.log('Division mismatch and empty-bar guards PASS');
