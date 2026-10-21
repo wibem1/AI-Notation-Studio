@@ -281,6 +281,14 @@ function replacePianoStaff(baseXML,addedXML,options){
    throw Error('Klavier-Systeme oder Taktdauern stimmen nicht überein.');
   if(children(dst,'forward').length||children(add,'forward').length)
    throw Error('Komplexe Stimmführung ist nicht unterstützt.');
+  // A score may contain note-attached ornaments, ties, cross-staff beams or
+  // directions. Reconstructing it without these would silently corrupt music.
+  [dst,add].forEach(function(measure){
+   children(measure,'note').forEach(function(n){
+    if(first(n,'notations')||first(n,'tie')||first(n,'grace')||first(n,'time-modification'))
+     throw Error('Sondernotation/Haltebogen in diesem Takt: sicherer Ersatz noch nicht möglich.');
+   });
+  });
   var left=stream(dst,1),right=stream(dst,2),incomingStaff=stream(add,staff);
   if(!left.length||!right.length||!incomingStaff.length)throw Error('Klavierstimme fehlt.');
   var list=[staff===1?incomingStaff:left,staff===2?incomingStaff:right];
@@ -294,6 +302,10 @@ function replacePianoStaff(baseXML,addedXML,options){
    if(Object.keys(voices).length!==1||Math.abs(duration-od.length*od.division)>1e-7)
     throw Error('Mehrstimmige oder unvollständige Klaviertakte werden nicht ersetzt.');
   });
+  // Do not discard source markers silently: only notes, backups and the
+  // original attributes are supported by this conservative rewrite.
+  if(add.children.some(function(n){return typeof n!=='string'&&['note','backup','attributes'].indexOf(n.name)<0}))
+   throw Error('Nicht unterstützte Angaben in der neuen Klavierstimme.');
   var preserved=dst.children.filter(function(n){return typeof n==='string'||n.name==='attributes'});
   if(dst.children.some(function(n){return typeof n!=='string'&&['note','backup','attributes'].indexOf(n.name)<0}))
    throw Error('Unbekannte Taktelemente: kein Eingriff.');
