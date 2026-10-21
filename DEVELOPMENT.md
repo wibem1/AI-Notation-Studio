@@ -107,3 +107,12 @@ Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine d
 - Testreihe auf 49 Takte erweitert: Austausch im oberen System, Erhaltung aller 49 unteren Takte, keine Übernahme der nicht angeforderten unteren neuen Stimme.
 - JavaScript-Regressionstest `tests/test_replace_piano_staff.cjs` erfolgreich ausgeführt, einschließlich negativem Haltebogenfall.
 - Noch KEIN nativer MuseScore-Test und KEIN vollständiger KI-Praxistest. Die Klavier-Funktion bleibt ausdrücklich auf einfache einlagige Systeme begrenzt und ist nicht zur Release-Freigabe geeignet.
+
+### 2026-10-21 — Mehrstimmige Klavierbegleitung komplett ersetzen
+
+- Neuer Modus 8 in der Auswahl: `Instrumentpart ersetzen (mehrstimmig)`. Er unterscheidet sich bewusst vom Hinzufügen einer Stimme und vom Ersetzen einer einzelnen Stimme.
+- Die Auswahl darf beide Systeme desselben Klavierparts umfassen. Andere Instrumente in der Auswahl werden abgefangen.
+- Die Engine-Funktion `replaceInstrumentPart` ersetzt alle ausgewählten Takte des Zielparts als vollständiges MusicXML, einschließlich Akkorden und mehreren Stimmen in beiden Klaviersystemen. Nicht ausgewählte Instrumente und Takte bleiben unberührt. Das Original bleibt geöffnet.
+- Prüfung der exakten Taktlängen, Systemzahl und Grenzen; übergreifende Bindungen/Spanner werden gesperrt. Die Quelldefinition von Tonart/Notenschlüssel/Taktart wird an den ersetzten Taktanfängen berücksichtigt.
+- Echter JavaScript-Funktionstest einer 49-taktigen Partitur mit Violine und vier gleichzeitig geführten Klavierstimmen (zwei je System) bestanden; die Violine bleibt byteidentisch, zwei Instrumente bleiben zwei. Auch fehlerhafte Grenzen geprüft. Test: `tests/test_replace_polyphonic_part.cjs`.
+- **Noch offen:** GitHub-Actions-/MuseScore-Nativtest sowie End-to-End-Aufruf an OpenRouter. Die App wurde nicht veröffentlicht. Änderungen der lokalen Tonart oder von Notenschlüsseln innerhalb des ausgewählten Abschnitts bedürfen zusätzlicher gezielter Tests.
