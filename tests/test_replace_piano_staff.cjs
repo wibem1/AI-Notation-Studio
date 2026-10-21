@@ -13,3 +13,14 @@ assert(lower.includes('<step>B</step>'));
 assert.throws(()=>context.combine(base,fresh,{kind:'replacePianoStaff',partIndex:0,staffNumber:3,startQuarter:0,endQuarter:8}));
 assert.throws(()=>context.combine(base,fresh,{kind:'replacePianoStaff',partIndex:0,staffNumber:1,startQuarter:1,endQuarter:8}));
 console.log('Piano single-staff replacement PASS');
+
+const original49=xml('P1',Array.from({length:49},(_,i)=>bar(i+1,'C','G')).join(''));
+const generated49=xml('X',Array.from({length:49},(_,i)=>bar(i+1,'E','B')).join(''));
+const fortyNine=context.combine(original49,generated49,{kind:'replacePianoStaff',partIndex:0,staffNumber:1,startQuarter:0,endQuarter:196}).xml;
+assert.equal((fortyNine.match(/<measure number=/g)||[]).length,49);
+assert.equal((fortyNine.match(/<step>G<\/step>/g)||[]).length,49);
+assert.equal((fortyNine.match(/<step>E<\/step>/g)||[]).length,49);
+assert(!fortyNine.includes('<step>B</step>'));
+const withTie=base.replace('<duration>4</duration>','<tie type="start"/><duration>4</duration>');
+assert.throws(()=>context.combine(withTie,fresh,{kind:'replacePianoStaff',partIndex:0,staffNumber:1,startQuarter:0,endQuarter:8}));
+console.log('49-bar and tie-protection regression PASS');
