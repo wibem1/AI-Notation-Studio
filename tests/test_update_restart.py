@@ -42,12 +42,12 @@ def open_host(v):
 def versions(host):return [x.property('version') for x in host.findChildren(QObject) if x.property('version')]
 if probe:
  v=create_view();host=open_host(v)
- assert '0.11.2' in versions(host) and '0.10.98' not in versions(host),versions(host)
+ assert '0.11.3' in versions(host) and '0.10.98' not in versions(host),versions(host)
  print('Fresh process loads the installed update from disk')
  sys.exit(0)
 try:
  (folder/'AI-Notation-Studio.qml').write_text((ROOT/'AI-Notation-Studio.qml').read_text().replace('0.11.1','0.10.98'))
- baseline=(ROOT/'AI-Notation-Studio-App.qml').read_text().replace('0.11.2','0.10.98')
+ baseline=(ROOT/'AI-Notation-Studio-App.qml').read_text().replace('0.11.3','0.10.98')
  (folder/'AI-Notation-Studio-App-0.10.98.qml').write_text(baseline)
  # Explicitly stale registry/preferences state must not control the startup version.
  settings=QSettings();settings.beginGroup('AI-Notation-Studio');settings.setValue('activeHotAppVersion','0.10.7');settings.setValue('activeHotAppSource','file:///old-app.qml');settings.sync()
@@ -68,16 +68,16 @@ try:
  result=e.evaluate('current.acceptFetchedUpdate('+json.dumps(updated)+',true);current.installUpdate();')
  assert not result.isError(),result.toString()
  QTest.qWait(100)
- assert '0.11.2' in versions(host),(versions(host),current.property('updateStatus'))
- newest=next(x for x in host.findChildren(QObject) if x.property('version')=='0.11.2')
+ assert '0.11.3' in versions(host),(versions(host),current.property('updateStatus'))
+ newest=next(x for x in host.findChildren(QObject) if x.property('version')=='0.11.3')
  assert 'nicht dauerhaft' not in newest.property('updateStatus'),newest.property('updateStatus')
- assert json.loads(record.read_text())['version']=='0.11.2'
- assert (folder/'AI-Notation-Studio-App-0.11.2.qml').read_text()==updated
+ assert json.loads(record.read_text())['version']=='0.11.3'
+ assert (folder/'AI-Notation-Studio-App-0.11.3.qml').read_text()==updated
  assert (folder/'AI-Notation-Studio.qml').exists() # Active record selects new app; bundled fallback may retain prior version.
  assert (folder/'AI-Notation-Studio.qml.backup').exists()
  # Destroy plugin, keep the same engine and its old compiled QML cache, then reopen.
  v.setSource(QUrl());QTest.qWait(30);host=open_host(v)
- assert '0.11.2' in versions(host) and '0.10.98' not in versions(host),versions(host)
+ assert '0.11.3' in versions(host) and '0.10.98' not in versions(host),versions(host)
  print('Same cached engine reopens the installed update, not the bundled older version')
  v.setSource(QUrl());QTest.qWait(30)
  child=subprocess.run([sys.executable,__file__,'--probe',str(folder)]+(['--qt5'] if '--qt5' in sys.argv else []),capture_output=True,text=True)
