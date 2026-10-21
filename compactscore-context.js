@@ -252,9 +252,64 @@ function replaceVoice(baseXML,addedXML,options) {
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(base),warnings:['Nur die ausdrücklich ausgewählte einstimmige Instrumentstimme wurde ersetzt; das Original bleibt geöffnet.']};
 }
 
+
+function replacePianoStaff(baseXML,addedXML,options){
+ var base=parse(baseXML),added=parse(addedXML),parts=children(base,'part'),incoming=children(added,'part');
+ var idx=Number(options.partIndex),staff=Number(options.staffNumber),start=Number(options.startQuarter),end=Number(options.endQuarter);
+ if(!Number.isInteger(idx)||idx<0||idx>=parts.length||incoming.length!==1||(staff!==1&&staff!==2))
+  throw Error('Klavier-Zielinstrument und System müssen eindeutig sein.');
+ var a=inspect(baseXML,start),z=inspect(baseXML,end);
+ if(a.prefixQuarter>1e-7||z.prefixQuarter>1e-7||end<=start)throw Error('Klavier ersetzen benötigt vollständige Takte.');
+ var target=parts[idx],src=incoming[0],old=timeline(target),fresh=timeline(src),from=a.startMeasure-1,count=z.startMeasure-a.startMeasure;
+ if(fresh.rows.length!==count)throw Error('Ersetzungsdauer stimmt nicht.');
+ var destMeasures=children(target,'measure'),srcMeasures=children(src,'measure'),changes=[];
+ function stream(m,which){
+  if(children(m,'direction').length||children(m,'harmony').length||children(m,'barline').length)
+   throw Error('Ausdruckszeichen/Akkordsymbole in der Auswahl werden noch nicht sicher übertragen.');
+  var notes=children(m,'note'),result=[];
+  notes.forEach(function(n){
+   if(Number(text(n,'staff','1'))===which){
+    if(first(n,'grace')||first(n,'notations'))throw Error('Sondernotation kann nicht sicher ersetzt werden.');
+    result.push(clone(n));
+   }
+  });
+  return result;
+ }
+ for(var k=0;k<count;k++){
+  var dst=destMeasures[from+k],add=srcMeasures[k],od=old.rows[from+k],nw=fresh.rows[k];
+  if(!dst||od.staves!==2||nw.staves!==2||od.division!==nw.division||Math.abs(od.length-nw.length)>1e-7)
+   throw Error('Klavier-Systeme oder Taktdauern stimmen nicht überein.');
+  if(children(dst,'forward').length||children(add,'forward').length)
+   throw Error('Komplexe Stimmführung ist nicht unterstützt.');
+  var left=stream(dst,1),right=stream(dst,2),incomingStaff=stream(add,staff);
+  if(!left.length||!right.length||!incomingStaff.length)throw Error('Klavierstimme fehlt.');
+  var list=[staff===1?incomingStaff:left,staff===2?incomingStaff:right];
+  list.forEach(function(notes,hand){
+   var duration=0,voices={};
+   notes.forEach(function(n){
+    var v=text(n,'voice',String(hand+1));voices[v]=true;
+    if(!first(n,'chord'))duration+=Number(text(n,'duration',0));
+    var num=first(n,'staff');if(!num)throw Error('Systemzuordnung fehlt.');
+   });
+   if(Object.keys(voices).length!==1||Math.abs(duration-od.length*od.division)>1e-7)
+    throw Error('Mehrstimmige oder unvollständige Klaviertakte werden nicht ersetzt.');
+  });
+  var preserved=dst.children.filter(function(n){return typeof n==='string'||n.name==='attributes'});
+  if(dst.children.some(function(n){return typeof n!=='string'&&['note','backup','attributes'].indexOf(n.name)<0}))
+   throw Error('Unbekannte Taktelemente: kein Eingriff.');
+  changes.push({dst:dst,base:preserved,upper:list[0],lower:list[1],duration:Math.round(od.length*od.division)});
+ }
+ checkBoundaries(baseXML,start,end);
+ changes.forEach(function(x){
+  x.dst.children=x.base.concat(x.upper,[{name:'backup',open:'<backup>',close:'</backup>',children:[{name:'duration',open:'<duration>',close:'</duration>',children:[String(x.duration)]}]}],x.lower);
+ });
+ return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(base),warnings:['Nur das ausgewählte Klaviersystem wurde in einer neuen Partitur ersetzt.']};
+}
+
 function combine(baseXML,addedXML,options){
  if(options.kind==="replace"||options.kind==="replaceTail")return replaceRange(baseXML,addedXML,options);
  if(options.kind==="replaceVoice")return replaceVoice(baseXML,addedXML,options);
+ if(options.kind==="replacePianoStaff")return replacePianoStaff(baseXML,addedXML,options);
  if(options.kind==="overlay")return overlayVoice(baseXML,addedXML,options);
  var base=parse(baseXML),added=parse(addedXML),baseParts=children(base,'part'),newParts=children(added,'part'),baseList=first(base,'part-list'),newList=first(added,'part-list');
  if(!baseList||!newList||!baseParts.length||!newParts.length)throw Error('MusicXML-Partstruktur fehlt.');
