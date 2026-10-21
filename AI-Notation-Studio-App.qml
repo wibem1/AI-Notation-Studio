@@ -433,7 +433,7 @@ MuseScore {
         var job = { id: String(new Date().getTime()), created: new Date().toISOString(), mode: mode, modeName: modeBox.currentText,
             strategy: strategy, first: first, second: second, instruments: instruments, instruction: instructionBox.text.trim(),
             measures: mode === 1 ? selectionMeasureCount() : mode === 2 ? freeMeasures : contextMeasures(mode),
-            selection: selectionJson, preferences: settings.generalMemoryText, sourcePath: "", startQuarter: mode === 3 ? bounds.endTick / 480 : bounds.startTick / 480,
+            selection: selectionJson, preferences: settings.generalMemoryText, sourcePath: "", startQuarter: mode === 3 ? bounds.endTick / 480 : bounds.startTick / 480, endQuarter: bounds.endTick / 480,
             prefixQuarter: 0, startMeasure: 1, sourceTime: "", idea: "", draft: "" }
         if (mode !== 2) {
             var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Context-" + job.id + ".musicxml"))
