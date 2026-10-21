@@ -1,0 +1,15 @@
+const assert=require('assert'),context=require('../compactscore-context.js');
+const hand=(step,oct,staff,voice)=>'<note><pitch><step>'+step+'</step><octave>'+oct+'</octave></pitch><duration>4</duration><voice>'+voice+'</voice><staff>'+staff+'</staff></note>';
+const bar=(i,upper,lower)=>'<measure number="'+i+'">'+(i===1?'<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time><staves>2</staves></attributes>':'')+hand(upper,4,1,1)+'<backup><duration>4</duration></backup>'+hand(lower,3,2,2)+'</measure>';
+const xml=(id,measures)=>'<score-partwise><part-list><score-part id="'+id+'"><part-name>Klavier</part-name></score-part></part-list><part id="'+id+'">'+measures+'</part></score-partwise>';
+const base=xml('P1',bar(1,'C','G')+bar(2,'D','A')),fresh=xml('X',bar(1,'E','B')+bar(2,'F','C'));
+const upper=context.combine(base,fresh,{kind:'replacePianoStaff',partIndex:0,staffNumber:1,startQuarter:0,endQuarter:8}).xml;
+assert(upper.includes('<step>E</step>') && upper.includes('<step>F</step>'));
+assert(upper.includes('<step>G</step>') && upper.includes('<step>A</step>'));
+assert(!upper.includes('<step>B</step>'));
+const lower=context.combine(base,fresh,{kind:'replacePianoStaff',partIndex:0,staffNumber:2,startQuarter:0,endQuarter:8}).xml;
+assert(lower.includes('<step>C</step>')&&lower.includes('<step>D</step>'));
+assert(lower.includes('<step>B</step>'));
+assert.throws(()=>context.combine(base,fresh,{kind:'replacePianoStaff',partIndex:0,staffNumber:3,startQuarter:0,endQuarter:8}));
+assert.throws(()=>context.combine(base,fresh,{kind:'replacePianoStaff',partIndex:0,staffNumber:1,startQuarter:1,endQuarter:8}));
+console.log('Piano single-staff replacement PASS');
