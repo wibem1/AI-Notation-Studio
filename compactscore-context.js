@@ -336,6 +336,16 @@ function replaceInstrumentPart(baseXML,addedXML,options){
   var old=original.rows[from+i],fresh=replacement.rows[i];
   if(Math.abs(old.length-fresh.length)>1e-7||old.staves!==fresh.staves)
    throw Error('Takt '+(from+i+1)+': Taktlänge oder Zahl der Notensysteme weicht ab.');
+  // Replacing imported attributes while retaining generated durations otherwise
+  // changes the sounding rhythm when MusicXML divisions differ.
+  if(old.division!==fresh.division)
+   throw Error('Takt '+(from+i+1)+': unterschiedliche MusicXML-divisions; die Notenwerte würden verfälscht.');
+  var incomingNotes=children(newMeasures[i],'note');
+  if(!incomingNotes.some(function(n){return !!first(n,'pitch')}))
+   throw Error('Takt '+(from+i+1)+': neue Instrumentalbegleitung enthält keine klingenden Noten.');
+  // Source meter/key changes inside the range must not be silently overwritten.
+  if(i>0 && (old.time!==fresh.time||old.key!==fresh.key))
+   throw Error('Takt '+(from+i+1)+': Tonart oder Taktart ist nicht deckungsgleich.');
  }
  // Reject spanners crossing the replacement boundary; do not silently orphan ties.
  checkBoundaries(baseXML,start,end);
