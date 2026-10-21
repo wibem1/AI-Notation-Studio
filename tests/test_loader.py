@@ -92,7 +92,7 @@ if '--qt5' not in sys.argv:
 url=QUrl.fromLocalFile(str(ROOT/'AI-Notation-Studio-App.qml')).toString()
 js('host.activateHotApp('+json.dumps(url)+',"0.11.1")')
 for i in range(30):app.processEvents()
-assert r.property('hotAppActive'),r.property('updateStatus')
+assert r.property('hotAppActive'),str(r.property('updateStatus'))+' DETAILS='+str(r.property('startupDetails'))
 assert r.property('hotAppRequested')
 assert r.property('width')==v.width() and r.property('height')==v.height(),(r.property('width'),r.property('height'),v.width(),v.height())
 if '--qt5' not in sys.argv:assert not v.grabWindow().isNull()
