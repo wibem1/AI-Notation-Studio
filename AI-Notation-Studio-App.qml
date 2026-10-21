@@ -436,7 +436,7 @@ MuseScore {
             var targetStaff=staffs[0], ps=curScore.parts||[]
             for(var pi=0;pi<ps.length;pi++)
                 if(targetStaff>=ps[pi].startTrack/4 && targetStaff<ps[pi].endTrack/4) {
-                    if(replacePartIndex>=0)throw Error("Zielinstrument nicht eindeutig.")
+                    if(replacePartIndex>=0 && replacePartIndex!==pi)throw Error("Zielinstrument nicht eindeutig.")
                     replacePartIndex=pi
                     if(mode===7 && (ps[pi].endTrack-ps[pi].startTrack)!==4) {
                         if((ps[pi].endTrack-ps[pi].startTrack)!==8) throw Error("Dieses Instrument hat eine nicht unterstützte Systemanzahl.")
