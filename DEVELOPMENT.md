@@ -64,3 +64,15 @@ Das Update bleibt auf der bestehenden main-Linie. Der Starter ist als generierte
 - `AI-Notation-Studio-App.qml`: Zielinstrument-Erkennung und Weitergabe der exakten Auswahlgrenzen an den Overlay-Modus.
 - Test: Synthetische zweistimmige MusicXML-Probe mit vorhandener Violine/Klavier im Laufzeit-JavaScript bestanden; unveränderte Part-Anzahl, zusätzliche Stimmen 3/4, versetzter Auswahlbeginn zurückgewiesen. Regressionstest unter `tests/test_piano_voice_overlay.cjs` eingecheckt.
 - OFFEN: Echte MuseScore-Integration und vollständiger 49-Takt-Test wurden nicht ausgeführt. Keine neue Veröffentlichung bis zu diesen Tests. Komplexe XML-Verläufe sind bewusst noch gesperrt.
+
+## 2026-10-21 — Verbindliche Semantik der Partiturbearbeitung
+
+Die Bedienoptionen sind strikt zu trennen:
+
+1. **Stimme hinzufügen (bestehende Option):** Neue unabhängige Stimme im bestehenden Instrument und im ausgewählten Zeitfenster, alle bisherigen Noten und Stimmen bleiben erhalten. Keine stillschweigende Ersetzung. Erfordert freie Zielstimme und musikalische Abstimmung.
+2. **Stimme ersetzen (NEUE Option, noch zu implementieren):** Nur die ausdrücklich ausgewählte vorhandene Stimme im ausgewählten Zeitfenster austauschen. Andere Stimmen, Instrumente und Takte müssen unverändert bleiben; vor Veränderung Auswahl und Umfang prüfen und Rücknahme sicherstellen.
+3. **Instrument hinzufügen:** Ein vollständiger neuer Instrumentpart wird neben vorhandenen Instrumenten angelegt. Nicht mit Stimme hinzufügen gleichsetzen.
+
+Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine destruktive Ersetzung ohne explizit ausgewählten Bearbeitungsmodus auslösen. Für Ersetzen einen eigenen UI-Modus, gezielte Spur-/Stimmenauswahl und getrennte Integrationstests einführen. Der zuletzt eingeführte Overlay-Code gehört ausschließlich zu **Stimme hinzufügen** und ist keine Implementierung von **Stimme ersetzen**.
+
+**Freigabesperre:** Kein Release, bevor diese Semantik und die Integrität unbeteiligter Stimmen in MuseScore geprüft wurden.
