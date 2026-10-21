@@ -441,10 +441,10 @@ MuseScore {
             compactFile.source = path
             var source = String(compactFile.read())
             if (mode === 1) {
-                // This workflow appends an instrument, NOT a voice on an existing staff.
-                // Refuse duplicate target instruments until a real in-part voice merge is implemented.
+                // Resolve the existing target part before composing; the overlay path
+                // adds voices without adding a duplicate piano instrument.
                 var target = String(instruments[0] || "").toLowerCase()
-                var names = [], nameMatch, namePattern = /<part-name(?:\\s[^>]*)?>([^<]*)<\\/part-name>/gi
+                var names = [], nameMatch, namePattern = /<part-name(?:\s[^>]*)?>([^<]*)<\/part-name>/gi
                 while ((nameMatch = namePattern.exec(source)) !== null)
                     names.push(nameMatch[1].replace(/&amp;/g, "&").toLowerCase())
                 var isPiano = /klavier|piano/.test(target)
