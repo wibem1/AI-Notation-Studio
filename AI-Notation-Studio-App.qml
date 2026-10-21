@@ -337,6 +337,38 @@ MuseScore {
     function workflowCombine(job, xml) {
         var count=compact.context.inspect(xml,0).meters.length
         if(count!==job.measures) throw Error("Die KI lieferte "+count+" statt "+job.measures+" Takten.")
+        if(job.mode===1) {
+            // Do not accept a superficially complete score whose notes occupy only one bar.
+            // Also preserve an initial silent measure in the source: never place new notes
+            // ahead of the first existing musical entrance.
+            var output=compact.context.parse(xml), original=compact.context.parse(job.sourceXml || readWorkflowSource(job))
+            function scoreMeasures(tree) {
+                var parts=tree.children.filter(function(x){return x && typeof x!=="string" && x.name==="part"})
+                return parts.map(function(p){return p.children.filter(function(x){return x && typeof x!=="string" && x.name==="measure"})})
+            }
+            function sounds(measure) {
+                if(!measure)return false
+                var found=false
+                function visit(n) {
+                    if(!n || typeof n==="string")return
+                    if(n.name==="note" && !n.children.some(function(x){return x && typeof x!=="string" && x.name==="rest"}))found=true
+                    n.children.forEach(visit)
+                }
+                visit(measure)
+                return found
+            }
+            var produced=scoreMeasures(output), source=scoreMeasures(original)
+            var soundingBars=0
+            for(var bar=0;bar<count;bar++) {
+                var active=produced.some(function(p){return sounds(p[bar])})
+                if(active)soundingBars++
+            }
+            if(count>1 && soundingBars<=1)
+                throw Error("Unvollständige Begleitung: "+soundingBars+" von "+count+" Takten enthalten Noten. Nichts wurde eingefügt.")
+            if(job.startMeasure===1 && source.length && source.every(function(p){return !sounds(p[0])}) &&
+                produced.some(function(p){return sounds(p[0])}))
+                throw Error("Zeitversatz erkannt: Die Ausgangspartitur beginnt mit einem Pausentakt, die Begleitung dagegen mit Noten. Nichts wurde eingefügt.")
+        }
         return compact.context.combine(job.sourceXml || readWorkflowSource(job),xml,
             {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter})
     }
