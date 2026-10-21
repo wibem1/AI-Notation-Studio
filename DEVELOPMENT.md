@@ -92,3 +92,11 @@ Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine d
 - Mehrsystemige Parts (Klavier) werden bis zur separaten Stimmen-/System-Zuordnung bewusst abgelehnt.
 - Statischer UI-Regressionstest `tests/test_replace_voice_ui.cjs` ergänzt; noch kein MuseScore-Integrationstest ausgeführt.
 - Nicht freigegeben: Test in nativer MuseScore-Umgebung, Ausdruckszeichen/komplexe Stimmen, echte Klavierbegleitungs-Ersetzung.
+
+### 2026-10-21 — Klavier-Ersetzung, eingeschränkt implementiert
+
+- `replacePianoStaff` ersetzt ausschließlich die gewählte Klavierhand (System 1 oder 2) innerhalb vollständiger Takte in einer neuen MusicXML-Partitur. Die jeweils andere Hand bleibt erhalten.
+- Der UI-Modus `Stimme ersetzen (auch Klavier)` liest das gewählte System aus MuseScore und übergibt `partIndex` sowie `staffNumber` an die Engine.
+- Vorsätzliche Schutzgrenzen: Nur zweisystemige Klavierparts mit jeweils einer Stimme pro System und gleicher MusicXML-Division; Takte mit weiteren Stimmen, Ausdruckszeichen, Harmonieobjekten oder komplexen Strukturen werden zurückgewiesen. Ersetzung einzelner Stimmen innerhalb eines mehrfach belegten Systems bleibt offen.
+- JavaScript-Probe für Austausch von rechter und linker Hand und Negativfälle bestanden. `tests/test_replace_piano_staff.cjs` im Repository.
+- Echte MuseScore-Ausführung und musikalische Integration mit KI sind weiterhin ungetestet: keine neue Version freigeben.
