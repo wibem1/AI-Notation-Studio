@@ -1,0 +1,13 @@
+const assert=require('assert'),ctx=require('../compactscore-context.js');
+const bar=(i,p)=>'<measure number="'+i+'">'+(i===1?'<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>':'')+'<note><pitch><step>'+p+'</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice></note></measure>';
+const bars=p=>Array.from({length:4},(_,i)=>bar(i+1,p)).join('');
+const violin=bars('D'),piano=bars('C'),source='<score-partwise><part-list><score-part id="P1"><part-name>Violine</part-name></score-part><score-part id="P2"><part-name>Klavier</part-name></score-part></part-list><part id="P1">'+violin+'</part><part id="P2">'+piano+'</part></score-partwise>';
+const added='<score-partwise><part-list><score-part id="X"><part-name>Klavier</part-name></score-part></part-list><part id="X">'+bar(1,'E')+bar(2,'E')+'</part></score-partwise>';
+const out=ctx.combine(source,added,{kind:'replaceVoice',partIndex:1,startQuarter:4,endQuarter:12}).xml;
+assert(out.includes('<part id="P1">'+violin+'</part>'),'Violine verändert');
+assert(out.includes(bar(1,'C'))&&out.includes(bar(4,'C')),'Takte außerhalb der Auswahl verändert');
+assert.equal((out.match(/<step>E<\/step>/g)||[]).length,2);
+assert.equal((out.match(/<part id=/g)||[]).length,2,'Instrument hinzugefügt');
+assert.throws(()=>ctx.combine(source,added,{kind:'replaceVoice',partIndex:3,startQuarter:4,endQuarter:12}));
+assert.throws(()=>ctx.combine(source,added,{kind:'replaceVoice',partIndex:1,startQuarter:5,endQuarter:12}));
+console.log('Targeted single-voice replacement PASS');
