@@ -54,3 +54,13 @@ MuseScore registriert Settings in MuseScore 3.0 (src/framework/extensions/api/v1
 ## 19.10.2026 · Update 0.11.1 / Starter 0.7.27
 
 Das Update bleibt auf der bestehenden main-Linie. Der Starter ist als generierter Quelltext in der App enthalten; nach Starteränderungen `python scripts/embed-starter.py` ausführen und die aktuelle versionierte App neu kopieren. Die App sichert den älteren Starter, verifiziert den Ersatz und überschreibt keinen neueren Starter. Bei Qt-Dateicachefehlern wird der verifizierte gespeicherte Quelltext via Qt.createQmlObject kompiliert; Import-, Versions- und Bootstrapfehler bleiben blockierend. Der reguläre Datei-Loader bleibt der Normalfall. Tests enthalten den realen bisherigen Starter 0.7.25 und die App 0.10.33 als unveränderte Fixtures.
+
+
+## 2026-10-21 — MuseScore: zusätzliche Klavierstimme
+
+- Fehlerbild: 49-Takt-Partitur, neue Begleitung hatte nur einen klingenden Takt; der Takt lag vor dem eigentlichen musikalischen Einsatz; zusätzliches Klavierinstrument wurde erzeugt.
+- Schutzprüfungen: Erkennung einer nahezu leeren Antwort und eines vorgezogenen Einsatzes bei anfänglichem Pausentakt.
+- `compactscore-context.js`: Neuer Modus `overlay` ergänzt Stimmen im bereits vorhandenen zweisystemigen Klavierpart an der Originalposition und behält Violine sowie Originalklavier bei. Abweichende Taktgrenzen, Taktlängen, Auflösung, Systemzahl, Zielstimmen oder mehrdeutige Instrumente führen zum Abbruch.
+- `AI-Notation-Studio-App.qml`: Zielinstrument-Erkennung und Weitergabe der exakten Auswahlgrenzen an den Overlay-Modus.
+- Test: Synthetische zweistimmige MusicXML-Probe mit vorhandener Violine/Klavier im Laufzeit-JavaScript bestanden; unveränderte Part-Anzahl, zusätzliche Stimmen 3/4, versetzter Auswahlbeginn zurückgewiesen. Regressionstest unter `tests/test_piano_voice_overlay.cjs` eingecheckt.
+- OFFEN: Echte MuseScore-Integration und vollständiger 49-Takt-Test wurden nicht ausgeführt. Keine neue Veröffentlichung bis zu diesen Tests. Komplexe XML-Verläufe sind bewusst noch gesperrt.
