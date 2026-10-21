@@ -116,3 +116,11 @@ Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine d
 - Prüfung der exakten Taktlängen, Systemzahl und Grenzen; übergreifende Bindungen/Spanner werden gesperrt. Die Quelldefinition von Tonart/Notenschlüssel/Taktart wird an den ersetzten Taktanfängen berücksichtigt.
 - Echter JavaScript-Funktionstest einer 49-taktigen Partitur mit Violine und vier gleichzeitig geführten Klavierstimmen (zwei je System) bestanden; die Violine bleibt byteidentisch, zwei Instrumente bleiben zwei. Auch fehlerhafte Grenzen geprüft. Test: `tests/test_replace_polyphonic_part.cjs`.
 - **Noch offen:** GitHub-Actions-/MuseScore-Nativtest sowie End-to-End-Aufruf an OpenRouter. Die App wurde nicht veröffentlicht. Änderungen der lokalen Tonart oder von Notenschlüsseln innerhalb des ausgewählten Abschnitts bedürfen zusätzlicher gezielter Tests.
+
+### 2026-10-21 — Kontrolle rhythmischer Auflösung und Pausentakte
+
+- Ein konkreter Datenverlustpfad wurde geschlossen: Beim Übernehmen ursprünglicher MusicXML-Attribute durfte die zeitliche Auflösung `divisions` der erzeugten Noten nicht abweichen. Der vollständige Part-Austausch weist ungleiche Auflösungen nun vor dem Eingriff zurück.
+- Die Zahl klingender Takte wird überprüft: Bei mehrtaktigen Bearbeitungen wird eine Ausgabe mit höchstens einem klingenden Takt zurückgewiesen. Einzelne musikalisch gewollte Pausentakte bleiben zulässig.
+- Prüfungen für Teilbereich, Taktlänge, Systemzahl sowie Tonart- und Taktartwechsel bestehen weiterhin.
+- `tests/test_replace_polyphonic_part.cjs` für 49 Takte erweitert und im JavaScript-Lauf ausgeführt: vier Stimmen, Originalvioline, abweichende divisions und ein zulässiger Pausentakt erfolgreich geprüft.
+- Offen: Native MuseScore-End-to-End-Prüfung; keine Freigabe.
