@@ -431,7 +431,8 @@ MuseScore {
                 var tr = elementTrack(selected[si])
                 if(tr>=0 && staffs.indexOf(Math.floor(tr/4))<0) staffs.push(Math.floor(tr/4))
             }
-            if(staffs.length!==1) throw Error("Bitte genau ein Notensystem des Zielinstruments markieren.");
+            if(mode===7 && staffs.length!==1) throw Error("Stimme ersetzen benötigt genau ein ausgewähltes Notensystem.");
+            if(mode===8 && !staffs.length) throw Error("Kein Zielinstrument in der Auswahl.");
             var targetStaff=staffs[0], ps=curScore.parts||[]
             for(var pi=0;pi<ps.length;pi++)
                 if(targetStaff>=ps[pi].startTrack/4 && targetStaff<ps[pi].endTrack/4) {
@@ -443,6 +444,17 @@ MuseScore {
                         if(replaceStaffNumber!==1 && replaceStaffNumber!==2)throw Error("Klaviersystem nicht eindeutig.")
                     }
                 }
+            if(mode===8) {
+                for(var kk=0; kk<staffs.length; kk++){
+                    var found=false
+                    for(var pp=0;pp<ps.length;pp++)
+                        if(staffs[kk]>=ps[pp].startTrack/4 && staffs[kk]<ps[pp].endTrack/4) {
+                            if(pp!==replacePartIndex)throw Error("Bitte nur ein Instrument zum Ersetzen markieren.")
+                            found=true
+                        }
+                    if(!found)throw Error("Ausgewähltes Notensystem ohne Instrument.")
+                }
+            }
             if(replacePartIndex<0)throw Error("Zielinstrument nicht gefunden.")
             var chosen=String(ps[replacePartIndex].longName||ps[replacePartIndex].instrumentId||"")
             instruments=[chosen]
