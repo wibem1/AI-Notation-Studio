@@ -318,9 +318,62 @@ function replacePianoStaff(baseXML,addedXML,options){
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(base),warnings:['Nur das ausgewählte Klaviersystem wurde in einer neuen Partitur ersetzt.']};
 }
 
+
+function replaceInstrumentPart(baseXML,addedXML,options){
+ var base=parse(baseXML),added=parse(addedXML),parts=children(base,'part'),newParts=children(added,'part');
+ var index=Number(options.partIndex),start=Number(options.startQuarter),end=Number(options.endQuarter);
+ if(!Number.isInteger(index)||index<0||index>=parts.length||newParts.length!==1)
+  throw Error('Genau ein Zielinstrument und ein neuer Instrumentpart sind erforderlich.');
+ var begin=inspect(baseXML,start),finish=inspect(baseXML,end);
+ if(begin.prefixQuarter>1e-7||finish.prefixQuarter>1e-7||end<=start)
+  throw Error('Instrument ersetzen benötigt vollständige Takte.');
+ var from=begin.startMeasure-1,count=finish.startMeasure-begin.startMeasure;
+ var part=parts[index],original=timeline(part),replacement=timeline(newParts[0]);
+ if(replacement.rows.length!==count)throw Error('Die erzeugte Musik deckt nicht alle ausgewählten Takte ab.');
+ var oldMeasures=children(part,'measure'),newMeasures=children(newParts[0],'measure');
+ if(!oldMeasures[from]||!oldMeasures[from+count-1])throw Error('Zielbereich liegt außerhalb der Partitur.');
+ for(var i=0;i<count;i++){
+  var old=original.rows[from+i],fresh=replacement.rows[i];
+  if(Math.abs(old.length-fresh.length)>1e-7||old.staves!==fresh.staves)
+   throw Error('Takt '+(from+i+1)+': Taktlänge oder Zahl der Notensysteme weicht ab.');
+ }
+ // Reject spanners crossing the replacement boundary; do not silently orphan ties.
+ checkBoundaries(baseXML,start,end);
+ // Retain the original clefs, keys, staff layout and global meter at the start.
+ // MusicXML generated for one isolated passage might carry unwanted defaults.
+ var edits=[];
+ for(var k=0;k<count;k++){
+  var originalMeasure=oldMeasures[from+k],newMeasure=clone(newMeasures[k]);
+  renumber(newMeasure,from+k+1);
+  var originalAttrs=attrs(originalMeasure),incomingAttrs=attrs(newMeasure);
+  if(originalAttrs){
+   var inherited=clone(originalAttrs);
+   if(incomingAttrs) newMeasure.children=newMeasure.children.filter(function(n){return n!==incomingAttrs;});
+   newMeasure.children.unshift(inherited);
+  }else if(incomingAttrs){
+   // Isolated composition exports include initial layout attributes even at a
+   // later source measure. Keep their divisions for note durations only.
+   incomingAttrs.children=incomingAttrs.children.filter(function(n){
+    return typeof n==='string'||n.name==='divisions';
+   });
+  }
+  edits.push(newMeasure);
+ }
+ // Keep every unselected measure node and every other part intact.
+ var measureIndex=0;
+ part.children=part.children.map(function(n){
+  if(typeof n==='string'||n.name!=='measure')return n;
+  var at=measureIndex++;
+  return at>=from&&at<from+count ? edits[at-from] : n;
+ });
+ return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(base),
+ warnings:['Der ausgewählte Instrumentpart wurde in einer neuen Partitur ersetzt; alle anderen Instrumente bleiben erhalten.']};
+}
+
 function combine(baseXML,addedXML,options){
  if(options.kind==="replace"||options.kind==="replaceTail")return replaceRange(baseXML,addedXML,options);
  if(options.kind==="replaceVoice")return replaceVoice(baseXML,addedXML,options);
+ if(options.kind==="replaceInstrumentPart")return replaceInstrumentPart(baseXML,addedXML,options);
  if(options.kind==="replacePianoStaff")return replacePianoStaff(baseXML,addedXML,options);
  if(options.kind==="overlay")return overlayVoice(baseXML,addedXML,options);
  var base=parse(baseXML),added=parse(addedXML),baseParts=children(base,'part'),newParts=children(added,'part'),baseList=first(base,'part-list'),newList=first(added,'part-list');
