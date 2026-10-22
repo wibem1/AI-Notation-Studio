@@ -16,10 +16,13 @@ assert.throws(()=>ctx.combine(base,added,{kind:'replaceInstrumentPart',partIndex
 assert.throws(()=>ctx.combine(base,added,{kind:'replaceInstrumentPart',partIndex:2,startQuarter:0,endQuarter:196}));
 console.log('49-bar polyphonic piano replacement PASS');
 
+const compatibleDivisions=added.replace('<divisions>1</divisions>','<divisions>2</divisions>').replaceAll('<duration>4</duration>','<duration>8</duration>');
+const rescaled=ctx.combine(base,compatibleDivisions,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}).xml;
+assert(rescaled.includes('<duration>4</duration>'),'Duration units not rescaled back to source score');
+assert(!rescaled.includes('<duration>8</duration>'),'Unscaled durations remain');
 const incompatibleDivisions=added.replace('<divisions>1</divisions>','<divisions>2</divisions>');
-assert.throws(()=>ctx.combine(base,incompatibleDivisions,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}),
- 'Different MusicXML divisions must be rejected');
+assert.throws(()=>ctx.combine(base,incompatibleDivisions,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}), 'Rhythm mismatch must be rejected');
 const silentBar=measure(49,['G','A','B','C']).replaceAll('<pitch><step>G</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>A</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>B</step><octave>4</octave></pitch>','<rest/>').replaceAll('<pitch><step>C</step><octave>4</octave></pitch>','<rest/>');
 const silentOutput=added.replace(measure(49,['G','A','B','C']),silentBar);
 assert(ctx.combine(base,silentOutput,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}).xml.includes('<measure number="49">'), 'Single rest bar must be allowed');
-console.log('Division mismatch and intentional rest bar PASS');
+console.log('Division conversion, invalid rhythm and intentional rest bar PASS');
