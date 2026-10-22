@@ -625,6 +625,24 @@ MuseScore {
         }
     }
 
+    function retryFailedComposition() {
+        if (busy || !compositionJob || !compositionJob.raw_response) return
+        if (compositionJob.workflowState !== "invalid") {
+            statusText = "Keine fehlgeschlagene Antwort zur erneuten Prüfung vorhanden."
+            return
+        }
+        // Do not call a provider. Re-validate the existing paid response against
+        // the now-corrected MusicXML engine while keeping the original score.
+        var job=compositionJob, answer=String(job.raw_response)
+        job.workflowState="draft"
+        job.validation_error=""
+        finishComposition(job, answer)
+        if (job.workflowState==="ready")
+            statusText="Gespeicherte KI-Antwort erfolgreich geprüft. Mit „Fertige Fassung in MuseScore öffnen“ übernehmen. Keine neuen KI-Kosten."
+        else
+            statusText="Erneute Prüfung fehlgeschlagen: "+String(job.validation_error||"Unbekannter Fehler")+" (kein KI-Aufruf)."
+    }
+
     function runCompositionJob(job) {
         var task = compositionTask(job)
         if (job.strategy === 0) {
@@ -6294,6 +6312,15 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 Layout.fillWidth: true
                 Button { text: "CS1 / JSON importieren"; enabled: !busy; onClicked: compactImportDialog.open() }
                 Label { text: costText; wrapMode: Text.WordWrap; Layout.fillWidth: true; color: "white" }
+            }
+
+            Button {
+                text: "Gespeicherte KI-Antwort erneut prüfen (kostenfrei)"
+                visible: compositionJob !== null && compositionJob.workflowState === "invalid"
+                         && String(compositionJob.raw_response || "") !== ""
+                enabled: visible && !busy
+                font.pixelSize: uiSize
+                onClicked: retryFailedComposition()
             }
 
             Button {
