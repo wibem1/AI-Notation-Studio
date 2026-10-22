@@ -11,5 +11,5 @@ assert(runtime && runtime.context && typeof runtime.context.combine==='function'
 const test=fs.readFileSync('tests/test_replace_polyphonic_part.cjs','utf8');
 const fakeRequire=(name)=>name==='assert'?assert:name==='../compactscore-context.js'?runtime.context:require(name);
 Function('require','console',test)(fakeRequire,console);
-assert(source.includes('version: "0.11.3"'),'Wrong release candidate version');
+assert(source.includes('version: "0.11.4"'),'Wrong release candidate version');
 console.log('Embedded v0.11.3 polyphonic runtime matches regression behavior PASS');
