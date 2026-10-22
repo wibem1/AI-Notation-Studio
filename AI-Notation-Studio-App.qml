@@ -2402,6 +2402,7 @@ MuseScore {
                 node: m,
                 start: start,
                 length: length,
+                observedLength: maximum,
                 division: division,
                 time: time,
                 key: key,
@@ -2873,6 +2874,8 @@ MuseScore {
              throw Error('Takt '+(from+i+1)+': Taktlänge oder Zahl der Notensysteme weicht ab.');
             // Replacing imported attributes while retaining generated durations otherwise
             // changes the sounding rhythm when MusicXML divisions differ.
+            if(fresh.observedLength+1e-7<old.length)
+             throw Error('Takt '+(from+i+1)+': unvollständige Notendauern im erzeugten Instrumentpart.');
             if(!(old.division>0&&fresh.division>0))
              throw Error('Ungültige MusicXML-divisions in Takt '+(from+i+1)+'.');
             var incomingNotes=children(newMeasures[i],'note');
