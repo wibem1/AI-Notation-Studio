@@ -2915,11 +2915,8 @@ MuseScore {
              if(incomingAttrs) newMeasure.children=newMeasure.children.filter(function(n){return n!==incomingAttrs;});
              newMeasure.children.unshift(inherited);
             }else if(incomingAttrs){
-             // Isolated composition exports include initial layout attributes even at a
-             // later source measure. Keep their divisions for note durations only.
-             incomingAttrs.children=incomingAttrs.children.filter(function(n){
-              return typeof n==='string'||n.name==='divisions';
-             });
+             // Preserve the source's inherited divisions after scaling.
+             newMeasure.children=newMeasure.children.filter(function(n){return n!==incomingAttrs;});
             }
             edits.push(newMeasure);
            }
