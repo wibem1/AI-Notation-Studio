@@ -448,15 +448,21 @@ MuseScore {
                     }
                 }
             if(mode===8) {
-                for(var kk=0; kk<staffs.length; kk++){
-                    var found=false
-                    for(var pp=0;pp<ps.length;pp++)
-                        if(staffs[kk]>=ps[pp].startTrack/4 && staffs[kk]<ps[pp].endTrack/4) {
-                            if(pp!==replacePartIndex)throw Error("Bitte nur ein Instrument zum Ersetzen markieren.")
-                            found=true
-                        }
-                    if(!found)throw Error("Ausgewähltes Notensystem ohne Instrument.")
+                // A range can cover violin and both piano staves. The chosen
+                // instrument, not the first selected track, identifies the
+                // part to replace. Preserve all other selected instruments.
+                var wanted=String(instrumentBox.currentText||"").toLowerCase()
+                var pianoWanted=/klavier|piano/.test(wanted)
+                var candidates=[]
+                for(var pp=0;pp<ps.length;pp++) {
+                    var label=String(ps[pp].longName||ps[pp].instrumentId||"").toLowerCase()
+                    var matching=label===wanted || (pianoWanted && /klavier|piano/.test(label))
+                    var selectedPart=staffs.some(function(st){return st>=ps[pp].startTrack/4 && st<ps[pp].endTrack/4})
+                    if(matching && selectedPart)candidates.push(pp)
                 }
+                if(candidates.length!==1)
+                    throw Error("Zielinstrument nicht eindeutig. Bitte das gewünschte Instrument in der Liste auswählen.")
+                replacePartIndex=candidates[0]
             }
             if(replacePartIndex<0)throw Error("Zielinstrument nicht gefunden.")
             var chosen=String(ps[replacePartIndex].longName||ps[replacePartIndex].instrumentId||"")
