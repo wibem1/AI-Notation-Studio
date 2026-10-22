@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.5"
+    version: "0.11.6"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -2873,8 +2873,8 @@ MuseScore {
              throw Error('Takt '+(from+i+1)+': Taktlänge oder Zahl der Notensysteme weicht ab.');
             // Replacing imported attributes while retaining generated durations otherwise
             // changes the sounding rhythm when MusicXML divisions differ.
-            if(old.division!==fresh.division)
-             throw Error('Takt '+(from+i+1)+': unterschiedliche MusicXML-divisions; die Notenwerte würden verfälscht.');
+            if(!(old.division>0&&fresh.division>0))
+             throw Error('Ungültige MusicXML-divisions in Takt '+(from+i+1)+'.');
             var incomingNotes=children(newMeasures[i],'note');
             if(incomingNotes.some(function(n){return !!first(n,'pitch')}))soundingBars++;
             // Source meter/key changes inside the range must not be silently overwritten.
@@ -2890,6 +2890,22 @@ MuseScore {
            for(var k=0;k<count;k++){
             var originalMeasure=oldMeasures[from+k],newMeasure=clone(newMeasures[k]);
             renumber(newMeasure,from+k+1);
+            var ratio=original.rows[from+k].division/replacement.rows[k].division;
+            function scaleDurations(node) {
+             if(typeof node==='string')return;
+             if(node.name==='duration' && node.children.length) {
+              var raw=Number(node.children.join('').trim()), scaled=raw*ratio;
+              if(!isFinite(scaled)||Math.abs(scaled-Math.round(scaled))>1e-8)
+               throw Error('Takt '+(from+k+1)+': Notenwerte lassen sich nicht verlustfrei umrechnen.');
+              node.children=[String(Math.round(scaled))];
+              return;
+             }
+             if(node.name==='note'||node.name==='backup'||node.name==='forward')
+              node.children.forEach(function(child) {
+               if(typeof child!=='string'&&child.name==='duration')scaleDurations(child);
+              });
+            }
+            newMeasure.children.forEach(scaleDurations);
             var originalAttrs=attrs(originalMeasure),incomingAttrs=attrs(newMeasure);
             if(originalAttrs){
              var inherited=clone(originalAttrs);
