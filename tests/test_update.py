@@ -10,7 +10,7 @@ def run(code):
  v=e.evaluate(code)
  assert not v.isError(),v.toString()
  return v.toString()
-run('''var root={version:"0.11.4"},settings={},hotAppActive=false,hotAppRequested=false,hotAppVersion="";
+run('''var root={version:"0.11.5"},settings={},hotAppActive=false,hotAppRequested=false,hotAppVersion="";
 var updateBusy=false,updateRemoteVersion="",updateSourceText="",updateIsHotApp=false,updateStatus="",updaterTargetPath="",lastUpdateError="";
 var requests=[],writes={},hotAppLoader={source:""};
 var Component={Ready:1,Error:3};
@@ -22,19 +22,19 @@ XMLHttpRequest.prototype.open=function(method,url){this.url=url;};
 XMLHttpRequest.prototype.setRequestHeader=function(){};
 XMLHttpRequest.prototype.send=function(){};
 '''+qml[a:b])
-remote=qml.replace('version: "0.11.4"','version: "0.11.5"',1)
+remote=qml.replace('version: "0.11.4"','version: "0.11.6"',1)
 run('var remote='+json.dumps(remote)+';checkForUpdate();')
 assert run('updateBusy')=='true'
 run('var req=requests[0];req.status=200;req.responseText=remote;req.readyState=4;req.onreadystatechange();')
 assert run('updateBusy')=='false'
-assert run('updateRemoteVersion')=='0.11.5'
+assert run('updateRemoteVersion')=='0.11.6'
 assert run('updateSourceText===remote && updateIsHotApp')=='true'
 # Duplicate completion must not process or revert the result.
 run('req.responseText="invalid";req.onreadystatechange();')
-assert run('updateRemoteVersion')=='0.11.5'
+assert run('updateRemoteVersion')=='0.11.6'
 run('installUpdate();')
-assert run('writes["C:/Users/Test/Plugins/AI-Notation-Studio-App-0.11.5.qml"]===remote')=='true'
-assert run('hotAppLoader.source')=='file:///C:/Users/Test/Plugins/AI-Notation-Studio-App-0.11.5.qml'
+assert run('writes["C:/Users/Test/Plugins/AI-Notation-Studio-App-0.11.6.qml"]===remote')=='true'
+assert run('hotAppLoader.source')=='file:///C:/Users/Test/Plugins/AI-Notation-Studio-App-0.11.6.qml'
 assert run('hotAppRequested')=='true'
 assert run('settings.activeHotAppVersion')=='undefined' # Persist only after Loader/bootstrap succeeds.
 assert run('updateSourceText')==''
