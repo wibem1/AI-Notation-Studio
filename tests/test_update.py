@@ -22,7 +22,7 @@ XMLHttpRequest.prototype.open=function(method,url){this.url=url;};
 XMLHttpRequest.prototype.setRequestHeader=function(){};
 XMLHttpRequest.prototype.send=function(){};
 '''+qml[a:b])
-remote=qml.replace('version: "0.11.4"','version: "0.11.6"',1)
+remote=qml.replace('version: "0.11.5"','version: "0.11.6"',1)
 run('var remote='+json.dumps(remote)+';checkForUpdate();')
 assert run('updateBusy')=='true'
 run('var req=requests[0];req.status=200;req.responseText=remote;req.readyState=4;req.onreadystatechange();')
