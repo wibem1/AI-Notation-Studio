@@ -26,3 +26,9 @@ const silentBar=measure(49,['G','A','B','C']).replaceAll('<pitch><step>G</step><
 const silentOutput=added.replace(measure(49,['G','A','B','C']),silentBar);
 assert(ctx.combine(base,silentOutput,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}).xml.includes('<measure number="49">'), 'Single rest bar must be allowed');
 console.log('Division conversion, invalid rhythm and intentional rest bar PASS');
+
+const gMinorSource=base.replace('<divisions>1</divisions><time>','<divisions>1</divisions><key><fifths>-2</fifths></key><time>');
+const gMinorResult=ctx.combine(gMinorSource,added,{kind:'replaceInstrumentPart',partIndex:1,startQuarter:0,endQuarter:196}).xml;
+assert(gMinorResult.includes('<key><fifths>-2</fifths></key>'), 'Original key signature must be preserved');
+assert(gMinorResult.includes('<part id="P1">'+violin+'</part>'), 'Violin altered by key-signature conversion');
+console.log('Original G-minor signature with keyless generated piano PASS');
