@@ -143,3 +143,18 @@ Die Regression `tests/test_prompt_routing.py` wurde so ergänzt, dass der tatsä
 Verifizierter GitHub-Actions-Lauf: https://github.com/wibem1/AI-Notation-Studio/actions/runs/39749622695 — SUCCESS.
 
 Die native MuseScore-API sowie echte Modellantworten für 49 Takte sind weiter nicht end-to-end getestet. Einwandfreie Funktion im Nutzerprojekt kann daraus nicht behauptet werden.
+
+
+### 2026-10-22 — Diagnosebasierte Reparatur v0.11.6 (echter Nutzerfehler)
+
+Diagnosedatei `AI-Notation-Studio-Diagnose-1792659054507-77481.json` wurde lokal analysiert; aus Datenschutz-/Dateigründen nicht vollständig nach GitHub übertragen. Sichtbarer Fehlerfall: Plugin 0.11.5, Auftrag `Erstelle eine interessantere Klavierbegleitung`, Modus `Instrumentpart ersetzen (mehrstimmig)`, 49 Takte, Zielpartindex 1 (Klavier), Violine Partindex 0, Google `gemini-4-argon`. Modell lieferte CS1 mit allen Takten 1–49 und zwei Klavierstimmen; 8.355 Eingabe- und 7.637 Ausgabetokens. Keine Umsetzung wegen **`Takt 1: unterschiedliche MusicXML-divisions; die Notenwerte würden verfälscht.`**. `workflowState=invalid`; Ergebnis verbleibt als Entwurf. Kosten konnten nicht bestimmt werden, nicht als Nullkosten behandeln.
+
+Reparatur:
+- Die MusicXML-Engine rechnet Note-, Backup- und Forward-Dauern vor der Übernahme exakt in die Zeitauflösung des Originals um. Nicht ganzzahlig darstellbare Notendauern werden weiterhin sicher abgelehnt.
+- Die effektive Dauer jedes neuen Takts wird zusätzlich gegen die ausgewählte Taktlänge geprüft. Ein unvollständiger Takt darf nicht als regulärer Takt erscheinen.
+- Die ursprüngliche Tonart (g-Moll) und die Taktart bleiben autoritativ, auch wenn die KI die Tonart in CS1 nicht angegeben hat. Der bisherige Vergleich gegen den generierten Default C-Dur hätte sonst ab Takt 2 erneut abgebrochen.
+- Importierte Attribute dürfen nach Dauerumrechnung nicht die ursprüngliche Zeitauflösung überschreiben.
+- Die Änderungen wurden sowohl in `compactscore-context.js` als auch in den tatsächlich ausgelieferten QML-Runtimeblock übernommen.
+- Die 49-Takte-Regression deckt nun unterschiedliche divisions (mit erhaltener Rhythmik), unvollständige Notendauern sowie Originaltonart g-Moll bei tonartlosem Ersatz ab.
+
+Automatisierter Testlauf erfolgreich: https://github.com/wibem1/AI-Notation-Studio/actions/runs/39752098459 . Die native MuseScore-End-to-End-Prüfung mit echter Partitur und externem Modell fehlt weiterhin. Der Fehler aus der Diagnose ist im Code korrigiert, aber die vollständige Nutzerfunktion ist dadurch noch nicht live verifiziert.
