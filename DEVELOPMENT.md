@@ -133,3 +133,13 @@ Ein freier Sprachauftrag (z. B. 'interessantere Klavierbegleitung') darf keine d
 - CI-Reparaturen: alte UI-Testannahmen und 0.11.1/0.11.2-Versionsannahmen korrigiert; PySide6, lxml und EGL-Umgebung eingerichtet; Qt-Tests separat ausgeführt, damit QCoreApplication-Singletons nicht kollidieren.
 - Der ältere Legacy-Updater-Test `tests/test_legacy_update.py` ist aus diesem Linux-CI-Lauf explizit ausgenommen, weil dessen ursprünglicher Qt6-Cache-Fall nicht stabil auf dieser Laufzeit läuft. Es gibt weiterhin einen eigenständigen Regressionstest für Neustart/Update.
 - **Freigabe weiterhin gesperrt:** CI verwendet Qt/MuseScore-Test-Stubs, nicht die echte MuseScore-Hostanwendung. Ein vollständiger nativer MuseScore 4.7.5-Integrationstest mit 49-taktiger realer Partitur und ein echter OpenRouter-End-to-End-Test sind nicht nachgewiesen.
+
+## 2026-10-22: v0.11.5 — Auftragsweiche repariert
+
+Bei der Nachprüfung der v0.11.4 wurde ein konkreter Quellcodefehler gefunden: Der reguläre Ausdruck zum Erkennen von Änderungsaufträgen enthielt `/\\\\b/` statt einer funktionierenden Wortgrenze bzw. passenden Suchbedingung. Deshalb konnte „Erstelle eine interessantere Klavierbegleitung“ weiterhin fälschlich in „Neue Stimme“ gelangen. Die irreführende Regel wurde durch eine direkt getestete Teilwort-Suche ersetzt.
+
+Die Regression `tests/test_prompt_routing.py` wurde so ergänzt, dass der tatsächliche QML-Regelausdruck geprüft wird, nicht nur eine separat kopierte Musterformel. Ebenso wurden alle Versions-/Update-Tests auf 0.11.5 aktualisiert.
+
+Verifizierter GitHub-Actions-Lauf: https://github.com/wibem1/AI-Notation-Studio/actions/runs/39749622695 — SUCCESS.
+
+Die native MuseScore-API sowie echte Modellantworten für 49 Takte sind weiter nicht end-to-end getestet. Einwandfreie Funktion im Nutzerprojekt kann daraus nicht behauptet werden.
