@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.4"
+    version: "0.11.5"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -418,7 +418,7 @@ MuseScore {
 
     function prepareCompositionJob(mode) {
         // Prevent accidental expensive generation with the wrong workflow.
-        if (mode === 1 && /\\b(ersetz|neu gestalten|umgestalt|interessanter|überarbeit|verbesser|ändern|austausch|bearbeit)/i.test(instructionBox.text))
+        if (mode === 1 && /(ersetz|neu gestalten|umgestalt|interessanter|überarbeit|verbesser|ändern|austausch|bearbeit)/i.test(instructionBox.text))
             throw Error("Dieser Auftrag verlangt eine Änderung vorhandener Musik. Bitte „Instrumentpart ersetzen (mehrstimmig)“ wählen; „Neue Stimme“ fügt nur hinzu. Es wurde keine KI-Anfrage gesendet.")
         var bounds = mode === 2 ? { startTick: 0, endTick: 0 } : selectionBounds()
         if (mode !== 2 && !(bounds.endTick > bounds.startTick))
