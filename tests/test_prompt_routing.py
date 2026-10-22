@@ -15,6 +15,7 @@ assert len(compact)<15000,len(compact)
 assert '94080' in compact
 assert 'someIrrelevantLongText' not in compact
 assert 'C4' in compact
-guard='/\\b(ersetz|neu gestalten|umgestalt|interessanter|überarbeit|verbesser|ändern|austausch|bearbeit)/i.test("Erstelle eine interessantere Klavierbegleitung")'
+guard='/(ersetz|neu gestalten|umgestalt|interessanter|überarbeit|verbesser|ändern|austausch|bearbeit)/i.test("Erstelle eine interessantere Klavierbegleitung")'
 v=engine.evaluate(guard);assert v.toBool(),v.toString()
+assert '/(ersetz|neu gestalten|' in qml and '/\\\\b(ersetz|' not in qml
 print('Compact context and wrong-mode request guard PASS')
