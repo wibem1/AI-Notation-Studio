@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.3"
+    version: "0.11.4"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -417,6 +417,9 @@ MuseScore {
     }
 
     function prepareCompositionJob(mode) {
+        // Prevent accidental expensive generation with the wrong workflow.
+        if (mode === 1 && /\\b(ersetz|neu gestalten|umgestalt|interessanter|überarbeit|verbesser|ändern|austausch|bearbeit)/i.test(instructionBox.text))
+            throw Error("Dieser Auftrag verlangt eine Änderung vorhandener Musik. Bitte „Instrumentpart ersetzen (mehrstimmig)“ wählen; „Neue Stimme“ fügt nur hinzu. Es wurde keine KI-Anfrage gesendet.")
         var bounds = mode === 2 ? { startTick: 0, endTick: 0 } : selectionBounds()
         if (mode !== 2 && !(bounds.endTick > bounds.startTick))
             throw Error("Die Auswahl hat keine erkennbare Dauer. Bitte einen Taktbereich markieren.")
@@ -528,6 +531,28 @@ MuseScore {
         return job
     }
 
+    function compactCompositionSelection(source) {
+        var data
+        try { data = JSON.parse(source) } catch(e) { return String(source || "").slice(0, 12000) }
+        var b = data.bounds || {}, rows = data.elements || []
+        var out = ["Ticks: "+b.startTick+"-"+b.endTick, "Elemente: "+rows.length]
+        var previous = ""
+        for (var i=0; i<rows.length; i++) {
+            var e = rows[i], kind = String(e.type||"")
+            if (!/note|chord|rest|harmony|tempo|dynamic|key|time/i.test(kind)) continue
+            var tick = Number(e.tick||0), track = Number(e.track||0)
+            var item = tick+":"+track+":"+kind
+            if (e.pitch !== undefined) item+=":"+String(e.pitch)
+            if (e.pitches !== undefined) item+=":"+JSON.stringify(e.pitches)
+            if (e.durationTicks !== undefined) item+="/"+e.durationTicks
+            if (e.text !== undefined) item+=":"+String(e.text).slice(0,60)
+            if (item===previous) continue
+            out.push(item); previous=item
+            if (out.join("\n").length>60000) { out.push("[Kontext gekürzt; vollständige Partitur bleibt lokal gespeichert]"); break }
+        }
+        return out.join("\n")
+    }
+
     function compositionTask(job) {
         var action = ["", "Komponiere eine eigenständige zusätzliche Stimme zur Referenzpassage.",
             "Komponiere ein vollständiges neues Stück ohne musikalische Vorlage.",
@@ -542,7 +567,7 @@ MuseScore {
         var task = action + "\nAUFTRAG:\n" + job.instruction + "\nZIELBESETZUNG (Reihenfolge verbindlich): " + job.instruments.join(", ") +
             "\nLÄNGE: " + job.measures + " Takte.\nARBEITSVORLIEBEN:\n" + job.preferences +
             "\nGestalte musikalisch begründete Phrasen, motivische Beziehungen, Harmonik, Rhythmus und Ausdruck. Für die Instrumente spielbar schreiben. Klavier mit rechter und linker Hand. Nutzerangaben haben Vorrang. Für CS1 englische Instrumentnamen wie piano, violin, cello, flute und clarinet verwenden; pro Instrument ein P-Block mit eindeutiger ID. Tonhöhen klingend angeben; instrumentale Transposition übernimmt das Plugin."
-        if (job.mode !== 2) task += "\nREFERENZAUSWAHL:\n" + job.selection +
+        if (job.mode !== 2) task += "\nREFERENZAUSWAHL (kompakt, ohne überflüssige UI-Metadaten):\n" + compactCompositionSelection(job.selection) +
             "\nTaktart am Beginn: " + job.sourceTime + ". Taktarten und tatsächliche Taktlängen der Ausgangspartitur: " + JSON.stringify(job.sourceMeters) + ". Die Taktlängen müssen damit übereinstimmen. Die Ergebnis-Takte werden ab 1 gezählt und ab Ausgangstakt " + job.startMeasure + " eingefügt."
         if (job.prefixQuarter > 0) task += "\nDie Auswahl beginnt " + job.prefixQuarter + " Viertel nach Taktanfang. In jeder Ergebnisstimme den ersten Takt mit genau dieser Dauer als Pausen beginnen; danach die Musik der Auswahl bearbeiten."
         if (job.mode === 8) task += "\nErsetze nur den ausgewählten Instrumentpart über alle "+job.measures+" Takte, mit vollständiger mehrstimmiger Notation. Keine weiteren Instrumente erzeugen.";
