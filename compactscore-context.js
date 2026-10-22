@@ -36,7 +36,7 @@ function timeline(part){
    maximum=Math.max(maximum,cursor);
   });
   var length=/\bimplicit=["']yes["']/.test(m.open)&&maximum>0?maximum:Math.max(meter,maximum);
-  rows.push({node:m,start:start,length:length,division:division,time:time,key:key,staves:staves,transpose:transpose});start+=length;
+  rows.push({node:m,start:start,length:length,observedLength:maximum,division:division,time:time,key:key,staves:staves,transpose:transpose});start+=length;
  });return {rows:rows,end:start};
 }
 function inspect(xml,startQuarter){
@@ -341,6 +341,8 @@ function replaceInstrumentPart(baseXML,addedXML,options){
   // changes the sounding rhythm when MusicXML divisions differ.
   // Normalize generated duration units to the destination score's divisions.
   // Fractional durations cannot be represented exactly and are rejected.
+  if(fresh.observedLength+1e-7<old.length)
+   throw Error('Takt '+(from+i+1)+': unvollständige Notendauern im erzeugten Instrumentpart.');
   if(!(old.division>0&&fresh.division>0))
    throw Error('Ungültige MusicXML-divisions in Takt '+(from+i+1)+'.');
   var incomingNotes=children(newMeasures[i],'note');
