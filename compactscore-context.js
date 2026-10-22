@@ -348,8 +348,8 @@ function replaceInstrumentPart(baseXML,addedXML,options){
   var incomingNotes=children(newMeasures[i],'note');
   if(incomingNotes.some(function(n){return !!first(n,'pitch')}))soundingBars++;
   // Source meter/key changes inside the range must not be silently overwritten.
-  if(i>0 && (old.time!==fresh.time||old.key!==fresh.key))
-   throw Error('Takt '+(from+i+1)+': Tonart oder Taktart ist nicht deckungsgleich.');
+  // The original score defines key and meter; generated CS1 may omit key.
+  // The source attributes are restored below at every change point.
  }
  if(count>1 && soundingBars<=1)throw Error('Die neue Begleitung enthält in '+count+' Takten nur '+soundingBars+' klingende Takte.');
  // Reject spanners crossing the replacement boundary; do not silently orphan ties.
