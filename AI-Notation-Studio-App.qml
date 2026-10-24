@@ -1,4 +1,4 @@
-import QtQuick 2.2
+import QtQuick 2.5
 import QtQuick.Window 2.2
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.1
@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.7"
+    version: "0.11.8"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -5908,6 +5908,39 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         visible: !hotAppActive
         color: "#202124"
 
+        function arrowScrollingAllowed() {
+            if (!visible || !nativeWindow || !nativeWindow.visible) return false
+            var focused = nativeWindow.activeFocusItem
+            // The host may own focus even though the loaded app is visible.
+            if (!focused || focused === nativeWindow.contentItem || focused === root) return true
+            while (focused) {
+                // Editors and selection controls retain their native arrow actions.
+                if (typeof focused.cursorPosition === "number" ||
+                    (typeof focused.currentIndex === "number" && typeof focused.count === "number") ||
+                    (typeof focused.value === "number" && typeof focused.stepSize === "number")) return false
+                if (focused === legacyUi) return true
+                focused = focused.parent
+            }
+            // Focus outside this page belongs to a dialog/popup or another view.
+            return false
+        }
+
+        Shortcut {
+            sequence: "Up"
+            context: Qt.WindowShortcut
+            autoRepeat: true
+            enabled: legacyUi.arrowScrollingAllowed()
+            onActivated: appScroll.scrollBy(-48)
+        }
+
+        Shortcut {
+            sequence: "Down"
+            context: Qt.WindowShortcut
+            autoRepeat: true
+            enabled: legacyUi.arrowScrollingAllowed()
+            onActivated: appScroll.scrollBy(48)
+        }
+
         Rectangle {
             id: activeModelHeader
             objectName: "activeModelHeader"
@@ -5947,18 +5980,11 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             anchors.topMargin: 10
             clip: true
             focus: true
-            Keys.priority: Keys.AfterItem
-            Keys.onPressed: {
-                if (event.modifiers !== Qt.NoModifier ||
-                    (event.key !== Qt.Key_Up && event.key !== Qt.Key_Down)) return
-                // Preserve cursor navigation in editors, including editable combo boxes.
-                var focused = legacyUi.nativeWindow ? legacyUi.nativeWindow.activeFocusItem : null
-                if (focused && typeof focused.cursorPosition === "number") return
+            function scrollBy(delta) {
                 var limit = Math.max(0, contentHeight - height)
-                var next = Math.max(0, Math.min(limit, contentY + (event.key === Qt.Key_Down ? 48 : -48)))
+                var next = Math.max(0, Math.min(limit, contentY + delta))
                 cancelFlick()
                 contentY = next
-                event.accepted = true
             }
             contentWidth: width
             contentHeight: appColumn.height
