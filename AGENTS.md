@@ -4,3 +4,5 @@
 2. Hier `PROJECT_STATE.md`, `README.md` sowie einschlägige vorhandene Issues, TODOs und Dokumentation lesen; bestehende Projektregeln bleiben gültig.
 3. Den aktuellen Quell-/Teststand verifizieren, **nur eine kleine Aufgabe** bearbeiten, geeignet testen, anschließend Code und Projektgedächtnis sichern.
 4. Keine neuen Releases ohne tatsächliche Integrationstests; keine unnötigen Builds, kostenpflichtigen APIs oder Retry-Schleifen.
+5. Bei jeder Änderung eine neue App-Versionsnummer vergeben und über den bestehenden Updateweg auf `main` bereitstellen. Bereits veröffentlichte versionierte App-Dateien unverändert erhalten. Benutzeranweisung vom 24.10.2026.
+

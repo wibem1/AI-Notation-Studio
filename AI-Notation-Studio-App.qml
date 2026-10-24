@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.6"
+    version: "0.11.7"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -5695,7 +5695,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         else providerBox.currentIndex = 0
 
         loadProviderFields()
-        loadCompositionHistory()
+        // Load the archive only when opening History; it can be tens of MB.
         restoreGeneralDefaults()
         loadChatHistory()
         statusText = "Bereit. Live-App v" + root.version + " geladen."
@@ -5908,12 +5908,58 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         visible: !hotAppActive
         color: "#202124"
 
+        Rectangle {
+            id: activeModelHeader
+            objectName: "activeModelHeader"
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 18
+            height: activeModelLabel.implicitHeight + 20
+            color: "#2b2d31"
+            radius: 5
+
+            Label {
+                id: activeModelLabel
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: 10
+                text: "KI: " + providerName() + " · Modell: " + (modelBox.text.trim() || "nicht gewählt") +
+                      (!settings.sameStageModel
+                       ? "\nStufe 2: " + settings.secondProvider + " · " +
+                         (stageTwoModelBox.text.trim() || providerModel(settings.secondProvider) || "nicht gewählt")
+                       : "")
+                color: "#ffffff"
+                font.pixelSize: 15
+                wrapMode: Text.Wrap
+            }
+        }
+
         Flickable {
             id: appScroll
             objectName: "compositionScroll"
-            anchors.fill: parent
+            anchors.top: activeModelHeader.bottom
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
             anchors.margins: 18
+            anchors.topMargin: 10
             clip: true
+            focus: true
+            Keys.priority: Keys.AfterItem
+            Keys.onPressed: {
+                if (event.modifiers !== Qt.NoModifier ||
+                    (event.key !== Qt.Key_Up && event.key !== Qt.Key_Down)) return
+                // Preserve cursor navigation in editors, including editable combo boxes.
+                var focused = legacyUi.nativeWindow ? legacyUi.nativeWindow.activeFocusItem : null
+                if (focused && typeof focused.cursorPosition === "number") return
+                var limit = Math.max(0, contentHeight - height)
+                var next = Math.max(0, Math.min(limit, contentY + (event.key === Qt.Key_Down ? 48 : -48)))
+                cancelFlick()
+                contentY = next
+                event.accepted = true
+            }
             contentWidth: width
             contentHeight: appColumn.height
             flickableDirection: Flickable.VerticalFlick

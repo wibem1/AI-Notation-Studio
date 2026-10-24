@@ -32,7 +32,8 @@ print('Original failure reproduced: content clipped by native window but Flickab
 old.close()
 v,f=load(ROOT/'AI-Notation-Studio-App.qml');bar=v.rootObject().findChild(QQuickItem,'compositionScrollBar')
 assert v.rootObject().height()==900 and v.height()==500
-assert f.height()==464
+header=v.rootObject().findChild(QQuickItem,'activeModelHeader')
+assert abs(f.height()-(464-header.height()-10))<1
 assert f.property('contentHeight')>f.height()
 point=bar.mapToScene(QPointF(9,bar.height()-10))
 assert point.y()<v.height()
@@ -44,5 +45,6 @@ QCoreApplication.sendEvent(v,QWheelEvent(pos,pos,QPoint(0,0),QPoint(0,-120),Qt.N
 QTest.qWait(250);assert f.property('contentY')>0
 f.setProperty('contentY',f.property('contentHeight')-f.height())
 assert f.property('contentY')>0
-v.resize(900,400);QTest.qWait(100);assert f.height()==364
+v.resize(900,400);QTest.qWait(100);assert abs(f.height()-(364-header.height()-10))<1
 print('Actual clipped embedding scrolls by scrollbar and wheel, reaches bottom and follows window resize')
+

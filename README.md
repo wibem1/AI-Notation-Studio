@@ -1,3 +1,9 @@
+# AI Notation Studio v0.11.7 – 24.10.2026
+
+Die aktuelle Version lädt den Kompositionsverlauf erst bei Bedarf, zeigt Anbieter und Modell dauerhaft oben an und unterstützt das Scrollen des Hauptbereichs mit Pfeil hoch / Pfeil herunter. In Textfeldern bleibt die Cursorbewegung erhalten.
+
+Installation: **Update prüfen → Update installieren**. Starter 0.7.27 bleibt unverändert. Details und Prüfgrenzen: [RELEASE-0.11.7.md](RELEASE-0.11.7.md). Jede Änderung erhält künftig eine neue Versionsnummer; veröffentlichte Versionsdateien bleiben unverändert.
+
 # AI Notation Studio v0.10.33 – 14.10.2026
 
 ## Eigener Fensterhost für die Direktkorrektur
@@ -183,3 +189,4 @@ Das Score-Gedächtnis wird als MuseScore-Metadatum im jeweiligen Score gespeiche
 ## Oberfläche v0.7.8
 
 Technische Einstellungen sind jetzt vom musikalischen Arbeitsbereich getrennt. **Provider, Modell und API-Key** befinden sich gesammelt im unteren Bereich **Technisches**. Dadurch bleibt **Komposition / Analyse** auf die musikalische Arbeit konzentriert.
+

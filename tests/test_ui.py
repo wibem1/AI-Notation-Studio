@@ -52,7 +52,7 @@ print('Actual mouse wheel scrolls main content')
 
 # A resized viewport must resize the actual main scrolling surface, not clip a fixed 900px item.
 v.resize(700,500);QTest.qWait(100)
-assert r.height()==500 and abs(scroll.height()-464)<1
+assert r.height()==500 and abs(scroll.height()-(500-36-r.findChild(QQuickItem,'activeModelHeader').height()-10))<1
 scroll.setProperty('contentY',scroll.property('contentHeight')-scroll.height())
 assert scroll.property('contentY')>0
 print('Smaller window follows viewport; bottom remains reachable')
@@ -75,6 +75,30 @@ app.processEvents();assert evaluate('studio.providerModel("OpenAI")')=='gpt-own-
 assert primary.property('text')=='gpt-own-model'
 print('Both actual model selectors save selections; manual model names remain usable')
 
+# Fixed header follows the real selectors and remains above the scrolling area.
+header=r.findChild(QQuickItem,'activeModelHeader')
+label=next(item for item in header.childItems() if item.metaObject().indexOfProperty('text')>=0)
+assert 'OpenAI' in label.property('text') and 'gpt-own-model' in label.property('text'),label.property('text')
+assert 'Google' in label.property('text') and 'gemini-test-second' in label.property('text'),label.property('text')
+headerY=header.mapToScene(QPointF(0,0)).y()
+scroll.setProperty('contentY',0);scroll.forceActiveFocus();QTest.keyClick(v,Qt.Key_Down);app.processEvents()
+assert scroll.property('contentY')==48,scroll.property('contentY')
+QTest.keyClick(v,Qt.Key_Up);app.processEvents();assert scroll.property('contentY')==0
+QTest.keyClick(v,Qt.Key_Up);app.processEvents();assert scroll.property('contentY')==0
+scroll.setProperty('contentY',scroll.property('contentHeight')-scroll.height())
+bottom=scroll.property('contentY');QTest.keyClick(v,Qt.Key_Down);app.processEvents()
+assert scroll.property('contentY')==bottom
+assert header.mapToScene(QPointF(0,0)).y()==headerY
+primary.setProperty('editText','gpt-header-update');app.processEvents()
+assert 'gpt-header-update' in label.property('text'),label.property('text')
+print('Live model header stays fixed; actual Up/Down keys scroll and stop at both edges')
+editor=next(item for item in r.findChildren(QQuickItem)
+            if 'TextArea' in item.metaObject().className() and item.property('text')=='Vom Nutzer bearbeitete Idee')
+scroll.setProperty('contentY',200);editor.forceActiveFocus();app.processEvents()
+before=scroll.property('contentY');QTest.keyClick(v,Qt.Key_Down);app.processEvents()
+assert scroll.property('contentY')==before
+print('Arrow keys in a focused text editor preserve cursor navigation')
+
 # Notation output must be accessible from the actual UI, not only an unused function.
 copy=r.findChild(QQuickItem,'notationStructureOpenButton')
 assert copy and not copy.property('enabled')
@@ -96,3 +120,4 @@ assert v.rootObject() is r, 'Direct correction unloaded the extension content'
 assert not r.property('busy'), 'Failed correction left controls blocked'
 assert r.property('structureStatus').startswith('Direktkorrektur nicht übernommen:'),r.property('structureStatus')
 print('Direct button keeps the native Qt host visible/alive and reports a failure without blocking controls')
+
