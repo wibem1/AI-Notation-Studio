@@ -10,6 +10,7 @@ jobs:
     timeout-minutes: 16
     steps:
       - uses: actions/checkout@v4
+      # The JS harness executes the QML trace helper as well as its onRun block.
       - name: Simulated safety checks
         run: node tests/test_native_measure_probe.cjs
       - name: Install headless GUI dependencies
