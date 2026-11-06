@@ -29,6 +29,7 @@ function run(options = {}) {
   if(options.noSelection)score.selection.selectRange=undefined;
   const context={
     curScore:options.noScore ? null : score,
+    probeTranscript:'', nativeLog:{write(text){ops.push('file-write')}},
     Qt:{quit(){ops.push('quit')}},
     console:{log(m){log.push(m)}},
     isFinite,JSON,Number,String,Error,
