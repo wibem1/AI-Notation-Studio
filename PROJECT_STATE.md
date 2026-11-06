@@ -1,5 +1,12 @@
 # Projektstand – AI Notation Studio
 
+## Komplexer nativer Integritätstest: echte MuseScore-Ausführung, Koordinatenvergleich korrigiert (07.11.2026)
+- **GitHub-Actions-Lauf #42309676635**: Fixture-Generator, XML-Strukturvorprüfung, MuseScore-4.7.6-MusicXML-Import und QML-Plugin tatsächlich erfolgreich ausgeführt. Native Probe meldet 4→5 Takte bei 3 Staves; Rollback und Ein-Schritt-Undo melden jeweils 4 Takte. **Gesamtlauf FAILURE**, weil der externe MusicXML-Komparator beim ersten Part eine rein grafische Änderung am Tempo-Metronom-Eintrag als musikalischen Fehler wertete (Attribut `default-x=-37.68` vor Einfügung, danach nicht vorhanden). Noten und Tempo waren in der protokollierten ersten Abweichung identisch; weitere Abweichungen noch nicht ausgeschlossen.
+- **Gezielter Fix Commit `be39486`**: `tests/verify_native_measure_snapshots.py` ignoriert bei Richtungs-/Ausdrucks-XML nur die positionsbezogenen Attribute `default-x/default-y/relative-x/relative-y`; Text, musikalisch relevante Attribute und `sound` bleiben vergleichspflichtig. Keine Änderung am produktiven Plugin oder am nativen Takteinfügecode.
+- **Automatisch gestarteter Folgelauf #42310093378**; beim letzten Abruf noch `in_progress` (GUI-Abhängigkeiten). **Kein Erfolgsnachweis des komplexen Vergleichs**, bis dieser Lauf endet und seine Artefakte geprüft sind.
+- **Nächster einzelner Schritt:** Ergebnis von #42310093378 auswerten. Bei Erfolg den Bereich der nachgewiesenen Erhaltung präzisieren und anschließend den separaten Writer für KI-generierte Takte konzipieren/isoliert prüfen. Bei Fehlschlag den konkreten musikalischen Unterschied untersuchen. Live 0.11.11 und Updater weiterhin unverändert, Draft-PR #3 offen.
+
+
 ## Fortsetzung – strukturierte Fixture-Vorprüfung ergänzt (07.11.2026)
 - Der zuvor identifizierte Python-3.14-Serialisierungsfehler wurde im isolierten Branch behoben (Commit `5735edd`).
 - Der native Testworkflow prüft jetzt nach dem Erzeugen der MusicXML die XML-Syntax, 2 Parts mit je 4 Takten, 8 Backup-Vorgänge, zwei Pedalmarkierungen, zwei Crescendo-Klammer-Markierungen und Tempodaten **vor** Import und GUI-Pluginstart (Workflow-Commit `ef41044`). Außerdem reagiert der Branch-Workflow explizit auf Änderungen der Testfixture und des Vergleichsskripts.
