@@ -2,6 +2,12 @@
 
 **Live-Version 0.11.11, Stand 06.11.2026.** Der Starter 0.7.27 und ältere Versionen bleiben unverändert.
 
+## Nächste Entwicklung: wählbares Ausgabeziel (Entscheidung 06.11.2026, Issue #2)
+- Der Benutzer bestätigt: **„In bestehende Partitur einfügen“ soll später Standard sein**, alternativ **„Als neue Partitur öffnen“**, übergreifend für Vorspiel, Fortsetzung und andere KI-Kompositionen. Beide Optionen sollen auf demselben geprüften CS1/MusicXML-Ergebnis beruhen und keinen neuen KI-Aufruf auslösen.
+- **Wichtiger technischer Freigabeblock:** `openCompactScore()` verwendet aktuell `readScore(...)` und erzeugt somit immer einen neuen MuseScore-Tab. Für wirkliches In-Place-Einfügen existiert kein einfacher dokumentierter Plugin-Aufruf zum Ersetzen der Partitur durch MusicXML. Vor Release muss ein natives, transaktionales Einfügen neuer Takte **und** Übernehmen aller Noten/Markierungen/Staffs implementiert und in MuseScore auf vollständiges Undo und unveränderte alte Takte getestet werden. Niemals durch Schließen/Ersetzen der Ausgangspartitur simulieren; bei fehlender Fähigkeit offen abbrechen. Aktuelle 0.11.11 bleibt deshalb unverändert. Keinen unfertigen „Standard“-Schalter veröffentlichen.
+- Zusätzlich offener Notensatzfehler aus dem Screenshot: wiederholte Startangaben, getrennte Klaviernamen, Pedalposition und leerer Rahmen im importierten MusicXML; nicht mit dem Ausgabeziel vermischen.
+- Verbindliche Spezifikation und Akzeptanzkriterien: https://github.com/wibem1/AI-Notation-Studio/issues/2
+
 ## Aktuell behoben: KI-Vorspiel zwar erzeugt, aber nicht übernommen
 - Nutzerdiagnose v0.11.10: `workflowState=invalid`, `validation_error="Error: Rhythmus ist nicht exakt darstellbar."`, Roh-Antwort `compositionJob.raw_response` gespeichert, Ausgangspartitur unverändert bei 32 Takten.
 - Ursache sind gebrochene Positionen von Pedal und Crescendo (`2.9`, `4.9`) beim MusicXML-Export, **nicht** das vorherige Problem mit dem übervollen Takt.
