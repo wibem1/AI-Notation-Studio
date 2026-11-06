@@ -6431,10 +6431,15 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 ComboBox {
                     id: modeBox
                     Layout.fillWidth: true
-                    model: ["Auswahl analysieren", "Neue Stimme zu Auswahl", "Freie Komposition ohne Vorlage", "Fortsetzen", "Aus Motiv entwickeln", "Variante erzeugen", "Für andere Besetzung bearbeiten", "Stimme ersetzen (auch Klavier)", "Instrumentpart ersetzen (mehrstimmig)"]
+                    model: ["Auswahl analysieren", "Neue Stimme zu Auswahl", "Freie Komposition ohne Vorlage", "Fortsetzen", "Aus Motiv entwickeln", "Variante erzeugen", "Für andere Besetzung bearbeiten", "Stimme ersetzen (auch Klavier)", "Instrumentpart ersetzen (mehrstimmig)", "Vorspiel voranstellen"]
                     currentIndex: 0
                     font.pixelSize: uiSize
-                    onCurrentIndexChanged: saveGeneralDefaults()
+                    onCurrentIndexChanged: {
+                        saveGeneralDefaults()
+                        if(currentIndex===9 && curScore){
+                            try{refreshPreludeTargets()}catch(e){statusText=String(e)}
+                        }
+                    }
                 }
 
                 Label { text: "Übergang"; color:"white"; visible:modeBox.currentIndex===3; font.pixelSize:uiSize }
@@ -6456,11 +6461,11 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     text: "Besetzung"
                     color: "white"
                     font.pixelSize: uiSize
-                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex >= 4
+                    visible: modeBox.currentIndex === 2 || (modeBox.currentIndex >= 4 && modeBox.currentIndex !== 9)
                 }
 
                 TextField {
-                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex >= 4
+                    visible: modeBox.currentIndex === 2 || (modeBox.currentIndex >= 4 && modeBox.currentIndex !== 9)
                     Layout.fillWidth: true
                     text: freeInstrumentation
                     font.pixelSize: uiSize
@@ -6475,11 +6480,11 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     text: "Takte"
                     color: "white"
                     font.pixelSize: uiSize
-                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4
+                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4 || modeBox.currentIndex === 9
                 }
 
                 SpinBox {
-                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4
+                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4 || modeBox.currentIndex === 9
                     from: 1
                     to: 128
                     value: freeMeasures
@@ -6488,6 +6493,39 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     onValueChanged: {
                         freeMeasures = value
                         saveGeneralDefaults()
+                    }
+                }
+
+
+                Label {text: "Instrumente für das Vorspiel"; color:"white"; font.pixelSize:uiSize; visible:modeBox.currentIndex===9}
+                ColumnLayout {
+                    visible:modeBox.currentIndex===9
+                    Layout.fillWidth:true
+                    Button {
+                        text:"Instrumente aus Partitur laden"
+                        enabled:!busy && curScore !== null
+                        onClicked:{try{refreshPreludeTargets()}catch(e){statusText=String(e)}}
+                    }
+                    Repeater {
+                        model:preludeTargets
+                        CheckBox {
+                            text:modelData.label
+                            checked:preludeSelectedIndices.indexOf(index)>=0
+                            enabled:!busy
+                            onClicked:{
+                                var selected=preludeSelectedIndices.slice(0)
+                                var at=selected.indexOf(index)
+                                if(checked && at<0)selected.push(index)
+                                if(!checked && at>=0)selected.splice(at,1)
+                                preludeSelectedIndices=selected
+                            }
+                        }
+                    }
+                    Label {
+                        Layout.fillWidth:true
+                        wrapMode:Text.WordWrap
+                        color:"#bbbbbb"
+                        text:"Ein oder mehrere Instrumente auswählen. Ein verborgenes zweites Klaviersystem wird gemeinsam angeboten. Die vorhandene Partitur bleibt erhalten."
                     }
                 }
 
@@ -6534,7 +6572,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
                 Button {
                     text: "Auswahl neu lesen"
-                    visible: modeBox.currentIndex !== 2
+                    visible: modeBox.currentIndex !== 2 && modeBox.currentIndex !== 9
                     font.pixelSize: uiSize
                     onClicked: readSelection()
                 }
