@@ -39,6 +39,8 @@ MuseScore {
     property var workflowCore: createSharedWorkflowCore()
     property var workflowAnalysis: null
     property int workflowTransitionBars: 0
+    property var preludeTargets: []
+    property var preludeSelectedIndices: []
     property var compositionJob: null
     property string compositionIdea: ""
     property bool ideaReady: false
@@ -370,7 +372,7 @@ MuseScore {
                 throw Error("Zeitversatz erkannt: Die Ausgangspartitur beginnt mit einem Pausentakt, die Begleitung dagegen mit Noten. Nichts wurde eingefügt.")
         }
         return compact.context.combine(job.sourceXml || readWorkflowSource(job),xml,
-            {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter,targetInstrument:job.instruments[0],partIndex:job.replacePartIndex,staffNumber:job.replaceStaffNumber})
+            {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter,targetInstrument:job.instruments[0],partIndex:job.replacePartIndex,staffNumber:job.replaceStaffNumber,targetGroups:job.preludeTargets||null})
     }
     function readWorkflowSource(job) {
         compactFile.source=job.sourcePath
@@ -420,11 +422,17 @@ MuseScore {
         // Prevent accidental expensive generation with the wrong workflow.
         if (mode === 1 && /(ersetz|neu gestalten|umgestalt|interessanter|überarbeit|verbesser|ändern|austausch|bearbeit)/i.test(instructionBox.text))
             throw Error("Dieser Auftrag verlangt eine Änderung vorhandener Musik. Bitte „Instrumentpart ersetzen (mehrstimmig)“ wählen; „Neue Stimme“ fügt nur hinzu. Es wurde keine KI-Anfrage gesendet.")
-        var bounds = mode === 2 ? { startTick: 0, endTick: 0 } : selectionBounds()
-        if (mode !== 2 && !(bounds.endTick > bounds.startTick))
+        var bounds = (mode===2||mode===9) ? {startTick:0,endTick:0} : selectionBounds()
+        if (mode !== 2 && mode !== 9 && !(bounds.endTick > bounds.startTick))
             throw Error("Die Auswahl hat keine erkennbare Dauer. Bitte einen Taktbereich markieren.")
         if (mode === 3 && bounds.endTick < scoreEndTick(curScore)) throw Error("Fortsetzen benötigt eine Auswahl am Partiturende.")
-        var instruments = (mode === 1 || mode === 7 || mode === 8) ? [instrumentBox.currentText] : mode === 2 ? normalizedInstrumentation() : contextTargetInstruments(mode)
+        var chosenPrelude=[]
+        if(mode===9) {
+            refreshPreludeTargets()
+            chosenPrelude=preludeTargets.filter(function(t,j){return preludeSelectedIndices.indexOf(j)>=0})
+            if(!chosenPrelude.length)throw Error("Bitte Instrumente für das Vorspiel auswählen.")
+        }
+        var instruments=mode===9 ? chosenPrelude.map(function(t){return t.name}) : (mode===1||mode===7||mode===8) ? [instrumentBox.currentText] : mode===2 ? normalizedInstrumentation() : contextTargetInstruments(mode)
         if (!instruments.length) throw Error("Bitte eine Zielbesetzung angeben.")
         var replacePartIndex = -1, replaceStaffNumber = 1
         if(mode === 7 || mode === 8) {
@@ -477,7 +485,8 @@ MuseScore {
         if (strategy !== 0 && (!second.model || !providerKey(second.provider))) throw Error("Modell oder gespeicherter API-Key für Stufe 2 (" + second.provider + ") fehlt. Im Bereich Technisches den Anbieter wählen und seinen Key speichern.")
         var job = { id: String(new Date().getTime()), created: new Date().toISOString(), mode: mode, modeName: modeBox.currentText,
             strategy: strategy, first: first, second: second, instruments: instruments, instruction: instructionBox.text.trim(),
-            measures: (mode === 1 || mode === 7 || mode === 8) ? selectionMeasureCount() : mode === 2 ? freeMeasures : contextMeasures(mode),
+            measures: (mode===1||mode===7||mode===8) ? selectionMeasureCount() : (mode===2||mode===9) ? freeMeasures : contextMeasures(mode),
+            preludeTargets:mode===9?chosenPrelude:null,
             selection: selectionJson, preferences: settings.generalMemoryText, sourcePath: "", replacePartIndex: replacePartIndex, replaceStaffNumber: replaceStaffNumber, startQuarter: mode === 3 ? bounds.endTick / 480 : bounds.startTick / 480, endQuarter: bounds.endTick / 480,
             prefixQuarter: 0, startMeasure: 1, sourceTime: "", idea: "", draft: "" }
         if (mode !== 2) {
@@ -502,6 +511,7 @@ MuseScore {
                     job.workflowKind = "overlay"
                 }
             }
+            if(mode===9){job.workflowKind="prependPrelude";job.startQuarter=0;job.endQuarter=0}
             var context = compact.context.inspect(source, job.startQuarter)
             job.sourcePath = path; job.prefixQuarter = context.prefixQuarter; job.startMeasure = context.startMeasure; job.sourceTime = context.timeSignature
             job.sourceMeters = context.meters.slice(context.startMeasure - 1, context.startMeasure - 1 + job.measures)
@@ -511,6 +521,11 @@ MuseScore {
                 job.sourceMeters = context.meters.slice(context.startMeasure - 1, context.startMeasure - 1 + job.measures)
             }
             job.sourceTitle = String(curScore.title || "")
+            if(mode===9){
+                job.sourceMeters=[]
+                for(var mi=0;mi<job.measures;mi++)job.sourceMeters.push({measure:mi+1,timeSignature:context.meters[0].timeSignature,quarters:context.meters[0].quarters})
+                job.preludeReference=preludeReference(source)
+            }
         }
         if(mode===8) { job.workflowKind="replaceInstrumentPart"; job.instruments=[String(instruments[0])]; }
         if(mode===7) { job.workflowKind=replaceStaffNumber===1 && (curScore.parts[replacePartIndex].endTrack-curScore.parts[replacePartIndex].startTrack)===4 ? "replaceVoice" : "replacePianoStaff"; job.instruments=[String(instruments[0])]; }
@@ -567,18 +582,22 @@ MuseScore {
             "Erzeuge genau eine eigenständige Variante der Referenzpassage und bewahre ihre Identität und Funktion.",
             "Bearbeite die Referenzpassage idiomatisch für die Zielbesetzung und bewahre ihre musikalische Identität.",
             "Ersetze ausschließlich die ausdrücklich ausgewählte einstimmige Instrumentalstimme durch eine neue, vollständig notierte Stimme. Alle anderen Instrumente und Takte bleiben unverändert.",
-            "Komponiere den ausgewählten Instrumentpart vollständig neu. Bei Klavier: beide Hände, alle unabhängigen Stimmen, Akkorde und vollständige Spielanweisungen. Die übrigen Instrumente bleiben unverändert."][job.mode]
+            "Komponiere den ausgewählten Instrumentpart vollständig neu. Bei Klavier: beide Hände, alle unabhängigen Stimmen, Akkorde und vollständige Spielanweisungen. Die übrigen Instrumente bleiben unverändert.",
+            "Komponiere ein eigenständiges Vorspiel vor der bestehenden Partitur."][job.mode]
         if(job.transitionBars) action += " Zuerst "+job.transitionBars+" freigegebene Schlusstakte ersetzen, danach "+job.newMeasures+" neue Takte. Frühere Takte erhalten."
         if(job.analysis) action="Überarbeite die markierten Takte derselben Besetzung gemäß Analyse. Keine zusätzlichen Stimmen."
         var task = action + "\nAUFTRAG:\n" + job.instruction + "\nZIELBESETZUNG (Reihenfolge verbindlich): " + job.instruments.join(", ") +
             "\nLÄNGE: " + job.measures + " Takte.\nARBEITSVORLIEBEN:\n" + job.preferences +
             "\nGestalte musikalisch begründete Phrasen, motivische Beziehungen, Harmonik, Rhythmus und Ausdruck. Für die Instrumente spielbar schreiben. Klavier mit rechter und linker Hand. Nutzerangaben haben Vorrang. Für CS1 englische Instrumentnamen wie piano, violin, cello, flute und clarinet verwenden; pro Instrument ein P-Block mit eindeutiger ID. Tonhöhen klingend angeben; instrumentale Transposition übernimmt das Plugin."
-        if (job.mode !== 2) task += "\nREFERENZAUSWAHL (kompakt, ohne überflüssige UI-Metadaten):\n" + compactCompositionSelection(job.selection) +
+        if (job.mode !== 2 && job.mode !== 9) task += "\nREFERENZAUSWAHL (kompakt, ohne überflüssige UI-Metadaten):\n" + compactCompositionSelection(job.selection) +
             "\nTaktart am Beginn: " + job.sourceTime + ". Taktarten und tatsächliche Taktlängen der Ausgangspartitur: " + JSON.stringify(job.sourceMeters) + ". Die Taktlängen müssen damit übereinstimmen. Die Ergebnis-Takte werden ab 1 gezählt und ab Ausgangstakt " + job.startMeasure + " eingefügt."
         if (job.prefixQuarter > 0) task += "\nDie Auswahl beginnt " + job.prefixQuarter + " Viertel nach Taktanfang. In jeder Ergebnisstimme den ersten Takt mit genau dieser Dauer als Pausen beginnen; danach die Musik der Auswahl bearbeiten."
         if (job.mode === 8) task += "\nErsetze nur den ausgewählten Instrumentpart über alle "+job.measures+" Takte, mit vollständiger mehrstimmiger Notation. Keine weiteren Instrumente erzeugen.";
         if (job.mode === 7) task += "\nNur die Zielstimme neu komponieren, genau "+job.measures+" vollständige Takte; keine anderen Stimmen ausgeben. Bei Klavier genau ein System wählen, andere Stimmen unverändert.";
         if (job.mode === 1) task += "\nDie neue Stimme muss genau den Zeitraum der Auswahl abdecken; danach im letzten Takt gegebenenfalls Pausen. Keine vorhandenen Stimmen kopieren."
+        if(job.mode===9)task+="\nVORSPIEL VOR TAKT 1: Erzeuge "+job.measures+" vollständige neue Takte für genau "+job.instruments.length+" Instrumente in der angegebenen Reihenfolge. "+
+            "Klavier als ein zweizeiliges System (rechte und linke Hand). Taktart "+job.sourceTime+". Die Komposition muss motivisch, harmonisch und stilistisch zum anschließenden Stück führen. "+
+            "Keine alten Stimmen kopieren; die vorhandene Musik wird automatisch verschoben.\nMUSIKALISCHER KONTEXT DES FOLGESTÜCKS:\n"+job.preludeReference
         return workflowCore.prompt(job.mode===3 ? "continue" : job.analysis ? "revise" : "compose")+"\n"+task+(job.analysis ? "\nFREIGEGEBENE ANALYSE:\n"+job.analysis : "")
     }
 
@@ -4746,6 +4765,34 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         return "Violine: sinnvoll etwa G3 bis E6"
     }
 
+
+    function refreshPreludeTargets(){
+        if(!curScore)throw Error("Keine Partitur geöffnet.")
+        var now=compact.context.preludeCatalog(workflowXml()),old=preludeTargets,selected=preludeSelectedIndices,keep=[]
+        now.forEach(function(x,i){
+            selected.forEach(function(j){if(old[j]&&old[j].name===x.name&&JSON.stringify(old[j].indices)===JSON.stringify(x.indices))keep.push(i)})
+        })
+        preludeTargets=now
+        preludeSelectedIndices=keep
+    }
+    function preludeReference(xml){
+        var tree=compact.context.parse(xml),parts=tree.children.filter(function(n){return n&&typeof n!=="string"&&n.name==="part"})
+        var out=[]
+        function child(n,name){return n.children.filter(function(x){return x&&typeof x!=="string"&&x.name===name})}
+        function val(n,key){var e=child(n,key)[0];return e?e.children.filter(function(x){return typeof x==="string"}).join("").trim():""}
+        parts.forEach(function(p,i){
+            out.push("Instrument Part "+(i+1))
+            child(p,"measure").slice(0,6).forEach(function(m,j){
+                var notes=child(m,"note").map(function(n){
+                    var pitch=child(n,"pitch")[0]
+                    return pitch ? val(pitch,"step")+val(pitch,"alter")+val(pitch,"octave")+" ("+val(n,"duration")+")" : "Pause ("+val(n,"duration")+")"
+                })
+                out.push("Takt "+(j+1)+": "+notes.join(", "))
+            })
+        })
+        return out.join("\n").slice(0,16000)
+    }
+
     function normalizedInstrumentation() {
         var raw = freeInstrumentation.trim()
         if (raw === "") return []
@@ -5866,8 +5913,8 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         if (instructionBox.text.trim() === "") { statusText = "Bitte einen Auftrag eingeben."; return }
         saveCurrentKey(); saveCurrentModel()
         var mode = modeBox.currentIndex
-        if (mode !== 2 && !readSelection()) return
-        if (mode === 2) selectionJson = ""
+        if (mode !== 2 && mode !== 9 && !readSelection()) return
+        if (mode === 2 || mode === 9) selectionJson = ""
         if (mode === 0) {
             busy = true
             var original,bounds=selectionBounds()
