@@ -113,6 +113,8 @@ jobs:
             /tmp/ans-native-result.txt
             /tmp/ans-native-before.musicxml
             /tmp/ans-native-after.musicxml
+            /tmp/ans-native-committed.musicxml
+            /tmp/ans-native-undo.musicxml
             /tmp/ans-native-rollback.musicxml
             /tmp/ans-before-menu.png
             /tmp/ans-menu.png
