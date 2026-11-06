@@ -525,14 +525,53 @@ function expandPreludeParts(xml,groups){
 /* Insert an instrumental prelude before the score (pure, non-destructive MusicXML copy).
    targetPartIndices correspond to incoming score parts in their stated order.
    Ambiguous or unsupported score layouts fail closed. */
+/* Only repair a single extra final eighth; preserve the pitch as a grace note. */
+function repairPreludeFinalEighth(xml, expectedQuarter) {
+ var doc=parse(xml), warnings=[],parts=children(doc,'part');
+ parts.forEach(function(part,pi){
+  var rows=timeline(part).rows;
+  rows.forEach(function(row,mi){
+   var overflow=row.observedLength-expectedQuarter;
+   if(overflow<1e-7)return;
+   if(mi!==rows.length-1 || Math.abs(overflow-0.5)>1e-7)
+    throw Error('Vorspiel: Instrument '+(pi+1)+', Takt '+(mi+1)+' enthält einen Rhythmusfehler ('+row.observedLength+' statt '+expectedQuarter+' Viertel).');
+   var cursor=0,last=null,division=row.division;
+   row.node.children.forEach(function(n){
+    if(typeof n==='string')return;
+    if(n.name==='backup')cursor-=Number(text(n,'duration',0))/division;
+    if(n.name==='forward')cursor+=Number(text(n,'duration',0))/division;
+    if(n.name==='note'&&!first(n,'chord')&&!first(n,'grace')){
+     var dur=Number(text(n,'duration',0))/division;
+     if(Math.abs(cursor-expectedQuarter)<1e-7&&Math.abs(dur-overflow)<1e-7&&first(n,'pitch'))
+      last=n;
+     cursor+=dur;
+    }
+   });
+   if(!last)throw Error('Vorspiel: Überzähliger Schlusswert kann nicht sicher als Vorschlagsnote interpretiert werden.');
+   var duration=first(last,'duration'),at=last.children.indexOf(duration);
+   if(at<0)throw Error('Vorspiel: Dauerangabe fehlt.');
+   last.children.splice(at,1);
+   last.children.unshift({name:'grace',open:'<grace slash="yes"/>',close:'',children:[]});
+   if(Math.abs(timeline(part).rows[mi].observedLength-expectedQuarter)>1e-7)
+    throw Error('Vorspiel: Reparatur ergab keinen vollständigen Takt.');
+   warnings.push('Vorspiel: Instrument '+(pi+1)+', letzter Takt – eine überzählige Achtelnote als Vorschlagsnote erhalten.');
+  });
+ });
+ return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),warnings:warnings};
+}
+
 function prependPrelude(baseXML, addedXML, options) {
  if(options&&options.targetGroups){
   var groups=options.targetGroups;
   options={targetPartIndices:[].concat.apply([],groups.map(function(g){return g.indices;}))};
   addedXML=expandPreludeParts(addedXML,groups);
  }
- var original=parse(baseXML), incoming=parse(addedXML);
- var baseParts=children(original,'part'), newParts=children(incoming,'part');
+ var original=parse(baseXML),baseParts=children(original,'part');
+ var originalRows=baseParts.length?timeline(baseParts[0]).rows:[];
+ if(!originalRows.length)throw Error('Vorspiel: Ausgangspartitur enthält keine Takte.');
+ var repaired=repairPreludeFinalEighth(addedXML,originalRows[0].length);
+ addedXML=repaired.xml;
+ var incoming=parse(addedXML),newParts=children(incoming,'part');
  var indices=(options&&options.targetPartIndices)||[];
  if(!baseParts.length||!newParts.length||indices.length!==newParts.length)
   throw Error('Vorspiel: Jedes erzeugte Instrument benötigt genau einen ausgewählten Zielpart.');
@@ -631,7 +670,7 @@ function prependPrelude(baseXML, addedXML, options) {
   part.children=part.children.filter(function(x){return typeof x==='string'||x.name!=='measure';}).concat(all);
  });
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(result),
-  warnings:['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.']};
+  warnings:repaired.warnings.concat(['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.'])};
 }
 
 function combine(baseXML,addedXML,options){
