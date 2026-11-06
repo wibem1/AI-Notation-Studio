@@ -28,18 +28,8 @@ jobs:
           awk -v n="$NAME" '$2==n {print}' checksums.sha256.txt | sha256sum -c -
           chmod +x "$NAME"
           ./"$NAME" --appimage-extract >/dev/null
-      - name: Generate disposable minimal MusicXML test score
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          measures=[]
-          for i in range(1,5):
-              step=['C','D','E','F'][i-1]
-              measures.append(f'<measure number="{i}"><attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>'*(i==1)+('' if i==1 else f'<measure number="{i}">')+f'<note><pitch><step>{step}</step><octave>4</octave></pitch><duration>1920</duration><type>whole</type></note></measure>')
-          xml='<?xml version="1.0" encoding="utf-8"?><!DOCTYPE score-partwise  PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd"><score-partwise version="4.0"><work><work-title>ANS-TEST-Probe</work-title></work><movement-title>ANS-TEST-Probe</movement-title><identification><creator type="composer">Test</creator></identification><defaults/><part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list><part id="P1">'+''.join(measures)+'</part></score-partwise>'
-          Path('/tmp/ans-test.musicxml').write_text(xml)
-          print('Wrote disposable test MusicXML',len(xml))
-          PY
+      - name: Generate disposable complex MusicXML test score
+        run: python tests/generate_native_complex_fixture.py
       - name: Import score with official MuseScore
         env:
           QT_QPA_PLATFORM: offscreen
