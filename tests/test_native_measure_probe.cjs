@@ -30,6 +30,7 @@ function run(options = {}) {
   const context={
     curScore:options.noScore ? null : score,
     probeTranscript:'', nativeLog:{write(text){ops.push('file-write')}},
+    writeScore(score,path,format){ops.push('export:'+path+':'+format);return true},
     Qt:{quit(){ops.push('quit')}},
     console:{log(m){log.push(m)}},
     isFinite,JSON,Number,String,Error,
