@@ -3,6 +3,7 @@
 ## Laufende isolierte Entwicklung – native Partiturübernahme (Branch, nicht Live)
 - **Branch:** `feat/native-output-target-spike-20261106`, Draft-PR #3. `tests/native_measure_insertion_probe.qml` und `tests/test_native_measure_probe.cjs` angelegt, auf dem Branch gesichert; `NATIVE-OUTPUT-TARGET-SPIKE.md` enthält die Abbruch- und Qualitätsbedingungen.
 - **Prüfstufe:** Sieben simulierbare JavaScript-/QML-Ausführungspfade mit Node erfolgreich geprüft. Echte native MuseScore-QML-Ausführung, zuverlässige Einfügung vor Takt 1, Noten-/Spanner-Erhaltung, Undo und Windows-UI **nicht getestet**. Daher keine Implementierung/Veröffentlichung der Option „Bestehende Partitur“.
+- **Native CI-Versuch #42298512439 (06.11.2026): fehlgeschlagen vor Pluginstart.** AppImage verifiziert und Test-MSCZ erfolgreich erzeugt, aber MuseScore 4.7.6 meldete `Unknown options: no-synthesizer, p`. Kein tatsächlicher QML-Pluginlauf. Nächster Schritt: **GUI-Pluginmanager in Xvfb statt `-p`** oder API-Quellprüfung; gleicher CLI-Versuch wird nicht wiederholt. Details in `NATIVE-OUTPUT-TARGET-SPIKE.md`.
 - **Nächster einzelner Schritt:** Wegwerfpartitur in echter MuseScore-4.7.6-Engine mit dem QML-Probeplugin ausführen; tatsächliche Vorher/Nachher-/Rollback-MusikXML-Dateien und Logs auswerten. Erst nach bestandenem nativen Nachweis den CS1-Transfer entwickeln.
 - **Live bleibt 0.11.11**, Starter 0.7.27 unverändert; keine Änderung an Feed oder Haupt-QML.
 
