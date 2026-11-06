@@ -3302,6 +3302,7 @@ MuseScore {
             combine: combine,
             preludeCatalog: preludeCatalog,
             prependPrelude: prependPrelude,
+            expandPreludeParts: expandPreludeParts,
             checkBoundaries: checkBoundaries
           };
           if (typeof module !== 'undefined' && module.exports) module.exports = api;
