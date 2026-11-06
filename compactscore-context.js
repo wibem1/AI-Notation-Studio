@@ -402,7 +402,114 @@ function replaceInstrumentPart(baseXML,addedXML,options){
  warnings:['Der ausgewählte Instrumentpart wurde in einer neuen Partitur ersetzt; alle anderen Instrumente bleiben erhalten.']};
 }
 
+
+/* Insert an instrumental prelude before the score (pure, non-destructive MusicXML copy).
+   targetPartIndices correspond to incoming score parts in their stated order.
+   Ambiguous or unsupported score layouts fail closed. */
+function prependPrelude(baseXML, addedXML, options) {
+ var original=parse(baseXML), incoming=parse(addedXML);
+ var baseParts=children(original,'part'), newParts=children(incoming,'part');
+ var indices=(options&&options.targetPartIndices)||[];
+ if(!baseParts.length||!newParts.length||indices.length!==newParts.length)
+  throw Error('Vorspiel: Jedes erzeugte Instrument benötigt genau einen ausgewählten Zielpart.');
+ var seen={};
+ indices.forEach(function(index){
+  if(!Number.isInteger(index)||index<0||index>=baseParts.length||seen[index])
+   throw Error('Vorspiel: Zielinstrumente sind nicht eindeutig zugeordnet.');
+  seen[index]=true;
+ });
+ var originalTime=timeline(baseParts[0]),newTime=timeline(newParts[0]);
+ var count=newTime.rows.length;
+ if(!count||count>128)throw Error('Vorspiel: Ungültige Anzahl neuer Takte.');
+ if(!originalTime.rows.length)throw Error('Vorspiel: Leere Ausgangspartitur.');
+ var firstRow=originalTime.rows[0];
+ if(Math.abs(firstRow.length-newTime.rows[0].length)>1e-7||
+    Math.abs(firstRow.length-newTime.rows[0].observedLength)>1e-7)
+  throw Error('Vorspiel: Auftakt oder abweichende Taktlänge am Anfang ist noch nicht unterstützt.');
+ for(var i=0;i<count;i++){
+  var row=newTime.rows[i];
+  if(Math.abs(row.length-firstRow.length)>1e-7||
+     Math.abs(row.observedLength-row.length)>1e-7||
+     row.time!==newTime.rows[0].time)
+   throw Error('Vorspiel: Die neuen Takte müssen der anfänglichen Taktart entsprechen und vollständig sein.');
+ }
+ baseParts.forEach(function(part){
+  var t=timeline(part);
+  if(t.rows.length!==originalTime.rows.length)
+   throw Error('Vorspiel: Bestehende Parts haben unterschiedliche Taktzahlen.');
+  for(var j=0;j<t.rows.length;j++)
+   if(Math.abs(t.rows[j].length-originalTime.rows[j].length)>1e-7)
+    throw Error('Vorspiel: Unterschiedliche Taktgrenzen der Instrumente.');
+  if(Math.abs(t.rows[0].length-firstRow.length)>1e-7)
+   throw Error('Vorspiel: Part beginnt mit abweichender Taktlänge.');
+ });
+ // Validate the generated material and mapping before modifying a clone.
+ newParts.forEach(function(part,j){
+  var orig=timeline(baseParts[indices[j]]),fresh=timeline(part);
+  if(fresh.rows.length!==count||!fresh.rows.length)
+   throw Error('Vorspiel: Uneinheitliche Taktzahl der erzeugten Instrumente.');
+  if(fresh.rows[0].staves!==orig.rows[0].staves)
+   throw Error('Vorspiel: Notensystemzahl von Zielinstrument und Komposition stimmt nicht überein.');
+  for(var k=0;k<count;k++){
+   if(Math.abs(fresh.rows[k].length-firstRow.length)>1e-7||
+      Math.abs(fresh.rows[k].observedLength-firstRow.length)>1e-7)
+    throw Error('Vorspiel: Instrument enthält einen unvollständigen Takt.');
+  }
+ });
+ function setFirstAttributes(measure,sourcePart,divisions) {
+  var sourceFirst=children(sourcePart,'measure')[0],a=attrs(sourceFirst);
+  if(!a)throw Error('Vorspiel: Zielinstrument hat keine initialen Eigenschaften.');
+  var copied=clone(a),d=first(copied,'divisions');
+  if(!d)throw Error('Vorspiel: divisions fehlen.');
+  d.children=[String(divisions)];
+  measure.children=measure.children.filter(function(x){return typeof x==='string'||x.name!=='attributes';});
+  var firstNonText=measure.children.findIndex(function(x){return typeof x!=='string';});
+  measure.children.splice(firstNonText<0?0:firstNonText,0,copied);
+ }
+ function compatibleInitialKeys(source,extra){
+  var k0=first(attrs(children(source,'measure')[0]),'key');
+  var k1=first(attrs(children(extra,'measure')[0]),'key');
+  // Generated key can be absent; original score is authoritative.
+  if(k1&&k0&&text(k1,'fifths','0')!==text(k0,'fifths','0'))
+   throw Error('Vorspiel: Die Tonart widerspricht der Ausgangspartitur.');
+ }
+ newParts.forEach(function(part,j){compatibleInitialKeys(baseParts[indices[j]],part);});
+ var result=clone(original),targets=children(result,'part');
+ targets.forEach(function(part,i){
+  var old=children(part,'measure'),baseRow=timeline(part).rows[0];
+  var firstMeasure=old[0],previous=baseParts[i],addedIdx=indices.indexOf(i),prefix=[];
+  if(addedIdx>=0){
+   var music=clone(newParts[addedIdx]);
+   // Incoming pitches are sounding pitches; transfer to the written pitches of the target.
+   transposePart(music,baseRow.transpose);
+   prefix=children(music,'measure').map(clone);
+   prefix.forEach(function(m,k){
+    renumber(m,k+1);
+    if(k===0)setFirstAttributes(m,previous,timeline(music).rows[0].division);
+   });
+  }else{
+   for(var n=0;n<count;n++){
+    var m=blank(baseRow,n+1,n===0,baseRow.division,baseRow.staves);
+    if(n===0)setFirstAttributes(m,previous,baseRow.division);
+    prefix.push(m);
+   }
+  }
+  // Original opening tempo remains on its original material; copy global metronome
+  // to the prelude so playback before the old start uses the correct speed.
+  var opening=children(firstMeasure,'direction').filter(function(d){
+   return !!first(first(d,'direction-type')||{children:[]},'metronome')||/\btempo=/.test(serialize(d));
+  });
+  if(opening.length)prefix[0].children.splice(1,0,...opening.map(clone));
+  var all=prefix.concat(old.map(clone));
+  all.forEach(function(m,k){renumber(m,k+1);});
+  part.children=part.children.filter(function(x){return typeof x==='string'||x.name!=='measure';}).concat(all);
+ });
+ return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(result),
+  warnings:['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.']};
+}
+
 function combine(baseXML,addedXML,options){
+ if(options.kind==='prependPrelude')return prependPrelude(baseXML,addedXML,options);
  if(options.kind==="replace"||options.kind==="replaceTail")return replaceRange(baseXML,addedXML,options);
  if(options.kind==="replaceVoice")return replaceVoice(baseXML,addedXML,options);
  if(options.kind==="replaceInstrumentPart")return replaceInstrumentPart(baseXML,addedXML,options);
@@ -444,5 +551,5 @@ function combine(baseXML,addedXML,options){
  warnings.push('Die kombinierte Fassung wird als neue Partitur geöffnet. Das Original bleibt erhalten; MuseScore-spezifisches Layout kann sich durch MusicXML ändern.');
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(base),warnings:warnings};
 }
-var api={parse:parse,inspect:inspect,combine:combine,checkBoundaries:checkBoundaries};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.CompactContext=api;
+var api={parse:parse,inspect:inspect,combine:combine,prependPrelude:prependPrelude,checkBoundaries:checkBoundaries};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.CompactContext=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
