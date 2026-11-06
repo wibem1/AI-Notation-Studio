@@ -2,7 +2,7 @@
 This intentionally checks musical events rather than unreliable MusicXML serialization whitespace.
 """
 from pathlib import Path
-from lxml import etree
+from xml.etree import ElementTree as etree
 
 BASE=Path("/tmp")
 def load(label):
@@ -23,7 +23,7 @@ def notes(measure):
         n.findtext("staff") or "1",
         n.findtext("type") or "",
         n.findtext("dot") or "",
-        n.findtext("tie/@type") or ""
+        ",".join(t.get("type", "") for t in n.findall("tie"))
     ) for n in measure.findall("note")]
 
 before, after, rollback = [load(k) for k in ("before","after","rollback")]
