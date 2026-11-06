@@ -34,7 +34,7 @@ jobs:
           NAME=MuseScore-Studio-4.7.6.261022093-x86_64.AppImage
           curl -fL --retry 2 --max-time 300 -o "$NAME" "$BASE/$NAME"
           curl -fL --retry 2 --max-time 60 -o checksums.sha256.txt "$BASE/checksums.sha256.txt"
-          grep "$NAME" checksums.sha256.txt | sed 's/\r$//' | sha256sum -c -
+          awk -v n="$NAME" '$2==n {print}' checksums.sha256.txt | sha256sum -c -
           chmod +x "$NAME"
           ./"$NAME" --appimage-extract >/dev/null
       - name: Import MusicXML in MuseScore, save MSCZ, re-export to MusicXML
