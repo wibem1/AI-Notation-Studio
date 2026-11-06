@@ -1,4 +1,16 @@
 # Projektstand – AI Notation Studio
+Stand: 06.11.2026 · **0.11.9 freigegeben, bestehender Starter 0.7.27**
+
+## Aktueller verifizierter Stand
+- **Live-App:** `AI-Notation-Studio-App.qml` Version 0.11.9. Identisch mit `AI-Notation-Studio-App-0.11.9.qml` und `versions/AI-Notation-Studio-App-0.11.9.qml` (Git-Blob-SHA `0d96e3475bb08e2c9ff1a66afdf664f309e3aed6`). Vorversionen unverändert.
+- Neuer Modus **Vorspiel voranstellen**: mehrere vorhandene Zielinstrumente und neue Taktzahl frei wählbar; Quelle ist die geöffnete Partitur, Vorspiel wird vor dem ersten Originaltakt in einer neuen MusicXML-Partitur integriert, Original bleibt unverändert. Versteckte Klavier-Folgeparts (RH/LH) werden erkannt, ohne zwei sichtbare echte Klaviere gleichzusetzen.
+- **Belegt:** In der realen Qt-Quick-Engine mit MuseScore-Stubs funktioniert der neue Dialogmodus einschließlich Instrument-Repeater. CS1-Runtime mit Schema- und Part-Erhaltungstests erfolgreich. 32-taktiger synthetischer Vier-Part-Fall: 32→34 Takte, alle 32 Originaltakte über vier Parts kanonisch unverändert, unbeteiligte Violine pausiert. **Offizielle MuseScore Studio 4.7.6 Linux-AppImage** importiert die erzeugte 34-Takt-MusicXML, speichert MSCZ und exportiert MusicXML zurück: **vier Parts mit je 34 Takten**. Workflow https://github.com/wibem1/AI-Notation-Studio/actions/runs/42265598808 erfolgreich.
+- Allgemeiner Versions-/Update-/Neustart-Regressionstest nach tatsächlichem Wechsel auf Live-0.11.9: https://github.com/wibem1/AI-Notation-Studio/actions/runs/42266219809 **erfolgreich**. Tests für 0.11.8-hartkodierte Annahmen aktualisiert.
+- **Nicht belegt:** Windows-MuseScore-Plugin-Dialog-End-to-End, reale kostenpflichtige KI-Provider-Antwort, praktischer 32-Takte-Nutzerscore im originalen MuseScore-Fenster. Eingegrenzte Sonderfälle: Auftakt, unvollständiger Anfang, wechselnde/abweichende Taktlängen sowie komplexe polyphone Klavierhand-Aufteilung; solche Fälle werden aus Sicherheitsgründen abgelehnt.
+- **Nächster einzelner Schritt:** Benutzer verwendet `Update prüfen → Update installieren` auf 0.11.9 und prüft einen kleinen realen Vorspielauftrag an einer bestehenden Partitur; bei Problemen Diagnose exportieren. Keine weiteren Entwicklungstests durch den Nutzer erforderlich, bevor ein konkreter Fehler auftaucht.
+- Details: [RELEASE-0.11.9.md](RELEASE-0.11.9.md), Issue #1.
+
+## Historie vor der Freigabe (6.11.2026)
 Stand: 06.11.2026 · veröffentlichte App v0.11.8 (unverändert)
 
 ## Testergebnis 06.11.2026 – Qt und MusicXML bestanden; native MuseScore-Prüfung ausstehend
