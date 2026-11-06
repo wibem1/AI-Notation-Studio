@@ -28,7 +28,7 @@ assert(division>0);
 assert(out.xml.includes('<offset>'+Math.round(1.9*division)+'</offset>'));
 assert(out.xml.includes('<offset>'+Math.round(3.9*division)+'</offset>'));
 assert.equal(compact.context.inspect(out.xml,0).meters.length,2);
-const old='CS1\nS {"t":"Vorspiel","k":"g major","m":"4/4"}\nP {"i":"violin"}\n1/1 C5:q D5:q E5:q F5:q G5:e\n';
+const old='CS1\nS {"t":"Vorspiel","k":"g major","m":"4/4"}\nP {"i":"violin","n":"violin"}\n1/1 C5:q D5:q E5:q F5:q G5:e\n';
 const bad=compact.xml.convert(compact.score.decode(old)).warnings;
 assert(bad.some(x=>/länger/i.test(x)),'Invalid note rhythm should still be warned about');
 console.log('Fractional expressive positions round to divisions, strict note rhythm preserved');
