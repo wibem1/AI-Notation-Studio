@@ -1,3 +1,9 @@
+# AI Notation Studio v0.11.9 – 06.11.2026
+
+**Neu: „Vorspiel voranstellen“** mit beliebigen vorhandenen Instrumenten der Partitur, Mehrfachauswahl, frei wählbarer Taktzahl, musikalischem Anschluss an das Folgestück und sicherer Einfügung vor Takt 1 in einer neuen Partitur. Gesplittete Klavierhände werden als ein Instrument behandelt.
+
+**Installation:** `Update prüfen → Update installieren` in der bestehenden App. Der Starter 0.7.27 und bisherige gespeicherte Einstellungen bleiben erhalten. Native MuseScore-Studio-4.7.6-Import-/Exportprüfung für 34 Takte (vier Parts) sowie Qt- und Update-Regressionen bestanden. [Release-Details und Testgrenzen](RELEASE-0.11.9.md).
+
 # AI Notation Studio v0.11.8 – 24.10.2026
 
 Pfeiltasten-Scrollen für den Fokus im äußeren Pluginfenster korrigiert. Text- und Auswahlfelder behalten ihre normale Tastaturbedienung. **Update prüfen → Update installieren**; Starter 0.7.27 bleibt unverändert. Prüfnachweise und Grenzen: [RELEASE-0.11.8.md](RELEASE-0.11.8.md).
