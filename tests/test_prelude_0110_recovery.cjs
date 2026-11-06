@@ -27,8 +27,10 @@ const answer='CS1\nS {"t":"Prelude","k":"g major","m":"4/4","b":{"v":96}}\n'+
  '2/1 E3:q A3:q D3:q D2:e E2:e F#2:e';
 const original=runtime.score.decode(answer);
 assert(runtime.xml.convert(original).warnings.some(x=>x.includes('länger')));
-assert.throws(()=>runtime.context.combine(base,runtime.xml.convert(original).xml,
- {kind:'prependPrelude',targetGroups:[targets[2],targets[3]]}),/Instrument 2, Takt 2/);
+const exactFallback=runtime.context.combine(base,runtime.xml.convert(original).xml,
+ {kind:'prependPrelude',targetGroups:[targets[2],targets[3]]});
+assert(exactFallback.warnings.some(x=>x.includes('Vorschlagsnote')));
+assert(exactFallback.xml.includes('<grace slash="yes"/>'));
 const data=runtime.score.decode(answer);
 const warnings=repair(data);
 assert.strictEqual(warnings.length,1);
