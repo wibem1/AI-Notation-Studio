@@ -9,7 +9,7 @@ const source = fs.readFileSync(path.join(__dirname, 'native_measure_insertion_pr
 const match = source.match(/\bonRun:\s*\{([\s\S]*)\n    \}\s*\}\s*$/);
 assert(match, 'QML onRun block not found');
 const body = match[1];
-const helpers = source.slice(source.indexOf('    function fail('), source.indexOf('\n    onRun:'));
+const helpers = source.slice(source.indexOf('    function trace('), source.indexOf('\n    onRun:'));
 function run(options = {}) {
   const log=[], ops=[];
   let count=32, transaction=false, commandCount=0;
