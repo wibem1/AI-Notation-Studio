@@ -1,4 +1,17 @@
 # Projektstand – AI Notation Studio
+Stand: 06.11.2026 · veröffentlichte App v0.11.8 (unverändert)
+
+## Laufende Entwicklung: Instrumentunabhängiges Vorspiel (Issue #1)
+- **Implementiert im separaten MusicXML-Quellmodul** `compactscore-context.js`: `prependPrelude(baseXML, addedXML, {targetPartIndices:[...]})` als transaktionsartig verifizierbare Kopier-/Einfügefunktion. Akzeptiert explizite, eindeutige Part-Indizes, unterstützt ein oder mehrere Instrumente, ergänzt vollständige Pausentakte in nicht beteiligten Parts und verschiebt sämtliche Originaltakte in einer neuen XML-Partitur. Quelle v0.11.8/QML-Updatefeed **noch nicht** geändert.
+- **Statische JS-Laufzeitprüfungen (kein MuseScore):** `tests/test_prelude_prepend.cjs` mit fünf positiven Fällen (Flöte/Violine/Cello, mehrere Instrumente, Klavier als zweizeiliger Part, zwei gleichnamige Parts, gesplittetes Klavier mit zwei expliziten Zielparts) und drei Schutzfällen (ungültiger Partindex, doppelte Auswahl, Systemzahlabweichung) bestanden. Originalnoten und ursprünglicher Part-Bestand in den Prüffällen unverändert. Kein kostenpflichtiger KI-Aufruf.
+- Zusätzlicher Abbruch bei einem unvollständigen Original-Anfangstakt.
+- **Wichtige Grenzen:** Noch **keine** Anbindung an das Pluginfenster, die CS1-KI-Komposition oder die in v0.11.8 eingebettete Kontext-Engine, kein End-to-End-Test und kein nativer MuseScore-Test. Bestehende v0.11.8 ist die einzige installierbare Fassung. Kein Release und keine Updatefreigabe dieser Funktion.
+- **Realer Fehlerfall:** Diagnose MuseScore 4.7.6 enthält P1 Flöte, P2 Violine, P3 Klavier (G-Schlüssel), P4 Klavier (F-Schlüssel), je einen MusicXML-Part/Staff. Das Einfügen kann bei expliziter Indizierung zwei erzeugte Ein-Staff-Parts in diese beiden Ziele einfügen. **Noch offen:** zuverlässige automatische Gruppierung eines gesplitteten zweihändigen Klaviers, ohne zwei echte Klaviere zu verwechseln, und Zuordnung einer CS1-Doppelstaff-Ausgabe zu zwei MusicXML-Parts.
+- **Nächster überprüfbarer Schritt:** Instrumentauswahl nach expliziter Part-Identität für den Vorspielmodus und CS1-Auftragsintegration implementieren, dabei echte gesplittete Klavierparts sorgfältig behandeln; danach QML-Engine neu einbetten und mit echten MuseScore-Tests vor einer Versionserhöhung absichern.
+- Weitere offengehaltene Sonderfälle: Auftakt, Taktartwechsel im Vorspiel, unvollständige Quellen, Timing-/Ausdruckszeichen und MuseScore-Layoutprüfung.
+- GitHub-Issue: https://github.com/wibem1/AI-Notation-Studio/issues/1
+
+# Vorheriger Projektstand – AI Notation Studio
 Stand: 24.10.2026 · v0.11.8
 
 ## Nutzerrückmeldung und Korrektur
