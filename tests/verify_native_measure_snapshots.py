@@ -1,0 +1,37 @@
+"""Independent verification of three MusicXML snapshots exported by a *real* MuseScore plugin.
+This intentionally checks musical events rather than unreliable MusicXML serialization whitespace.
+"""
+from pathlib import Path
+from lxml import etree
+
+BASE=Path("/tmp")
+def load(label):
+    p=BASE/("ans-native-"+label+".musicxml")
+    assert p.is_file() and p.stat().st_size>100, f"missing native snapshot {p}"
+    root=etree.parse(str(p)).getroot()
+    parts=root.findall("part")
+    assert len(parts)==1, f"{label}: unexpected part count {len(parts)}"
+    return parts[0].findall("measure")
+
+def notes(measure):
+    return [(
+        n.findtext("pitch/step") or ("REST" if n.find("rest") is not None else "OTHER"),
+        n.findtext("pitch/alter") or "",
+        n.findtext("pitch/octave") or "",
+        n.findtext("duration") or "",
+        n.findtext("voice") or "1",
+        n.findtext("staff") or "1",
+        n.findtext("type") or "",
+        n.findtext("dot") or "",
+        n.findtext("tie/@type") or ""
+    ) for n in measure.findall("note")]
+
+before, after, rollback = [load(k) for k in ("before","after","rollback")]
+assert len(before)==4 and len(after)==5 and len(rollback)==4, (len(before),len(after),len(rollback))
+original=[notes(m) for m in before]
+assert len(set(map(repr,original)))==4, "fixture has non-distinct measures, cannot detect insertion position"
+assert [notes(m) for m in rollback]==original, "rollback changed musical content"
+assert [notes(m) for m in after[1:]]==original, "insertion did not preserve original measure order and notes"
+assert all(n[0]=="REST" for n in notes(after[0])), "inserted measure is not empty/rest-only"
+print("NATIVE MUSICXML PRESERVATION PASS: 4 distinct original measures shifted to 2..5 unchanged; rollback restored all four")
+print("Limit: one part/one staff, no tempo, pedal, tuplets or spanners in this fixture")
