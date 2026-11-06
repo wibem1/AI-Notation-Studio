@@ -1,0 +1,62 @@
+name: Native MuseScore 4.7.6 prelude import (opt-in commits)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  native-import:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[native-musescore]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      QT_QPA_PLATFORM: offscreen
+      MU_QT_QPA_PLATFORM: offscreen
+      QT_QUICK_BACKEND: software
+      PRELUDE_NATIVE_XML_PATH: /tmp/prelude-ensemble-34.musicxml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated headless dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libnss3 libasound2t64
+          python -m pip install --disable-pip-version-check lxml PySide6
+      - name: Generate 34-measure ensemble in the embedded QML engine
+        run: python tests/test_prelude_ensemble_32.py
+      - name: Download and verify official MuseScore Studio 4.7.6 AppImage
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://github.com/musescore/MuseScore/releases/download/v4.7.6
+          NAME=MuseScore-Studio-4.7.6.261022093-x86_64.AppImage
+          curl -fL --retry 2 --max-time 300 -o "$NAME" "$BASE/$NAME"
+          curl -fL --retry 2 --max-time 60 -o checksums.sha256.txt "$BASE/checksums.sha256.txt"
+          grep "$NAME" checksums.sha256.txt | sed 's/\r$//' | sha256sum -c -
+          chmod +x "$NAME"
+          ./"$NAME" --appimage-extract >/dev/null
+      - name: Import MusicXML in MuseScore, save MSCZ, re-export to MusicXML
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$PRELUDE_NATIVE_XML_PATH"
+          timeout 120 ./squashfs-root/AppRun -o /tmp/prelude-native-import.mscz "$PRELUDE_NATIVE_XML_PATH"
+          test -s /tmp/prelude-native-import.mscz
+          timeout 120 ./squashfs-root/AppRun -o /tmp/prelude-native-reexport.musicxml /tmp/prelude-native-import.mscz
+          test -s /tmp/prelude-native-reexport.musicxml
+          python - <<'PY'
+          from lxml import etree
+          from pathlib import Path
+          original=etree.fromstring(Path('/tmp/prelude-ensemble-34.musicxml').read_bytes())
+          imported=etree.fromstring(Path('/tmp/prelude-native-reexport.musicxml').read_bytes())
+          old=original.findall('part')
+          new=imported.findall('part')
+          assert len(old)==4,(len(old),'original')
+          assert len(new)>=3,(len(new),'reexport')
+          counts=[len(p.findall('measure')) for p in new]
+          assert all(n==34 for n in counts),counts
+          assert sum(len(p.findall('.//note/pitch')) for p in new)>0
+          print('MuseScore Studio 4.7.6 native import and reexport PASSED; parts:',len(new),'measures:',counts)
+          PY
