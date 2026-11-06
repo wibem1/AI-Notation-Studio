@@ -658,7 +658,7 @@ MuseScore {
             if(preludeRepairs.length){
                 compositionJson=JSON.stringify(data)
                 compactSourceText=compact.score.encode(data)
-                compactWarnings=compactWarnings.concat(preludeRepairs)
+                compactWarnings=compact.score.inspect(data).concat(compact.xml.convert(data).warnings).concat(preludeRepairs)
             }
             if (data.parts.length !== job.instruments.length &&
                 !(job.mode===9 && job.preludeTargets && job.preludeTargets.length===1 &&
