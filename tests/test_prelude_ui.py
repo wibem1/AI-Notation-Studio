@@ -45,19 +45,20 @@ result=engine.evaluate(script)
 assert not result.isError(),result.toString()
 for _ in range(10):app.processEvents()
 repeater=root.findChild(QQuickItem,"preludeTargetRepeater")
-print("Prelude target binding:",bool(repeater),"count",repeater.property("count") if repeater else None,
-      "source",root.property("preludeTargets").toVariant() if hasattr(root.property("preludeTargets"),"toVariant") else root.property("preludeTargets"),flush=True)
-first=root.findChild(QQuickItem,"preludeTargetCheckbox_0")
-second=root.findChild(QQuickItem,"preludeTargetCheckbox_1")
-assert first is not None and second is not None, ("Instrument selectors not rendered",root.property("preludeTargets"), [(c.objectName(),c.metaObject().className()) for c in root.findChildren(QObject) if "prelude" in (c.objectName() or "").lower()])
-assert first.property("text")=="Flöte (Part 1)"
-assert second.property("text").startswith("Klavier (beide Hände")
-assert not first.property("checked") and second.property("checked"),"Selection state not reflected"
+assert repeater is not None and repeater.property("count")==2
+engine.globalObject().setProperty("preludeRepeater",engine.newQObject(repeater))
+def qml(expression):
+    result=engine.evaluate(expression)
+    assert not result.isError(),result.toString()
+    return result.toVariant()
+assert qml("preludeRepeater.itemAt(0).text")=="Flöte (Part 1)"
+assert qml("preludeRepeater.itemAt(1).text").startswith("Klavier (beide Hände")
+assert not qml("preludeRepeater.itemAt(0).checked") and qml("preludeRepeater.itemAt(1).checked")
 load=root.findChild(QQuickItem,"preludeLoadInstrumentsButton")
 assert load is not None and not load.property("enabled"),"Load must require opened score"
 mode.setProperty("currentIndex",0)
 for _ in range(3):app.processEvents()
-assert not first.property("visible") and not second.property("visible"),"Prelude controls leak into unrelated modes"
+assert not qml("preludeRepeater.itemAt(0).visible") and not qml("preludeRepeater.itemAt(1).visible"),"Prelude controls leak into unrelated modes"
 print("Staged 0.11.9 QML compiled; instrument selection is rendered, bound and isolated.")
 view.close()
 _session.cleanup()
