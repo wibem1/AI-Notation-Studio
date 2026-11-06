@@ -12,6 +12,23 @@ def load(stage):
     root=E.parse(str(p)).getroot()
     return [part.findall("measure") for part in root.findall("part")]
 
+# Ignore renderer-generated coordinates only. They can change when a new bar is
+# laid out, without altering the score's musical contents.
+LAYOUT_ONLY_ATTRS = {
+    "default-x", "default-y", "relative-x", "relative-y",
+}
+
+def semantic_attrs(element):
+    return tuple(sorted((k, v) for k, v in element.attrib.items()
+                        if k not in LAYOUT_ONLY_ATTRS))
+
+def direction_events(element):
+    direction_type = element.find("direction-type")
+    if direction_type is None:
+        return ()
+    return tuple(sorted((node.tag, (node.text or "").strip(), semantic_attrs(node))
+                        for node in direction_type.iter() if node is not direction_type))
+
 def sig(measure):
     out=[]
     for element in measure:
@@ -35,7 +52,7 @@ def sig(measure):
             out.append((
                 "direction",
                 element.findtext("staff") or "1",
-                tuple(sorted((n.tag,n.text or "",tuple(sorted(n.attrib.items()))) for n in d.iter() if n is not d)),
+                direction_events(element),
                 tuple(sorted(element.find("sound").attrib.items())) if element.find("sound") is not None else ()
             ))
     return tuple(out)
