@@ -83,8 +83,24 @@ MuseScore {
             snapshot(score, "rollback")
             if (restored.measures !== initial.measures || restored.staves !== initial.staves)
                 fail("CRITICAL: rollback did not restore measure/staff counts")
-            trace("ANS_NATIVE_PROBE PASS: insert one before-first measure and rollback; " +
-                        "note/spanner signature verification STILL REQUIRED")
+            // Separate committed transaction, so MuseScore export can observe finalized score state.
+            score.selection.clear()
+            score.selection.selectRange(startTick, endTick, 0, score.nstaves)
+            if (!score.selection.isRange) fail("Cannot reselect first measure for committed check")
+            score.startCmd("AI Notation Studio native committed insert test")
+            started = true
+            cmd("insert-measure")
+            if (Number(score.nmeasures) !== initial.measures + 1)
+                fail("Committed check: insertion did not change measure count")
+            score.endCmd(false)
+            started = false
+            snapshot(score, "committed")
+            cmd("undo")
+            var afterUndo = inspect(score, "after-undo")
+            if (afterUndo.measures !== initial.measures)
+                fail("Undo command did not restore original count")
+            snapshot(score, "undo")
+            trace("ANS_NATIVE_PROBE PASS: native rollback and committed insertion plus one undo; check MusicXML separately")
         } catch (e) {
             trace("ANS_NATIVE_PROBE FAIL: " + String(e))
             if (started) {
