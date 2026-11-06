@@ -76,13 +76,19 @@ jobs:
             timeout 3 xdotool mousemove 788 617 click 1 || true
             sleep 1
           done
+          # Onboarding returns to Home: select the score tab before requiring a score plugin.
+          timeout 3 xdotool mousemove 102 46 click 1 || true
+          sleep 2
           scrot /tmp/ans-menu.png || true
           # Top-level Plugins menu in the official 1440x900 MuseScore 4.7.6 GUI.
           timeout 3 xdotool mousemove 293 13 click 1 || true
           sleep 2
           scrot /tmp/ans-after-menu.png || true
-          # The entry location must be confirmed from the screenshot before clicking.
-          # Never claim native success from merely opening a menu.
+          # Native probe entry seen at x~375,y~82 in the preceding diagnostic screenshot.
+          timeout 3 xdotool mousemove 372 82 click 1 || true
+          sleep 4
+          scrot /tmp/ans-after-menu.png || true
+          # Log verdict is the sole source for a native PASS; never infer from a menu click.
           kill "$pid" 2>/dev/null || true
           wait "$pid" 2>/dev/null || true
           SH
