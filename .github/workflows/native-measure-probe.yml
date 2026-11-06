@@ -2,7 +2,7 @@ name: Native score insertion probe (isolated branch)
 on:
   push:
     branches: [feat/native-output-target-spike-20261106]
-    paths: [.github/workflows/native-measure-probe.yml]
+    paths: [.github/workflows/native-measure-probe.yml, tests/generate_native_complex_fixture.py, tests/verify_native_measure_snapshots.py]
   workflow_dispatch:
 jobs:
   probe:
@@ -30,6 +30,21 @@ jobs:
           ./"$NAME" --appimage-extract >/dev/null
       - name: Generate disposable complex MusicXML test score
         run: python tests/generate_native_complex_fixture.py
+      - name: Validate generated MusicXML before MuseScore
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root=ET.parse('/tmp/ans-test.musicxml').getroot()
+          assert root.tag == 'score-partwise'
+          parts=root.findall('part')
+          assert len(parts) == 2
+          assert [len(p.findall('measure')) for p in parts] == [4, 4]
+          assert len(root.findall('.//backup')) == 8
+          assert len(root.findall('.//pedal')) == 2
+          assert len(root.findall('.//wedge')) == 2
+          assert len(root.findall('.//sound')) >= 1
+          print('Complex MusicXML fixture syntax and structural preflight PASS')
+          PY
       - name: Import score with official MuseScore
         env:
           QT_QPA_PLATFORM: offscreen
