@@ -30,3 +30,11 @@ Stand: 06.11.2026 · Entwicklungsbranch `feat/native-output-target-spike-2026110
 Als **implementiert** gilt nur nach Code-Commit; als **statisch geprüft** nach unabhängigem Code-/Testlauf; als **nativ getestet** erst nach echtem MuseScore-4.7.6-Run mit Vergleichsartefakten. Vor Release zusätzlich Windows-GUI-Test durch Nutzer bzw. Windows-Testumgebung. Kein kostenpflichtiger KI-Aufruf nötig.
 
 **Aktueller Nachweisstand dieses Dokuments:** Analyse und Testprotokoll erstellt; native Machbarkeit **noch nicht bewiesen**, kein Einfügecode integriert, kein Release.
+
+## Zwischenprüfung 06.11.2026 – abgesicherter Testcode, noch keine native Engine
+- Probe: `tests/native_measure_insertion_probe.qml` im separaten Branch. Guard: nur `workTitle` mit Präfix `ANS-TEST-`; der Test verlangt mindestens zwei Takte, prüft `Selection.selectRange`, führt einen `insert-measure`-Befehl aus und fordert **immer** `endCmd(true)` an.
+- Automatisierter simulierter Pfadtest: `node tests/test_native_measure_probe.cjs`. Sieben Fälle (Normal-Rollback, gewöhnlicher Score verweigert, kein Score, fehlende Selection-API, Exception beim Insert, Insert ohne Wirkung, wirkungsloser Rollback) lokal mit Node 22 erfolgreich.
+- API-Dokumentation bestätigt `Cursor.nextMeasure()` und `Score.endCmd(true)`; dies ist **kein Beweis**, dass `insert-measure` in MuseScore 4.7.6 vom QML-Plugin in genau diesem UI-Kontext akzeptiert und in die bestehende Undo-Transaktion aufgenommen wird.
+- **Umgebungsgrenze:** Hier kein MuseScore-Binary installiert; kein nativ ausgeführter QML-Plugin-Test. Die MuseScore-Engine wurde nicht simulativ als echt ausgegeben. Ein isolierter nativer Test auf einer Wegwerfpartitur bleibt Voraussetzung.
+- Die Kontrollgrößen (Taktzahl, Staffzahl) belegen noch weder die richtige **Position** noch die Erhaltung von Noten, Tonarten und Spanners. Dafür sind Vorher/Nachher-XML-Vergleiche und tatsächlicher MuseScore-Undo erforderlich.
+- **Freigabestand:** Nicht releasefähig. Kein Wechsel der Standardeinstellung, kein Live-Update, keine Änderung der 0.11.11.
