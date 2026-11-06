@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Fortsetzung – strukturierte Fixture-Vorprüfung ergänzt (07.11.2026)
+- Der zuvor identifizierte Python-3.14-Serialisierungsfehler wurde im isolierten Branch behoben (Commit `5735edd`).
+- Der native Testworkflow prüft jetzt nach dem Erzeugen der MusicXML die XML-Syntax, 2 Parts mit je 4 Takten, 8 Backup-Vorgänge, zwei Pedalmarkierungen, zwei Crescendo-Klammer-Markierungen und Tempodaten **vor** Import und GUI-Pluginstart (Workflow-Commit `ef41044`). Außerdem reagiert der Branch-Workflow explizit auf Änderungen der Testfixture und des Vergleichsskripts.
+- **Prüfstatus:** Commit gespeichert; ein neuer GitHub-Actions-Lauf für `ef41044` war beim Nachsehen noch nicht gelistet. Der komplexe native Integritätsnachweis steht deshalb weiterhin aus. Die Vorprüfung darf nicht als bestanden bezeichnet werden, bevor ein Lauf dies bestätigt.
+- **Nächster Schritt:** den Run zum Commit `ef41044` auswerten, gegebenenfalls genau einen manuell ausgelösten Branch-Workflow starten, bei Fehlschlag anhand des ersten konkreten Fehlers korrigieren. Danach erst sichere CS1-Datenübertragung implementieren.
+- **Schutz:** Live-Version 0.11.11, Starter und produktiver Update-Feed unverändert, Draft-PR #3 ungemergt.
+
+
 ## Komplexer nativer Test: Infrastrukturfehler präzisiert und Fixture korrigiert (06.11.2026)
 - GitHub Actions #42306437542 ist **fehlgeschlagen vor dem MuseScore-Import**. Der Runner installierte GUI-Abhängigkeiten und lud die offizielle MuseScore-4.7.6-AppImage erfolgreich herunter; dann brach `tests/generate_native_complex_fixture.py` bei `ET.tostring` ab: `TypeError: cannot serialize 84 (type int)`. Ursache: numerisches XML-Attribut `sound tempo=84`, das Python 3.14 nicht serialisiert.
 - Gezielte Korrektur Commit `5735edd`: der zentrale `sub()`-Helfer konvertiert XML-Attributwerte mit `str(value)`; musikalische Testdaten und produktive Dateien unverändert. **Noch kein neuer nativer Lauf und kein erfolgreicher komplexer Test bestätigt.**
