@@ -6512,6 +6512,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                         onClicked:{try{refreshPreludeTargets()}catch(e){statusText=String(e)}}
                     }
                     Repeater {
+                        objectName:"preludeTargetRepeater"
                         model:preludeTargets
                         CheckBox {
                             objectName:"preludeTargetCheckbox_"+index
