@@ -1,4 +1,15 @@
 # Projektstand – AI Notation Studio
+Stand: 06.11.2026 · **v0.11.10 über die bestehende Updatefunktion veröffentlicht**, Starter 0.7.27 unverändert.
+
+## Aktuell – behobener Vorspiel-Fehler (echte Nutzerdiagnose)
+- MuseScore Studio 4.7.6 / Windows: Original 32 Takte, Flöte, Violine, Klavier (P3) und „Klavier, Klavier LH“ (P4); die beiden Klavier-Parts enthalten je zwei Notensysteme. 0.11.9 zeigte keine übernommene Vorspielpartitur. Die vom Modell bereits gelieferte zweiteilige CS1-Musik lag in der Partitur gespeichert, aber `compositionJob.workflowState=invalid` aufgrund eines um 0,5 Viertel überfüllten zweiten Taktes in der linken Hand.
+- **0.11.10 korrigiert diesen Einzelfall ohne neuen Provider-Aufruf:** Drei abschließende Achtel nach drei Vierteln im 4/4-Takt werden nachvollziehbar als 3:2-Triole interpretiert. Kein Ton wird entfernt. Die eng begrenzte MusicXML-Rückfallebene kann eine einzelne Schlussachtel als Vorschlagsnote erhalten, mit Warnung. Unpassende Rhythmen bleiben Fehler. Bestehende Originaltakte werden niemals geändert.
+- Die echten P3/P4 mit je zwei Staves bleiben getrennte MusicXML-Parts, nicht fälschlich eine Zwei-Einzelstaff-Gruppe. Ein vorhandener `raw_response` ist nach Update über **„Gespeicherte KI-Antwort erneut prüfen (kostenfrei)“** wieder nutzbar; danach „Fertige Fassung in MuseScore öffnen“.
+- **Tests:** `tests/test_prelude_0110_recovery.cjs`, `tests/test_prelude_user_0110.cjs`; 32→34 Takte vier Parts, Noten und alle Originaltakte erhalten. Offizielle MuseScore Studio 4.7.6 Linux AppImage importiert und reexportiert 34 Takte in vier Parts (CI #42287184798, erfolgreich). Vollständiger Test der veröffentlichten App und des Updatewegs CI #42287786062 erfolgreich. Keine kostenpflichtigen KI-Aufrufe für die Prüfung. Die persönliche Diagnose wurde nicht ins öffentliche Repository geladen.
+- **Live-Feed:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.10.qml`, `versions/AI-Notation-Studio-App-0.11.10.qml` identischer Git-Blob `3e5eae039d671bb89387d59788245aa4783058a8`. Frühere Versionsdateien unverändert.
+- **Noch nicht bestätigt:** Ergebnis der kostenfreien Wiederholung im echten MuseScore-Windows-Plugin beim Nutzer. Nächster Schritt: Update installieren und die gespeicherte Antwort prüfen, nicht noch einmal komponieren. Dokumentation `RELEASE-0.11.10.md`.
+
+## Frühere Entwicklungsstände
 Stand: 06.11.2026 · **0.11.10 im Update-Feed, Regression bestätigt**
 
 ## Aktueller Fehlerfix: Vorspiel aus echter Nutzerdiagnose
