@@ -1,5 +1,11 @@
 # Projektstand – AI Notation Studio
 
+## Erweiterter nativer Integritätstest – komplexe Partitur (06.11.2026)
+- Auf dem isolierten Branch erzeugt `tests/generate_native_complex_fixture.py` jetzt eine Wegwerfpartitur für Flöte und zweisystemiges Klavier, rechte Hand mit zwei Stimmen sowie Tempo, Dynamik, Pedal und Crescendo. `tests/verify_native_measure_snapshots.py` vergleicht musikalische Ereignisse für beide Parts in abgeschlossener Einfügung, Rollback und Ein-Schritt-Undo. Die GitHub-Action nutzt diese Fixture statt vier identischer bzw. einstimmiger Takte.
+- **Prüfstufe:** Implementiert und auf GitHub gesichert; die sieben simulierten Sicherheitsprüfungen in CI liefen erfolgreich. **Kein nativer komplexer Prüfungserfolg behauptet.** Erster komplexer Run https://github.com/wibem1/AI-Notation-Studio/actions/runs/42306437542 blieb bei der Installation der Linux-GUI-Abhängigkeiten hängen (Status beim Eintrag noch in Bearbeitung). Ergebnis des eigentlichen Plugin-/XML-Tests nicht bekannt.
+- **Nächster Schritt:** Dieser eine CI-Lauf auswerten; bei Infrastrukturfehler erst die Umgebung beheben, dann **ein** gezielter nativer komplexer Integritätstest. Bei gefundenem Musikdatenverlust zuerst Fehler eingrenzen, nicht freigeben. Unveränderte Live-Version 0.11.11.
+
+
 ## Native Einfügeposition, Notenerhaltung und Ein-Schritt-Undo nachgewiesen (06.11.2026)
 - **Echter MuseScore-Studio-4.7.6-Linux-GUI-Lauf**: https://github.com/wibem1/AI-Notation-Studio/actions/runs/42302624344, isoliertes QML-Testplugin auf Wegwerfpartitur, sieben Mock-Sicherheitstests und externer MusicXML-Vergleich erfolgreich.
 - Aus vier voneinander unterscheidbaren Ursprungstakten mit Noten C–D–E–F wurde **Leertakt–C–D–E–F**, die vier ursprünglichen Noten blieben in der Reihenfolge unverändert erhalten. Native MusicXML-Snapshots aus `writeScore` **nach Abschluss** der Transaktion belegen die Verschiebung.
