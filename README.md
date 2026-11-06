@@ -1,3 +1,7 @@
+# AI Notation Studio 0.11.11 – 06.11.2026
+
+**Vorspiel-Korrektur:** Dezimale Pedal-/Ausdruckspositionen bringen die Notationsübernahme nicht mehr zum Abbruch. Instrumentennamen sind im dunklen Vorspielmodus lesbar. **Update prüfen → Update installieren**, dann **Gespeicherte KI-Antwort erneut prüfen (kostenfrei)** und **Fertige Fassung in MuseScore öffnen**. [Details und Testnachweise](RELEASE-0.11.11.md).
+
 # AI Notation Studio v0.11.10 – 06.11.2026
 
 **Vorspiel-Fix nach einem echten MuseScore-Diagnosebericht:** Die gesicherte KI-Antwort enthielt einen um ein Achtel überlangen 4/4-Takt. Version 0.11.10 kann die drei letzten Achtel dieses Ausnahmefalls als Triole rekonstruieren und den vorhandenen KI-Entwurf **kostenfrei erneut prüfen**. Getrennte zweizeilige Klavier-Parts werden korrekt als selbstständige Partitur-Parts behandelt. **Update prüfen → Update installieren**. [Release-Details](RELEASE-0.11.10.md).

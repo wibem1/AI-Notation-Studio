@@ -1,4 +1,17 @@
 # Projektstand – AI Notation Studio
+
+**Live-Version 0.11.11, Stand 06.11.2026.** Der Starter 0.7.27 und ältere Versionen bleiben unverändert.
+
+## Aktuell behoben: KI-Vorspiel zwar erzeugt, aber nicht übernommen
+- Nutzerdiagnose v0.11.10: `workflowState=invalid`, `validation_error="Error: Rhythmus ist nicht exakt darstellbar."`, Roh-Antwort `compositionJob.raw_response` gespeichert, Ausgangspartitur unverändert bei 32 Takten.
+- Ursache sind gebrochene Positionen von Pedal und Crescendo (`2.9`, `4.9`) beim MusicXML-Export, **nicht** das vorherige Problem mit dem übervollen Takt.
+- Korrektur: `positionTicks` rundet nur Ausdruckspositionen zur darstellbaren Tickauflösung; Notendauern bleiben strikt. `compactscore-musicxml.js` und eingebettete QML-Engine konsistent. Instrumenten-Checkboxen haben helle Schrift statt Schwarz auf dunkel.
+- Staging-Regressionslauf #42291426821 erfolgreich, echter MuseScore Studio 4.7.6 Linux XML→MSCZ→XML-Import mit Pedalmarkierungen #42291426814 erfolgreich.
+- Live-Update-Feed und zwei Versionseinträge sind identisch; vorherige Versionen bleiben archiviert.
+- **Nächster Schritt:** Nutzer installiert 0.11.11, wählt **„Gespeicherte KI-Antwort erneut prüfen (kostenfrei)“** und anschließend **„Fertige Fassung in MuseScore öffnen“**. Kein neuer Anbieteraufruf. Windows-Plugin-End-to-End noch nicht bestätigt.
+- Details `RELEASE-0.11.11.md`, Issue #1.
+
+## Historischer Projektstand
 Stand: 06.11.2026 · **v0.11.10 über die bestehende Updatefunktion veröffentlicht**, Starter 0.7.27 unverändert.
 
 ## Aktuell – behobener Vorspiel-Fehler (echte Nutzerdiagnose)

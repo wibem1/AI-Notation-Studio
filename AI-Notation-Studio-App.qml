@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.10"
+    version: "0.11.11"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -1837,11 +1837,18 @@ MuseScore {
               if (Math.abs(t - Math.round(t)) > .00001) throw Error('Rhythmus ist nicht exakt darstellbar.');
               return Math.round(t);
             }
+            // Expression positions (pedal, dynamics, wedges) are performance annotations.
+            // Snap only these positions to the nearest MusicXML division; never quantize notes.
+            function positionTicks(q) {
+              var t = Number(q) * division;
+              if (!isFinite(t)) throw Error('Ungültige Position einer Spielanweisung.');
+              return Math.round(t);
+            }
             function textDirection(text, staff, offset) {
-              return '<direction><direction-type><words>' + esc(text) + '</words></direction-type><offset>' + ticks(offset || 0) + '</offset><staff>' + staff + '</staff></direction>';
+              return '<direction><direction-type><words>' + esc(text) + '</words></direction-type><offset>' + positionTicks(offset || 0) + '</offset><staff>' + staff + '</staff></direction>';
             }
             function direction(body, staff, q, sound) {
-              return '<direction><direction-type>' + body + '</direction-type><offset>' + ticks(q || 0) + '</offset><staff>' + staff + '</staff>' + (sound || '') + '</direction>';
+              return '<direction><direction-type>' + body + '</direction-type><offset>' + positionTicks(q || 0) + '</offset><staff>' + staff + '</staff>' + (sound || '') + '</direction>';
             }
             var xml = '<?xml version="1.0" encoding="UTF-8"?>\n<score-partwise version="4.0"><work><work-title>' + esc(score.score.title || 'Komposition') + '</work-title></work><movement-title>' + esc(score.score.title || 'Komposition') + '</movement-title>';
             if (score.score.composer) xml += '<identification><creator type="composer">' + esc(score.score.composer) + '</creator></identification>';
@@ -6625,6 +6632,14 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                         CheckBox {
                             objectName:"preludeTargetCheckbox_"+index
                             text:modelData.label
+                            contentItem: Text {
+                                text: parent.text
+                                color: "#f0f0f0"
+                                leftPadding: 27
+                                verticalAlignment: Text.AlignVCenter
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: uiSize
+                            }
                             checked:preludeSelectedIndices.indexOf(index)>=0
                             enabled:!busy
                             onClicked:{
