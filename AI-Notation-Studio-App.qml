@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.8"
+    version: "0.11.9"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -39,6 +39,8 @@ MuseScore {
     property var workflowCore: createSharedWorkflowCore()
     property var workflowAnalysis: null
     property int workflowTransitionBars: 0
+    property var preludeTargets: []
+    property var preludeSelectedIndices: []
     property var compositionJob: null
     property string compositionIdea: ""
     property bool ideaReady: false
@@ -54,6 +56,7 @@ MuseScore {
     property bool busy: false
     property string freeInstrumentation: "Violine, Cello"
     property int freeMeasures: 16
+    property int preludeMeasures: 2
     property int uiSize: 18
     property string updateStatus: "Noch nicht geprüft."
     property string lastUpdateError: ""
@@ -370,7 +373,7 @@ MuseScore {
                 throw Error("Zeitversatz erkannt: Die Ausgangspartitur beginnt mit einem Pausentakt, die Begleitung dagegen mit Noten. Nichts wurde eingefügt.")
         }
         return compact.context.combine(job.sourceXml || readWorkflowSource(job),xml,
-            {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter,targetInstrument:job.instruments[0],partIndex:job.replacePartIndex,staffNumber:job.replaceStaffNumber})
+            {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter,targetInstrument:job.instruments[0],partIndex:job.replacePartIndex,staffNumber:job.replaceStaffNumber,targetGroups:job.preludeTargets||null})
     }
     function readWorkflowSource(job) {
         compactFile.source=job.sourcePath
@@ -420,11 +423,17 @@ MuseScore {
         // Prevent accidental expensive generation with the wrong workflow.
         if (mode === 1 && /(ersetz|neu gestalten|umgestalt|interessanter|überarbeit|verbesser|ändern|austausch|bearbeit)/i.test(instructionBox.text))
             throw Error("Dieser Auftrag verlangt eine Änderung vorhandener Musik. Bitte „Instrumentpart ersetzen (mehrstimmig)“ wählen; „Neue Stimme“ fügt nur hinzu. Es wurde keine KI-Anfrage gesendet.")
-        var bounds = mode === 2 ? { startTick: 0, endTick: 0 } : selectionBounds()
-        if (mode !== 2 && !(bounds.endTick > bounds.startTick))
+        var bounds = (mode===2||mode===9) ? {startTick:0,endTick:0} : selectionBounds()
+        if (mode !== 2 && mode !== 9 && !(bounds.endTick > bounds.startTick))
             throw Error("Die Auswahl hat keine erkennbare Dauer. Bitte einen Taktbereich markieren.")
         if (mode === 3 && bounds.endTick < scoreEndTick(curScore)) throw Error("Fortsetzen benötigt eine Auswahl am Partiturende.")
-        var instruments = (mode === 1 || mode === 7 || mode === 8) ? [instrumentBox.currentText] : mode === 2 ? normalizedInstrumentation() : contextTargetInstruments(mode)
+        var chosenPrelude=[]
+        if(mode===9) {
+            refreshPreludeTargets()
+            chosenPrelude=preludeTargets.filter(function(t,j){return preludeSelectedIndices.indexOf(j)>=0})
+            if(!chosenPrelude.length)throw Error("Bitte Instrumente für das Vorspiel auswählen.")
+        }
+        var instruments=mode===9 ? chosenPrelude.map(function(t){return t.name}) : (mode===1||mode===7||mode===8) ? [instrumentBox.currentText] : mode===2 ? normalizedInstrumentation() : contextTargetInstruments(mode)
         if (!instruments.length) throw Error("Bitte eine Zielbesetzung angeben.")
         var replacePartIndex = -1, replaceStaffNumber = 1
         if(mode === 7 || mode === 8) {
@@ -477,7 +486,8 @@ MuseScore {
         if (strategy !== 0 && (!second.model || !providerKey(second.provider))) throw Error("Modell oder gespeicherter API-Key für Stufe 2 (" + second.provider + ") fehlt. Im Bereich Technisches den Anbieter wählen und seinen Key speichern.")
         var job = { id: String(new Date().getTime()), created: new Date().toISOString(), mode: mode, modeName: modeBox.currentText,
             strategy: strategy, first: first, second: second, instruments: instruments, instruction: instructionBox.text.trim(),
-            measures: (mode === 1 || mode === 7 || mode === 8) ? selectionMeasureCount() : mode === 2 ? freeMeasures : contextMeasures(mode),
+            measures: (mode===1||mode===7||mode===8) ? selectionMeasureCount() : mode===9 ? preludeMeasures : mode===2 ? freeMeasures : contextMeasures(mode),
+            preludeTargets:mode===9?chosenPrelude:null,
             selection: selectionJson, preferences: settings.generalMemoryText, sourcePath: "", replacePartIndex: replacePartIndex, replaceStaffNumber: replaceStaffNumber, startQuarter: mode === 3 ? bounds.endTick / 480 : bounds.startTick / 480, endQuarter: bounds.endTick / 480,
             prefixQuarter: 0, startMeasure: 1, sourceTime: "", idea: "", draft: "" }
         if (mode !== 2) {
@@ -502,6 +512,7 @@ MuseScore {
                     job.workflowKind = "overlay"
                 }
             }
+            if(mode===9){job.workflowKind="prependPrelude";job.startQuarter=0;job.endQuarter=0}
             var context = compact.context.inspect(source, job.startQuarter)
             job.sourcePath = path; job.prefixQuarter = context.prefixQuarter; job.startMeasure = context.startMeasure; job.sourceTime = context.timeSignature
             job.sourceMeters = context.meters.slice(context.startMeasure - 1, context.startMeasure - 1 + job.measures)
@@ -511,6 +522,11 @@ MuseScore {
                 job.sourceMeters = context.meters.slice(context.startMeasure - 1, context.startMeasure - 1 + job.measures)
             }
             job.sourceTitle = String(curScore.title || "")
+            if(mode===9){
+                job.sourceMeters=[]
+                for(var mi=0;mi<job.measures;mi++)job.sourceMeters.push({measure:mi+1,timeSignature:context.meters[0].timeSignature,quarters:context.meters[0].quarters})
+                job.preludeReference=preludeReference(source)
+            }
         }
         if(mode===8) { job.workflowKind="replaceInstrumentPart"; job.instruments=[String(instruments[0])]; }
         if(mode===7) { job.workflowKind=replaceStaffNumber===1 && (curScore.parts[replacePartIndex].endTrack-curScore.parts[replacePartIndex].startTrack)===4 ? "replaceVoice" : "replacePianoStaff"; job.instruments=[String(instruments[0])]; }
@@ -567,18 +583,22 @@ MuseScore {
             "Erzeuge genau eine eigenständige Variante der Referenzpassage und bewahre ihre Identität und Funktion.",
             "Bearbeite die Referenzpassage idiomatisch für die Zielbesetzung und bewahre ihre musikalische Identität.",
             "Ersetze ausschließlich die ausdrücklich ausgewählte einstimmige Instrumentalstimme durch eine neue, vollständig notierte Stimme. Alle anderen Instrumente und Takte bleiben unverändert.",
-            "Komponiere den ausgewählten Instrumentpart vollständig neu. Bei Klavier: beide Hände, alle unabhängigen Stimmen, Akkorde und vollständige Spielanweisungen. Die übrigen Instrumente bleiben unverändert."][job.mode]
+            "Komponiere den ausgewählten Instrumentpart vollständig neu. Bei Klavier: beide Hände, alle unabhängigen Stimmen, Akkorde und vollständige Spielanweisungen. Die übrigen Instrumente bleiben unverändert.",
+            "Komponiere ein eigenständiges Vorspiel vor der bestehenden Partitur."][job.mode]
         if(job.transitionBars) action += " Zuerst "+job.transitionBars+" freigegebene Schlusstakte ersetzen, danach "+job.newMeasures+" neue Takte. Frühere Takte erhalten."
         if(job.analysis) action="Überarbeite die markierten Takte derselben Besetzung gemäß Analyse. Keine zusätzlichen Stimmen."
         var task = action + "\nAUFTRAG:\n" + job.instruction + "\nZIELBESETZUNG (Reihenfolge verbindlich): " + job.instruments.join(", ") +
             "\nLÄNGE: " + job.measures + " Takte.\nARBEITSVORLIEBEN:\n" + job.preferences +
             "\nGestalte musikalisch begründete Phrasen, motivische Beziehungen, Harmonik, Rhythmus und Ausdruck. Für die Instrumente spielbar schreiben. Klavier mit rechter und linker Hand. Nutzerangaben haben Vorrang. Für CS1 englische Instrumentnamen wie piano, violin, cello, flute und clarinet verwenden; pro Instrument ein P-Block mit eindeutiger ID. Tonhöhen klingend angeben; instrumentale Transposition übernimmt das Plugin."
-        if (job.mode !== 2) task += "\nREFERENZAUSWAHL (kompakt, ohne überflüssige UI-Metadaten):\n" + compactCompositionSelection(job.selection) +
+        if (job.mode !== 2 && job.mode !== 9) task += "\nREFERENZAUSWAHL (kompakt, ohne überflüssige UI-Metadaten):\n" + compactCompositionSelection(job.selection) +
             "\nTaktart am Beginn: " + job.sourceTime + ". Taktarten und tatsächliche Taktlängen der Ausgangspartitur: " + JSON.stringify(job.sourceMeters) + ". Die Taktlängen müssen damit übereinstimmen. Die Ergebnis-Takte werden ab 1 gezählt und ab Ausgangstakt " + job.startMeasure + " eingefügt."
         if (job.prefixQuarter > 0) task += "\nDie Auswahl beginnt " + job.prefixQuarter + " Viertel nach Taktanfang. In jeder Ergebnisstimme den ersten Takt mit genau dieser Dauer als Pausen beginnen; danach die Musik der Auswahl bearbeiten."
         if (job.mode === 8) task += "\nErsetze nur den ausgewählten Instrumentpart über alle "+job.measures+" Takte, mit vollständiger mehrstimmiger Notation. Keine weiteren Instrumente erzeugen.";
         if (job.mode === 7) task += "\nNur die Zielstimme neu komponieren, genau "+job.measures+" vollständige Takte; keine anderen Stimmen ausgeben. Bei Klavier genau ein System wählen, andere Stimmen unverändert.";
         if (job.mode === 1) task += "\nDie neue Stimme muss genau den Zeitraum der Auswahl abdecken; danach im letzten Takt gegebenenfalls Pausen. Keine vorhandenen Stimmen kopieren."
+        if(job.mode===9)task+="\nVORSPIEL VOR TAKT 1: Erzeuge "+job.measures+" vollständige neue Takte für genau "+job.instruments.length+" Instrumente in der angegebenen Reihenfolge. "+
+            "Klavier als ein zweizeiliges System (rechte und linke Hand). Taktart "+job.sourceTime+". Die Komposition muss motivisch, harmonisch und stilistisch zum anschließenden Stück führen. "+
+            "Keine alten Stimmen kopieren; die vorhandene Musik wird automatisch verschoben.\nMUSIKALISCHER KONTEXT DES FOLGESTÜCKS:\n"+job.preludeReference
         return workflowCore.prompt(job.mode===3 ? "continue" : job.analysis ? "revise" : "compose")+"\n"+task+(job.analysis ? "\nFREIGEGEBENE ANALYSE:\n"+job.analysis : "")
     }
 
@@ -2950,7 +2970,211 @@ MuseScore {
           }
 
 
+/* Stable identifiers for prelude targets. A hidden, consecutive piano
+             score-part is a continuation staff, not another playable instrument. */
+          function preludeCatalog(xml){
+           var root=parse(xml),defs=children(first(root,'part-list'),'score-part'),parts=children(root,'part');
+           if(defs.length!==parts.length)throw Error('Vorspiel: Part-Liste und Partitur stimmen nicht überein.');
+           var out=[];
+           for(var i=0;i<defs.length;i++){
+            var def=defs[i],name=text(def,'part-name','').replace(/\s+/g,' ').trim();
+            var st=timeline(parts[i]).rows[0].staves;
+            var piano=/^(?:piano|klavier)$/i.test(name),hiddenNext=false;
+            if(piano&&st===1&&i+1<defs.length){
+             var next=defs[i+1],nname=text(next,'part-name','').replace(/\s+/g,' ').trim();
+             hiddenNext=(/\bprint-object=["']no["']/.test(next.open)||/\bprint-object=["']no["']/.test(first(next,'part-name').open))&&nname.toLowerCase()===name.toLowerCase()&&timeline(parts[i+1]).rows[0].staves===1;
+            }
+            if(hiddenNext){
+             out.push({label:name+' (beide Hände; Parts '+(i+1)+' + '+(i+2)+')',name:name,indices:[i,i+1],splitPiano:true});
+             i++;
+            }else{
+             out.push({label:(name||'Instrument')+' (Part '+(i+1)+')',name:name,indices:[i],splitPiano:false});
+            }
+           }
+           return out;
+          }
+          function expandPreludeParts(xml,groups){
+           var doc=parse(xml),parts=children(doc,'part'),defs=children(first(doc,'part-list'),'score-part');
+           if(parts.length!==groups.length||defs.length!==groups.length)throw Error('Vorspiel: Die Anzahl erzeugter Instrumente stimmt nicht.');
+           var expanded=[],expandedDefs=[];
+           function elem(name,value){return {name:name,open:'<'+name+'>',close:'</'+name+'>',children:[String(value)]};}
+           groups.forEach(function(g,i){
+            if(!g||!g.indices||g.indices.length<1||g.indices.length>2)throw Error('Vorspiel: Ungültige Instrumentgruppe.');
+            if(g.indices.length===1){
+             expanded.push(clone(parts[i]));expandedDefs.push(clone(defs[i]));return;
+            }
+            if(!g.splitPiano||g.indices.length!==2||timeline(parts[i]).rows[0].staves!==2)
+             throw Error('Vorspiel: Gesplittetes Klavier benötigt eine zweizeilige Klavierausgabe.');
+            var sourceMeasures=children(parts[i],'measure'),groupParts=[];
+            for(var hand=1;hand<=2;hand++){
+             var part=clone(parts[i]),newId='prelude_'+i+'_'+hand;
+             part.open=part.open.replace(/\bid=["'][^"']+["']/,'id="'+newId+'"');
+             var def=clone(defs[i]);
+             def.open=def.open.replace(/\bid=["'][^"']+["']/,'id="'+newId+'"');
+             children(def,'score-instrument').forEach(function(ins){
+              ins.open=ins.open.replace(/\bid=["'][^"']+["']/,'id="'+newId+'_inst"');
+             });
+             children(def,'midi-instrument').forEach(function(ins){
+              ins.open=ins.open.replace(/\bid=["'][^"']+["']/,'id="'+newId+'_inst"');
+             });
+             part.children=part.children.filter(function(n){return typeof n==='string'||n.name!=='measure';});
+             sourceMeasures.forEach(function(m,k){
+              var n=clone(m),attrsNode=attrs(n),originalNotes=children(m,'note'),picked=originalNotes.filter(function(x){return text(x,'staff','1')===String(hand);});
+              var durations=0,voices={};
+              picked.forEach(function(x){
+               if(!first(x,'chord')&&!first(x,'grace'))durations+=Number(text(x,'duration',0));
+               voices[text(x,'voice','1')]=true;
+              });
+              if(Object.keys(voices).length!==1)throw Error('Vorspiel: Mehrstimmige Klavierhand kann noch nicht sicher aufgeteilt werden.');
+              var row=timeline(parts[i]).rows[k];
+              if(Math.abs(durations-row.length*row.division)>1e-7)
+               throw Error('Vorspiel: Klavierhand ist rhythmisch unvollständig.');
+              n.children=n.children.filter(function(x){return typeof x==='string'||x.name!=='note'&&x.name!=='backup'&&x.name!=='forward'&&x.name!=='direction'&&x.name!=='harmony';});
+              if(attrsNode){
+               var a=attrs(n),oldClefs=children(a,'clef'),selected=oldClefs.filter(function(c){return (/\bnumber=["']([^"']+)["']/.exec(c.open)||[])[1]===String(hand)||(hand===1&&oldClefs.length===1&&!/\bnumber=/.test(c.open));});
+               a.children=a.children.filter(function(x){return typeof x==='string'||x.name!=='staves'&&x.name!=='clef';});
+               selected.forEach(function(c){var clef=clone(c);clef.open=clef.open.replace(/\snumber=["'][^"']+["']/,'');a.children.push(clef);});
+              }
+              // Preserve staff-bound expression; staffless expression is anchored to the upper hand.
+              children(m,'direction').forEach(function(direction){
+               if(text(direction,'staff','1')===String(hand))n.children.push(clone(direction));
+              });
+              children(m,'harmony').forEach(function(harmony){
+               if(text(harmony,'staff','1')===String(hand))n.children.push(clone(harmony));
+              });
+              picked.forEach(function(note){
+               var cp=clone(note),staff=first(cp,'staff'),voice=first(cp,'voice');
+               if(staff)staff.children=['1'];else cp.children.push(elem('staff','1'));
+               if(voice)voice.children=['1'];else cp.children.push(elem('voice','1'));
+               n.children.push(cp);
+              });
+              part.children.push(n);
+             });
+             groupParts.push(part);expandedDefs.push(def);
+            }
+            expanded.push.apply(expanded,groupParts);
+           });
+           var list=first(doc,'part-list');
+           list.children=list.children.filter(function(n){return typeof n==='string'||n.name!=='score-part';}).concat(expandedDefs);
+           doc.children=doc.children.filter(function(n){return typeof n==='string'||n.name!=='part';}).concat(expanded);
+           return '<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc);
+          }
+          
+          /* Insert an instrumental prelude before the score (pure, non-destructive MusicXML copy).
+             targetPartIndices correspond to incoming score parts in their stated order.
+             Ambiguous or unsupported score layouts fail closed. */
+          function prependPrelude(baseXML, addedXML, options) {
+           if(options&&options.targetGroups){
+            var groups=options.targetGroups;
+            options={targetPartIndices:[].concat.apply([],groups.map(function(g){return g.indices;}))};
+            addedXML=expandPreludeParts(addedXML,groups);
+           }
+           var original=parse(baseXML), incoming=parse(addedXML);
+           var baseParts=children(original,'part'), newParts=children(incoming,'part');
+           var indices=(options&&options.targetPartIndices)||[];
+           if(!baseParts.length||!newParts.length||indices.length!==newParts.length)
+            throw Error('Vorspiel: Jedes erzeugte Instrument benötigt genau einen ausgewählten Zielpart.');
+           var seen={};
+           indices.forEach(function(index){
+            if(!Number.isInteger(index)||index<0||index>=baseParts.length||seen[index])
+             throw Error('Vorspiel: Zielinstrumente sind nicht eindeutig zugeordnet.');
+            seen[index]=true;
+           });
+           var originalTime=timeline(baseParts[0]),newTime=timeline(newParts[0]);
+           var count=newTime.rows.length;
+           if(!count||count>128)throw Error('Vorspiel: Ungültige Anzahl neuer Takte.');
+           if(!originalTime.rows.length)throw Error('Vorspiel: Leere Ausgangspartitur.');
+           var firstRow=originalTime.rows[0];
+           if(Math.abs(firstRow.observedLength-firstRow.length)>1e-7)
+            throw Error('Vorspiel: Unvollständiger Anfangstakt der Originalpartitur.');
+           if(Math.abs(firstRow.length-newTime.rows[0].length)>1e-7||
+              Math.abs(firstRow.length-newTime.rows[0].observedLength)>1e-7)
+            throw Error('Vorspiel: Auftakt oder abweichende Taktlänge am Anfang ist noch nicht unterstützt.');
+           for(var i=0;i<count;i++){
+            var row=newTime.rows[i];
+            if(Math.abs(row.length-firstRow.length)>1e-7||
+               Math.abs(row.observedLength-row.length)>1e-7||
+               row.time!==newTime.rows[0].time)
+             throw Error('Vorspiel: Die neuen Takte müssen der anfänglichen Taktart entsprechen und vollständig sein.');
+           }
+           baseParts.forEach(function(part){
+            var t=timeline(part);
+            if(t.rows.length!==originalTime.rows.length)
+             throw Error('Vorspiel: Bestehende Parts haben unterschiedliche Taktzahlen.');
+            for(var j=0;j<t.rows.length;j++)
+             if(Math.abs(t.rows[j].length-originalTime.rows[j].length)>1e-7)
+              throw Error('Vorspiel: Unterschiedliche Taktgrenzen der Instrumente.');
+            if(Math.abs(t.rows[0].length-firstRow.length)>1e-7)
+             throw Error('Vorspiel: Part beginnt mit abweichender Taktlänge.');
+           });
+           // Validate the generated material and mapping before modifying a clone.
+           newParts.forEach(function(part,j){
+            var orig=timeline(baseParts[indices[j]]),fresh=timeline(part);
+            if(fresh.rows.length!==count||!fresh.rows.length)
+             throw Error('Vorspiel: Uneinheitliche Taktzahl der erzeugten Instrumente.');
+            if(fresh.rows[0].staves!==orig.rows[0].staves)
+             throw Error('Vorspiel: Notensystemzahl von Zielinstrument und Komposition stimmt nicht überein.');
+            for(var k=0;k<count;k++){
+             if(Math.abs(fresh.rows[k].length-firstRow.length)>1e-7||
+                Math.abs(fresh.rows[k].observedLength-firstRow.length)>1e-7)
+              throw Error('Vorspiel: Instrument enthält einen unvollständigen Takt.');
+            }
+           });
+           function setFirstAttributes(measure,sourcePart,divisions) {
+            var sourceFirst=children(sourcePart,'measure')[0],a=attrs(sourceFirst);
+            if(!a)throw Error('Vorspiel: Zielinstrument hat keine initialen Eigenschaften.');
+            var copied=clone(a),d=first(copied,'divisions');
+            if(!d)throw Error('Vorspiel: divisions fehlen.');
+            d.children=[String(divisions)];
+            measure.children=measure.children.filter(function(x){return typeof x==='string'||x.name!=='attributes';});
+            var firstNonText=measure.children.findIndex(function(x){return typeof x!=='string';});
+            measure.children.splice(firstNonText<0?0:firstNonText,0,copied);
+           }
+           function compatibleInitialKeys(source,extra){
+            var k0=first(attrs(children(source,'measure')[0]),'key');
+            var k1=first(attrs(children(extra,'measure')[0]),'key');
+            // Generated key can be absent; original score is authoritative.
+            if(k1&&k0&&text(k1,'fifths','0')!==text(k0,'fifths','0'))
+             throw Error('Vorspiel: Die Tonart widerspricht der Ausgangspartitur.');
+           }
+           newParts.forEach(function(part,j){compatibleInitialKeys(baseParts[indices[j]],part);});
+           var result=clone(original),targets=children(result,'part');
+           targets.forEach(function(part,i){
+            var old=children(part,'measure'),baseRow=timeline(part).rows[0];
+            var firstMeasure=old[0],previous=baseParts[i],addedIdx=indices.indexOf(i),prefix=[];
+            if(addedIdx>=0){
+             var music=clone(newParts[addedIdx]);
+             // Incoming pitches are sounding pitches; transfer to the written pitches of the target.
+             transposePart(music,baseRow.transpose);
+             prefix=children(music,'measure').map(clone);
+             prefix.forEach(function(m,k){
+              renumber(m,k+1);
+              if(k===0)setFirstAttributes(m,previous,timeline(music).rows[0].division);
+             });
+            }else{
+             for(var n=0;n<count;n++){
+              var m=blank(baseRow,n+1,n===0,baseRow.division,baseRow.staves);
+              if(n===0)setFirstAttributes(m,previous,baseRow.division);
+              prefix.push(m);
+             }
+            }
+            // Original opening tempo remains on its original material; copy global metronome
+            // to the prelude so playback before the old start uses the correct speed.
+            var opening=children(firstMeasure,'direction').filter(function(d){
+             return !!first(first(d,'direction-type')||{children:[]},'metronome')||/\btempo=/.test(serialize(d));
+            });
+            if(opening.length)prefix[0].children.splice(1,0,...opening.map(clone));
+            var all=prefix.concat(old.map(clone));
+            all.forEach(function(m,k){renumber(m,k+1);});
+            part.children=part.children.filter(function(x){return typeof x==='string'||x.name!=='measure';}).concat(all);
+           });
+           return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(result),
+            warnings:['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.']};
+          }
+          
+          
           function combine(baseXML, addedXML, options) {
+            if(options.kind === 'prependPrelude')return prependPrelude(baseXML, addedXML, options);
             if (options.kind === "replaceVoice") return replaceVoice(baseXML, addedXML, options);
             if (options.kind === "replaceInstrumentPart") return replaceInstrumentPart(baseXML, addedXML, options);
             if (options.kind === "replacePianoStaff") return replacePianoStaff(baseXML, addedXML, options);
@@ -3077,6 +3301,9 @@ MuseScore {
             parse: parse,
             inspect: inspect,
             combine: combine,
+            preludeCatalog: preludeCatalog,
+            prependPrelude: prependPrelude,
+            expandPreludeParts: expandPreludeParts,
             checkBoundaries: checkBoundaries
           };
           if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -4540,6 +4767,34 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         return "Violine: sinnvoll etwa G3 bis E6"
     }
 
+
+    function refreshPreludeTargets(){
+        if(!curScore)throw Error("Keine Partitur geöffnet.")
+        var now=compact.context.preludeCatalog(workflowXml()),old=preludeTargets,selected=preludeSelectedIndices,keep=[]
+        now.forEach(function(x,i){
+            selected.forEach(function(j){if(old[j]&&old[j].name===x.name&&JSON.stringify(old[j].indices)===JSON.stringify(x.indices))keep.push(i)})
+        })
+        preludeTargets=now
+        preludeSelectedIndices=keep
+    }
+    function preludeReference(xml){
+        var tree=compact.context.parse(xml),parts=tree.children.filter(function(n){return n&&typeof n!=="string"&&n.name==="part"})
+        var out=[]
+        function child(n,name){return n.children.filter(function(x){return x&&typeof x!=="string"&&x.name===name})}
+        function val(n,key){var e=child(n,key)[0];return e?e.children.filter(function(x){return typeof x==="string"}).join("").trim():""}
+        parts.forEach(function(p,i){
+            out.push("Instrument Part "+(i+1))
+            child(p,"measure").slice(0,6).forEach(function(m,j){
+                var notes=child(m,"note").map(function(n){
+                    var pitch=child(n,"pitch")[0]
+                    return pitch ? val(pitch,"step")+val(pitch,"alter")+val(pitch,"octave")+" ("+val(n,"duration")+")" : "Pause ("+val(n,"duration")+")"
+                })
+                out.push("Takt "+(j+1)+": "+notes.join(", "))
+            })
+        })
+        return out.join("\n").slice(0,16000)
+    }
+
     function normalizedInstrumentation() {
         var raw = freeInstrumentation.trim()
         if (raw === "") return []
@@ -5660,8 +5915,8 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         if (instructionBox.text.trim() === "") { statusText = "Bitte einen Auftrag eingeben."; return }
         saveCurrentKey(); saveCurrentModel()
         var mode = modeBox.currentIndex
-        if (mode !== 2 && !readSelection()) return
-        if (mode === 2) selectionJson = ""
+        if (mode !== 2 && mode !== 9 && !readSelection()) return
+        if (mode === 2 || mode === 9) selectionJson = ""
         if (mode === 0) {
             busy = true
             var original,bounds=selectionBounds()
@@ -6177,11 +6432,17 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
                 ComboBox {
                     id: modeBox
+                    objectName: "compositionModeSelector"
                     Layout.fillWidth: true
-                    model: ["Auswahl analysieren", "Neue Stimme zu Auswahl", "Freie Komposition ohne Vorlage", "Fortsetzen", "Aus Motiv entwickeln", "Variante erzeugen", "Für andere Besetzung bearbeiten", "Stimme ersetzen (auch Klavier)", "Instrumentpart ersetzen (mehrstimmig)"]
+                    model: ["Auswahl analysieren", "Neue Stimme zu Auswahl", "Freie Komposition ohne Vorlage", "Fortsetzen", "Aus Motiv entwickeln", "Variante erzeugen", "Für andere Besetzung bearbeiten", "Stimme ersetzen (auch Klavier)", "Instrumentpart ersetzen (mehrstimmig)", "Vorspiel voranstellen"]
                     currentIndex: 0
                     font.pixelSize: uiSize
-                    onCurrentIndexChanged: saveGeneralDefaults()
+                    onCurrentIndexChanged: {
+                        saveGeneralDefaults()
+                        if(currentIndex===9 && curScore){
+                            try{refreshPreludeTargets()}catch(e){statusText=String(e)}
+                        }
+                    }
                 }
 
                 Label { text: "Übergang"; color:"white"; visible:modeBox.currentIndex===3; font.pixelSize:uiSize }
@@ -6203,11 +6464,11 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     text: "Besetzung"
                     color: "white"
                     font.pixelSize: uiSize
-                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex >= 4
+                    visible: modeBox.currentIndex === 2 || (modeBox.currentIndex >= 4 && modeBox.currentIndex !== 9)
                 }
 
                 TextField {
-                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex >= 4
+                    visible: modeBox.currentIndex === 2 || (modeBox.currentIndex >= 4 && modeBox.currentIndex !== 9)
                     Layout.fillWidth: true
                     text: freeInstrumentation
                     font.pixelSize: uiSize
@@ -6222,19 +6483,56 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     text: "Takte"
                     color: "white"
                     font.pixelSize: uiSize
-                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4
+                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4 || modeBox.currentIndex === 9
                 }
 
                 SpinBox {
-                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4
+                    visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4 || modeBox.currentIndex === 9
                     from: 1
                     to: 128
-                    value: freeMeasures
+                    value: modeBox.currentIndex === 9 ? preludeMeasures : freeMeasures
                     editable: true
                     font.pixelSize: uiSize
                     onValueChanged: {
-                        freeMeasures = value
+                        if(modeBox.currentIndex===9)preludeMeasures=value
+                        else freeMeasures=value
                         saveGeneralDefaults()
+                    }
+                }
+
+
+                Label {text: "Instrumente für das Vorspiel"; color:"white"; font.pixelSize:uiSize; visible:modeBox.currentIndex===9}
+                ColumnLayout {
+                    visible:modeBox.currentIndex===9
+                    Layout.fillWidth:true
+                    Button {
+                        objectName:"preludeLoadInstrumentsButton"
+                        text:"Instrumente aus Partitur laden"
+                        enabled:!busy && curScore !== null
+                        onClicked:{try{refreshPreludeTargets()}catch(e){statusText=String(e)}}
+                    }
+                    Repeater {
+                        objectName:"preludeTargetRepeater"
+                        model:preludeTargets
+                        CheckBox {
+                            objectName:"preludeTargetCheckbox_"+index
+                            text:modelData.label
+                            checked:preludeSelectedIndices.indexOf(index)>=0
+                            enabled:!busy
+                            onClicked:{
+                                var selected=preludeSelectedIndices.slice(0)
+                                var at=selected.indexOf(index)
+                                if(checked && at<0)selected.push(index)
+                                if(!checked && at>=0)selected.splice(at,1)
+                                preludeSelectedIndices=selected
+                            }
+                        }
+                    }
+                    Label {
+                        Layout.fillWidth:true
+                        wrapMode:Text.WordWrap
+                        color:"#bbbbbb"
+                        text:"Ein oder mehrere Instrumente auswählen. Ein verborgenes zweites Klaviersystem wird gemeinsam angeboten. Die vorhandene Partitur bleibt erhalten."
                     }
                 }
 
@@ -6281,7 +6579,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
                 Button {
                     text: "Auswahl neu lesen"
-                    visible: modeBox.currentIndex !== 2
+                    visible: modeBox.currentIndex !== 2 && modeBox.currentIndex !== 9
                     font.pixelSize: uiSize
                     onClicked: readSelection()
                 }
