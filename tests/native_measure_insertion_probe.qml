@@ -2,12 +2,20 @@
 // Run ONLY with a disposable, already saved test score (never the user's original).
 import QtQuick 2.2
 import MuseScore 3.0
+import FileIO 3.0
 
 MuseScore {
     menuPath: "Plugins.AI Notation Studio Tests.Native measure insertion probe"
     description: "Checks beginning-of-score insertion and rollback on a DISPOSABLE test score"
     version: "0.0.1-spike"
     requiresScore: true
+    property string probeTranscript: ""
+    FileIO { id: nativeLog; source: "/tmp/ans-native-result.txt" }
+    function trace(message) {
+        probeTranscript += message + "\n"
+        nativeLog.write(probeTranscript)
+        console.log(message)
+    }
 
     function fail(message) { throw new Error(message) }
     function inspect(score, stage) {
@@ -18,13 +26,14 @@ MuseScore {
             staves: Number(score.nstaves),
             firstTick: Number(score.firstMeasure.firstSegment ? score.firstMeasure.firstSegment.tick : 0)
         }
-        console.log("ANS_NATIVE_PROBE " + JSON.stringify(result))
+        trace("ANS_NATIVE_PROBE " + JSON.stringify(result))
         return result
     }
 
     onRun: {
         // This is a deliberately LIMITED proof: no CS1 transfer, no production installation.
         // The host is responsible for selecting ONLY a sacrificial score before invoking it.
+        trace("ANS_NATIVE_PROBE START")
         var score = curScore
         var started = false
         var initial = null
@@ -64,13 +73,13 @@ MuseScore {
             var restored = inspect(score, "after-rollback")
             if (restored.measures !== initial.measures || restored.staves !== initial.staves)
                 fail("CRITICAL: rollback did not restore measure/staff counts")
-            console.log("ANS_NATIVE_PROBE PASS: insert one before-first measure and rollback; " +
+            trace("ANS_NATIVE_PROBE PASS: insert one before-first measure and rollback; " +
                         "note/spanner signature verification STILL REQUIRED")
         } catch (e) {
-            console.log("ANS_NATIVE_PROBE FAIL: " + String(e))
+            trace("ANS_NATIVE_PROBE FAIL: " + String(e))
             if (started) {
                 try { score.endCmd(true) }
-                catch (rollbackError) { console.log("ANS_NATIVE_PROBE ROLLBACK_ERROR " + rollbackError) }
+                catch (rollbackError) { trace("ANS_NATIVE_PROBE ROLLBACK_ERROR " + rollbackError) }
             }
         } finally {
             // Selection may be changed by the probe; never make a claim of UI/selection rollback.
