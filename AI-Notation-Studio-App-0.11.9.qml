@@ -2981,7 +2981,7 @@ MuseScore {
             var piano=/^(?:piano|klavier)$/i.test(name),hiddenNext=false;
             if(piano&&st===1&&i+1<defs.length){
              var next=defs[i+1],nname=text(next,'part-name','').replace(/\s+/g,' ').trim();
-             hiddenNext=/\bprint-object=["']no["']/.test(next.open)&&nname.toLowerCase()===name.toLowerCase()&&timeline(parts[i+1]).rows[0].staves===1;
+             hiddenNext=(/\bprint-object=["']no["']/.test(next.open)||/\bprint-object=["']no["']/.test(first(next,'part-name').open))&&nname.toLowerCase()===name.toLowerCase()&&timeline(parts[i+1]).rows[0].staves===1;
             }
             if(hiddenNext){
              out.push({label:name+' (beide Hände; Parts '+(i+1)+' + '+(i+2)+')',name:name,indices:[i,i+1],splitPiano:true});
