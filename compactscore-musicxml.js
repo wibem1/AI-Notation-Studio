@@ -47,8 +47,9 @@ function convert(score){
  if(division>10000000)throw Error('Rhythmische Auflösung ist zu groß.');
  var baseKey=key(score.score.key),baseMeter=meter(score.score.timeSignature),tempo=Number(score.score.tempo&&score.score.tempo.bpm||72);
  function ticks(q){var t=q*division;if(Math.abs(t-Math.round(t))>.00001)throw Error('Rhythmus ist nicht exakt darstellbar.');return Math.round(t);}
- function textDirection(text,staff,offset){return '<direction><direction-type><words>'+esc(text)+'</words></direction-type><offset>'+ticks(offset||0)+'</offset><staff>'+staff+'</staff></direction>';}
- function direction(body,staff,q,sound){return '<direction><direction-type>'+body+'</direction-type><offset>'+ticks(q||0)+'</offset><staff>'+staff+'</staff>'+(sound||'')+'</direction>';}
+ function positionTicks(q){var t=Number(q)*division;if(!isFinite(t))throw Error('Ungültige Position einer Spielanweisung.');return Math.round(t);}
+ function textDirection(text,staff,offset){return '<direction><direction-type><words>'+esc(text)+'</words></direction-type><offset>'+positionTicks(offset||0)+'</offset><staff>'+staff+'</staff></direction>';}
+ function direction(body,staff,q,sound){return '<direction><direction-type>'+body+'</direction-type><offset>'+positionTicks(q||0)+'</offset><staff>'+staff+'</staff>'+(sound||'')+'</direction>';}
  var xml='<?xml version="1.0" encoding="UTF-8"?>\n<score-partwise version="4.0"><work><work-title>'+esc(score.score.title||'Komposition')+'</work-title></work><movement-title>'+esc(score.score.title||'Komposition')+'</movement-title>';
  if(score.score.composer)xml+='<identification><creator type="composer">'+esc(score.score.composer)+'</creator></identification>';
  xml+='<part-list>';
