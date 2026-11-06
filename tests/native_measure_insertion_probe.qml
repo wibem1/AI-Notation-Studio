@@ -95,7 +95,7 @@ MuseScore {
             score.endCmd(false)
             started = false
             snapshot(score, "committed")
-            cmd("undo")
+            cmd("action://notation/undo")
             var afterUndo = inspect(score, "after-undo")
             if (afterUndo.measures !== initial.measures)
                 fail("Undo command did not restore original count")
