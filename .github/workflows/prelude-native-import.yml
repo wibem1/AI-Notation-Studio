@@ -24,8 +24,8 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libnss3 libasound2t64
           python -m pip install --disable-pip-version-check lxml PySide6
-      - name: Generate 34-measure ensemble in the embedded QML engine
-        run: python tests/test_prelude_ensemble_32.py
+      - name: Generate reported four-part prelude with repaired final eighth
+        run: node tests/test_prelude_user_0110.cjs
       - name: Download and verify official MuseScore Studio 4.7.6 AppImage
         shell: bash
         run: |
