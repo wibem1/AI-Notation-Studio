@@ -1,6 +1,14 @@
 # Projektstand – AI Notation Studio
 Stand: 06.11.2026 · veröffentlichte App v0.11.8 (unverändert)
 
+## Testergebnis 06.11.2026 – Qt und MusicXML bestanden; native MuseScore-Prüfung ausstehend
+- Letzter bestätigter CI-Lauf: **GitHub Actions #42260646460, Erfolg**, SHA `d526279129fcef4d74c672e238195dc249f87620`, https://github.com/wibem1/AI-Notation-Studio/actions/runs/42260646460.
+- Neues `tests/test_prelude_ui.py`: **echte Qt-Quick-Engine mit MuseScore/FileIO-Stubs** lädt die separate `AI-Notation-Studio-App-0.11.9.qml`. Modusindex 9 und Titel, zwei Instrument-Checkboxen im Repeater, Auswahlbindung sowie Ausblenden außerhalb des Modus werden geprüft. Zunächst Fehler in der Testmethodik: `QObject.findChild` findet QML-Repeater-Delegates nicht; `Repeater.itemAt()` überprüft dieselben tatsächlich vorhandenen Delegates erfolgreich. Erster fehlgeschlagener Test wurde korrigiert, danach grüner CI-Lauf.
+- `tests/test_prelude_musicxml.py`: Qt-JavaScript-Runtime der eingebetteten App erzeugt via CS1 zwei Takte für Klavier; MusicXML der 18-taktigen Gesamtausgabe validiert gegen MusicXML 4.0 XSD sowohl beim einteiligen zweisystemigen Klavier als auch beim vom Plugin unterstützten getrennten Klavier-Part.
+- Vorspieldauer hat nun eine eigene Voreinstellung **2 Takte**, unabhängig von der Anzahl bei freier Komposition. Zielinstrumentliste und UI-Komponenten sind für Tests eindeutig identifizierbar.
+- **Präzise Qualitätsstufe:** Implementiert und in der Qt-Testengine mit MuseScore-Stubs geprüft; XSD-validierte MusicXML-Ausgabe. **Nicht** mit echtem MuseScore 4.7.6, einem konkreten API-Provider oder der Originalpartitur des Nutzers als Native-Import getestet. Daher **keine Änderung an `AI-Notation-Studio-App.qml` und keine Update-Freigabe**.
+- **Nächster Schritt:** Nativen MuseScore-Import und tatsächlich ausgewählte Instrumente, Taktverschiebung sowie bestehende Stimmen an einer Testpartitur prüfen. Bei Erfolg als neuen Live-Updatefeed ausrollen und erst danach als Benutzerversion kennzeichnen. Keine kostenpflichtigen KI-Testaufrufe ohne Notwendigkeit.
+
 ## Entwicklungsfortschritt vom 06.11.2026: 0.11.9 im Staging, NICHT freigegeben
 - **Veröffentlichte Version bleibt 0.11.8**; die Live-Update-Datei `AI-Notation-Studio-App.qml` wurde nicht verändert. `AI-Notation-Studio-App-0.11.9.qml` ist eine getrennte Arbeitsversion auf main, keine veröffentlichte App.
 - Neue UI: Modus **„Vorspiel voranstellen“** (Index 9), wählbare Dauer in Takten, Auswahl einer oder mehrerer vorhandener Instrumentgruppen anhand der tatsächlichen MusicXML-Partstruktur. Kein markierter Taktbereich erforderlich.
