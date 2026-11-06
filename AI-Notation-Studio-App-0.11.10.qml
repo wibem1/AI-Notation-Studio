@@ -619,11 +619,47 @@ MuseScore {
         }, stage, format, { provider: config.provider, model: config.model, jobId: job.id, maxTokens: 32768 })
     }
 
+    function repairPreludeTripletOverrun(data) {
+        // Narrow, reversible musical interpretation: in 4/4, three final
+        // eighth notes after three full quarter beats form a triplet.
+        // Preserve all notes and refuse every other rhythmic discrepancy.
+        var meter=String(data.score.timeSignature||"")
+        var mm=/^(\d+)\/(\d+)$/.exec(meter)
+        if(!mm)return []
+        var expected=Number(mm[1])*4/Number(mm[2]), fixed=[]
+        var duration={whole:4,half:2,quarter:1,eighth:0.5,"16th":0.25,"32nd":0.125,"64th":0.0625}
+        data.parts.forEach(function(part,p){
+            part.measures.forEach(function(measure){
+                measure.voices.forEach(function(voice){
+                    var events=voice.events
+                    if(events.length<3||events.some(function(e){return !["note","rest","chord"].includes(e.type)||e.grace||!duration[e.duration]}))return
+                    var total=events.reduce(function(n,e){return n+duration[e.duration]*(2-Math.pow(.5,e.dots||0))},0)
+                    if(Math.abs(total-expected-0.5)>0.0000001)return
+                    var ending=events.slice(-3)
+                    if(!ending.every(function(e){return e.type==="note"&&e.duration==="eighth"&&!e.dots}))return
+                    var before=events.slice(0,-3).reduce(function(n,e){return n+duration[e.duration]*(2-Math.pow(.5,e.dots||0))},0)
+                    if(Math.abs(before-(expected-1))>0.0000001)return
+                    events.splice(events.length-3,0,{type:"tupletStart",ratio:"3:2",duration:"eighth"})
+                    events.push({type:"tupletEnd"})
+                    fixed.push("Vorspiel: Instrument "+(p+1)+", Takt "+measure.number+", Stimme "+voice.voice+
+                        ": drei abschließende Achtel als Triole 3:2 gedeutet, um den 4/4-Takt ohne Notenverlust zu schließen.")
+                })
+            })
+        })
+        return fixed
+    }
+
     function finishComposition(job, text) {
         job.raw_response=text
         try {
             acceptCompactText(text)
             var data = JSON.parse(compositionJson)
+            var preludeRepairs = job.mode===9 ? repairPreludeTripletOverrun(data) : []
+            if(preludeRepairs.length){
+                compositionJson=JSON.stringify(data)
+                compactSourceText=compact.score.encode(data)
+                compactWarnings=compactWarnings.concat(preludeRepairs)
+            }
             if (data.parts.length !== job.instruments.length &&
                 !(job.mode===9 && job.preludeTargets && job.preludeTargets.length===1 &&
                   job.preludeTargets[0].splitPiano && data.parts.length===2))
