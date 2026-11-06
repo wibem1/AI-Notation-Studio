@@ -618,7 +618,7 @@ function prependPrelude(baseXML, addedXML, options) {
   for(var k=0;k<count;k++){
    if(Math.abs(fresh.rows[k].length-firstRow.length)>1e-7||
       Math.abs(fresh.rows[k].observedLength-firstRow.length)>1e-7)
-    throw Error('Vorspiel: Instrument enthält einen unvollständigen Takt.');
+    throw Error('Vorspiel: Instrument '+(j+1)+', Takt '+(k+1)+' enthält '+fresh.rows[k].observedLength+' statt '+firstRow.length+' Viertel. Die gespeicherte KI-Antwort ist rhythmisch ungültig; keine Noten wurden verändert.');
   }
  });
  function setFirstAttributes(measure,sourcePart,divisions) {
