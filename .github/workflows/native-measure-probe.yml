@@ -34,7 +34,8 @@ jobs:
           from pathlib import Path
           measures=[]
           for i in range(1,5):
-              measures.append(f'<measure number="{i}"><attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>'*(i==1)+('' if i==1 else f'<measure number="{i}">')+'<note><pitch><step>C</step><octave>4</octave></pitch><duration>1920</duration><type>whole</type></note></measure>')
+              step=['C','D','E','F'][i-1]
+              measures.append(f'<measure number="{i}"><attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>'*(i==1)+('' if i==1 else f'<measure number="{i}">')+f'<note><pitch><step>{step}</step><octave>4</octave></pitch><duration>1920</duration><type>whole</type></note></measure>')
           xml='<?xml version="1.0" encoding="utf-8"?><!DOCTYPE score-partwise  PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd"><score-partwise version="4.0"><work><work-title>ANS-TEST-Probe</work-title></work><movement-title>ANS-TEST-Probe</movement-title><identification><creator type="composer">Test</creator></identification><defaults/><part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list><part id="P1">'+''.join(measures)+'</part></score-partwise>'
           Path('/tmp/ans-test.musicxml').write_text(xml)
           print('Wrote disposable test MusicXML',len(xml))
@@ -97,7 +98,8 @@ jobs:
           timeout 55 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- /tmp/ans-gui-driver.sh || true
           if test -s /tmp/ans-native-result.txt; then cat /tmp/ans-native-result.txt; fi
           if grep -q 'ANS_NATIVE_PROBE PASS:' /tmp/ans-native-result.txt; then
-            echo 'Native QML probe reached and returned PASS'
+            python tests/verify_native_measure_snapshots.py
+            echo 'Native QML probe and MusicXML preservation checks PASS'
           else
             echo 'Native probe NOT VERIFIED; GUI screenshots/logs are diagnostic only'
             exit 1
@@ -109,6 +111,9 @@ jobs:
           path: |
             /tmp/ans-native-probe.log
             /tmp/ans-native-result.txt
+            /tmp/ans-native-before.musicxml
+            /tmp/ans-native-after.musicxml
+            /tmp/ans-native-rollback.musicxml
             /tmp/ans-before-menu.png
             /tmp/ans-menu.png
             /tmp/ans-after-menu.png
