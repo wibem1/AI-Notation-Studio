@@ -416,7 +416,12 @@ function preludeCatalog(xml){
   var piano=/^(?:piano|klavier)$/i.test(name),hiddenNext=false;
   if(piano&&st===1&&i+1<defs.length){
    var next=defs[i+1],nname=text(next,'part-name','').replace(/\s+/g,' ').trim();
-   hiddenNext=(/\bprint-object=["']no["']/.test(next.open)||/\bprint-object=["']no["']/.test(first(next,'part-name').open))&&nname.toLowerCase()===name.toLowerCase()&&timeline(parts[i+1]).rows[0].staves===1;
+   var continuation=/^(?:klavier|piano)(?:\s*,\s*(?:klavier|piano))?\s*(?:lh|left\s*hand|linke\s*hand)$/i.test(nname);
+   var nameMatches=nname.toLowerCase()===name.toLowerCase()||continuation;
+   var nextNameNode=first(next,'part-name');
+   var hidden=!!nextNameNode&&(/\bprint-object=["']no["']/.test(next.open)||/\bprint-object=["']no["']/.test(nextNameNode.open));
+   var sameSound=text(first(next,'score-instrument')||{children:[]},'instrument-sound','')===text(first(def,'score-instrument')||{children:[]},'instrument-sound','');
+   hiddenNext=hidden&&nameMatches&&sameSound&&timeline(parts[i+1]).rows[0].staves===1;
   }
   if(hiddenNext){
    out.push({label:name+' (beide Hände; Parts '+(i+1)+' + '+(i+2)+')',name:name,indices:[i,i+1],splitPiano:true});
@@ -429,6 +434,29 @@ function preludeCatalog(xml){
 }
 function expandPreludeParts(xml,groups){
  var doc=parse(xml),parts=children(doc,'part'),defs=children(first(doc,'part-list'),'score-part');
+ // Some providers emit separate RH and LH piano parts instead of a grand staff.
+ // Respect the two parts, retaining all voices and the exact rhythm. Never
+ // silently quantize or discard excess notes; invalid bars remain explicit errors.
+ if(groups.length===1&&groups[0].splitPiano&&parts.length===2&&defs.length===2){
+  parts.forEach(function(part,i){
+   var name=text(defs[i],'part-name','').toLowerCase();
+   var sound=text(first(defs[i],'score-instrument')||{children:[]},'instrument-sound','');
+   if(!/(piano|klavier)/.test(name)&&sound!=='keyboard.piano')
+    throw Error('Vorspiel: Die erzeugte rechte/linke Hand ist kein Klavier.');
+   children(part,'measure').forEach(function(measure){
+    var a=attrs(measure);
+    if(a){
+     var st=first(a,'staves');if(st)st.children=['1'];
+     var clefs=children(a,'clef'),chosen=clefs.find(function(c){return text(c,'sign','')===(i===1?'F':'G');})||clefs[0];
+     a.children=a.children.filter(function(n){return typeof n==='string'||n.name!=='clef';});
+     if(chosen){var cp=clone(chosen);cp.open=cp.open.replace(/\snumber=["'][^"']+["']/,'');a.children.push(cp);}
+    }
+    children(measure,'note').forEach(function(n){var st=first(n,'staff');if(st)st.children=['1'];});
+    children(measure,'direction').forEach(function(n){var st=first(n,'staff');if(st)st.children=['1'];});
+   });
+  });
+  return '<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc);
+ }
  if(parts.length!==groups.length||defs.length!==groups.length)throw Error('Vorspiel: Die Anzahl erzeugter Instrumente stimmt nicht.');
  var expanded=[],expandedDefs=[];
  function elem(name,value){return {name:name,open:'<'+name+'>',close:'</'+name+'>',children:[String(value)]};}
