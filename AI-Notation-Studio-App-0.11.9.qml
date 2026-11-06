@@ -6431,6 +6431,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
                 ComboBox {
                     id: modeBox
+                    objectName: "compositionModeSelector"
                     Layout.fillWidth: true
                     model: ["Auswahl analysieren", "Neue Stimme zu Auswahl", "Freie Komposition ohne Vorlage", "Fortsetzen", "Aus Motiv entwickeln", "Variante erzeugen", "Für andere Besetzung bearbeiten", "Stimme ersetzen (auch Klavier)", "Instrumentpart ersetzen (mehrstimmig)", "Vorspiel voranstellen"]
                     currentIndex: 0
@@ -6503,6 +6504,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     visible:modeBox.currentIndex===9
                     Layout.fillWidth:true
                     Button {
+                        objectName:"preludeLoadInstrumentsButton"
                         text:"Instrumente aus Partitur laden"
                         enabled:!busy && curScore !== null
                         onClicked:{try{refreshPreludeTargets()}catch(e){statusText=String(e)}}
@@ -6510,6 +6512,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     Repeater {
                         model:preludeTargets
                         CheckBox {
+                            objectName:"preludeTargetCheckbox_"+index
                             text:modelData.label
                             checked:preludeSelectedIndices.indexOf(index)>=0
                             enabled:!busy
