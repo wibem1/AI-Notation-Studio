@@ -34,7 +34,7 @@ function run(options = {}) {
     Qt:{quit(){ops.push('quit')}},
     console:{log(m){log.push(m)}},
     isFinite,JSON,Number,String,Error,
-    cmd(action){ops.push('cmd:'+action);commandCount++;if(options.cmdThrows)throw Error('injected command failure');if(action==='undo'){count--;return}if(!options.cmdNoOp)count++}
+    cmd(action){ops.push('cmd:'+action);commandCount++;if(options.cmdThrows)throw Error('injected command failure');if(action==='action://notation/undo'){count--;return}if(!options.cmdNoOp)count++}
   };
   vm.runInNewContext(helpers+'\n'+body,context,{timeout:1000});
   return {log,ops,count,transaction,commandCount};
