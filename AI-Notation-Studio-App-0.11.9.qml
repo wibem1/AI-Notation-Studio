@@ -56,6 +56,7 @@ MuseScore {
     property bool busy: false
     property string freeInstrumentation: "Violine, Cello"
     property int freeMeasures: 16
+    property int preludeMeasures: 2
     property int uiSize: 18
     property string updateStatus: "Noch nicht geprüft."
     property string lastUpdateError: ""
@@ -485,7 +486,7 @@ MuseScore {
         if (strategy !== 0 && (!second.model || !providerKey(second.provider))) throw Error("Modell oder gespeicherter API-Key für Stufe 2 (" + second.provider + ") fehlt. Im Bereich Technisches den Anbieter wählen und seinen Key speichern.")
         var job = { id: String(new Date().getTime()), created: new Date().toISOString(), mode: mode, modeName: modeBox.currentText,
             strategy: strategy, first: first, second: second, instruments: instruments, instruction: instructionBox.text.trim(),
-            measures: (mode===1||mode===7||mode===8) ? selectionMeasureCount() : (mode===2||mode===9) ? freeMeasures : contextMeasures(mode),
+            measures: (mode===1||mode===7||mode===8) ? selectionMeasureCount() : mode===9 ? preludeMeasures : mode===2 ? freeMeasures : contextMeasures(mode),
             preludeTargets:mode===9?chosenPrelude:null,
             selection: selectionJson, preferences: settings.generalMemoryText, sourcePath: "", replacePartIndex: replacePartIndex, replaceStaffNumber: replaceStaffNumber, startQuarter: mode === 3 ? bounds.endTick / 480 : bounds.startTick / 480, endQuarter: bounds.endTick / 480,
             prefixQuarter: 0, startMeasure: 1, sourceTime: "", idea: "", draft: "" }
@@ -6489,11 +6490,12 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     visible: modeBox.currentIndex === 2 || modeBox.currentIndex === 3 || modeBox.currentIndex === 4 || modeBox.currentIndex === 9
                     from: 1
                     to: 128
-                    value: freeMeasures
+                    value: modeBox.currentIndex === 9 ? preludeMeasures : freeMeasures
                     editable: true
                     font.pixelSize: uiSize
                     onValueChanged: {
-                        freeMeasures = value
+                        if(modeBox.currentIndex===9)preludeMeasures=value
+                        else freeMeasures=value
                         saveGeneralDefaults()
                     }
                 }
