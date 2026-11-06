@@ -1,38 +1,67 @@
-"""Independent verification of three MusicXML snapshots exported by a *real* MuseScore plugin.
-This intentionally checks musical events rather than unreliable MusicXML serialization whitespace.
+"""Native MuseScore 4.7.6 complex score integrity test.
+
+Compare musical note, voice/staff, dynamics, tempo, pedal and wedge events.
+Uses finalized snapshots (a writeScore during an open command is stale).
 """
 from pathlib import Path
-from xml.etree import ElementTree as etree
+from xml.etree import ElementTree as E
 
-BASE=Path("/tmp")
-def load(label):
-    p=BASE/("ans-native-"+label+".musicxml")
-    assert p.is_file() and p.stat().st_size>100, f"missing native snapshot {p}"
-    root=etree.parse(str(p)).getroot()
-    parts=root.findall("part")
-    assert len(parts)==1, f"{label}: unexpected part count {len(parts)}"
-    return parts[0].findall("measure")
+def load(stage):
+    p=Path("/tmp/ans-native-"+stage+".musicxml")
+    assert p.is_file() and p.stat().st_size>100, ("missing native snapshot",stage)
+    root=E.parse(str(p)).getroot()
+    return [part.findall("measure") for part in root.findall("part")]
 
-def notes(measure):
-    return [(
-        n.findtext("pitch/step") or ("REST" if n.find("rest") is not None else "OTHER"),
-        n.findtext("pitch/alter") or "",
-        n.findtext("pitch/octave") or "",
-        n.findtext("duration") or "",
-        n.findtext("voice") or "1",
-        n.findtext("staff") or "1",
-        n.findtext("type") or "",
-        n.findtext("dot") or "",
-        ",".join(t.get("type", "") for t in n.findall("tie"))
-    ) for n in measure.findall("note")]
+def sig(measure):
+    out=[]
+    for element in measure:
+        if element.tag=="note":
+            out.append((
+                "note",
+                element.findtext("pitch/step") or ("REST" if element.find("rest") is not None else "OTHER"),
+                element.findtext("pitch/alter") or "",
+                element.findtext("pitch/octave") or "",
+                element.findtext("duration") or "",
+                element.findtext("voice") or "1",
+                element.findtext("staff") or "1",
+                element.findtext("type") or "",
+                str(element.find("dot") is not None),
+                ",".join(t.get("type","") for t in element.findall("tie")),
+                ",".join(t.get("type","") for t in element.findall("notations/slur"))
+            ))
+        elif element.tag=="direction":
+            d=element.find("direction-type")
+            if d is None: continue
+            out.append((
+                "direction",
+                element.findtext("staff") or "1",
+                tuple(sorted((n.tag,n.text or "",tuple(sorted(n.attrib.items()))) for n in d.iter() if n is not d)),
+                tuple(sorted(element.find("sound").attrib.items())) if element.find("sound") is not None else ()
+            ))
+    return tuple(out)
 
-before, after, rollback, committed, undo = [load(k) for k in ("before","after","rollback","committed","undo")]
-assert len(before)==4 and len(rollback)==4 and len(committed)==5 and len(undo)==4, (len(before),len(after),len(rollback),len(committed),len(undo))
-original=[notes(m) for m in before]
-assert len(set(map(repr,original)))==4, "fixture has non-distinct measures, cannot detect insertion position"
-assert [notes(m) for m in rollback]==original, "rollback changed musical content"
-assert [notes(m) for m in undo]==original, "undo changed musical content"
-assert [notes(m) for m in committed[1:]]==original, "committed insertion did not preserve original measure order and notes"
-assert all(n[0]=="REST" for n in notes(committed[0])), "inserted measure is not empty/rest-only"
-print("NATIVE MUSICXML PRESERVATION PASS: four distinct original measures shifted to 2..5 unchanged; rollback and undo restored all four")
-print("Limit: one part/one staff, no tempo, pedal, tuplets or spanners in this fixture")
+snapshots={key:load(key) for key in ("before","rollback","committed","undo")}
+expected_parts=2
+assert all(len(snapshots[k])==expected_parts for k in snapshots), "lost instrument part"
+expected=[4,4,5,4]
+for stage,length in zip(("before","rollback","committed","undo"),expected):
+    assert all(len(part)==length for part in snapshots[stage]), (stage,[len(p) for p in snapshots[stage]])
+
+before=snapshots["before"]
+assert len(set(map(repr,[sig(m) for m in before[0]])))==4, "flute fixture bars not distinct"
+assert len(set(map(repr,[sig(m) for m in before[1]])))==4, "piano fixture bars not distinct"
+assert any(n.findtext("voice")=="2" for m in before[1] for n in m.findall("note")), "lost piano RH voice 2 on native import"
+assert any(n.findtext("staff")=="2" for m in before[1] for n in m.findall("note")), "lost piano LH staff on native import"
+assert any(d.find(".//pedal") is not None for m in before[1] for d in m.findall("direction")), "lost pedal on native import"
+assert any(d.find(".//wedge") is not None for m in before[1] for d in m.findall("direction")), "lost hairpin on native import"
+assert any(d.find(".//metronome") is not None for m in before[0] for d in m.findall("direction")), "lost tempo on native import"
+
+for i in range(expected_parts):
+    orig=[sig(m) for m in before[i]]
+    assert [sig(m) for m in snapshots["rollback"][i]]==orig, ("rollback loss",i)
+    assert [sig(m) for m in snapshots["undo"][i]]==orig, ("undo loss",i)
+    actual=[sig(m) for m in snapshots["committed"][i]]
+    assert actual[1:]==orig, ("committed insertion changed old notes or expression",i, actual[1:],orig)
+    assert all(event[0]=="note" and event[1]=="REST" for event in actual[0]), ("unexpected new-measure content",i,actual[0])
+
+print("NATIVE COMPLEX MUSICXML INTEGRITY PASS: flute + two-staff piano, RH two voices/LH, tempo/dynamics/pedal/wedge preserved in 2..5; rollback and one-step undo restore original")
