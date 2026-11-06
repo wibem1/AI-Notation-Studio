@@ -38,3 +38,11 @@ Als **implementiert** gilt nur nach Code-Commit; als **statisch geprüft** nach 
 - **Umgebungsgrenze:** Hier kein MuseScore-Binary installiert; kein nativ ausgeführter QML-Plugin-Test. Die MuseScore-Engine wurde nicht simulativ als echt ausgegeben. Ein isolierter nativer Test auf einer Wegwerfpartitur bleibt Voraussetzung.
 - Die Kontrollgrößen (Taktzahl, Staffzahl) belegen noch weder die richtige **Position** noch die Erhaltung von Noten, Tonarten und Spanners. Dafür sind Vorher/Nachher-XML-Vergleiche und tatsächlicher MuseScore-Undo erforderlich.
 - **Freigabestand:** Nicht releasefähig. Kein Wechsel der Standardeinstellung, kein Live-Update, keine Änderung der 0.11.11.
+
+## Echte MuseScore 4.7.6 – erster CI-Versuch (fehlgeschlagen, Ursache eingegrenzt)
+- Run: https://github.com/wibem1/AI-Notation-Studio/actions/runs/42298512439 (06.11.2026).
+- Offizielle AppImage wurde heruntergeladen, SHA256-Prüfung bestanden; die Wegwerf-MusicXML wurde erfolgreich nach MSCZ importiert. Sieben simulierbare Testfälle ebenfalls bestanden.
+- **Native Plugin-Ausführung wurde NICHT erreicht.** Der AppImage-Lauf unter Xvfb mit `-p native_measure_insertion_probe` meldete `MuseScore4: Unknown options: no-synthesizer, p.` Dieser CLI-Weg ist in exakt dieser Version nicht verfügbar, auch wenn er in online verfügbaren Handbuchseiten noch erwähnt wird.
+- Keine Aussage zu `insert-measure`, Rollback oder Notenerhaltung zulässig. Der native Versuch gilt als fehlgeschlagen, nicht als teilweise erfolgreicher Plugin-Test.
+- **Vorgehen ändern:** Nicht die gleiche CLI-Methode wiederholen. Für den nächsten nativen Test den echten Pluginmanager in einer Xvfb-GUI automatisieren bzw. die von 4.7.6 tatsächlich unterstützte Plugin-Host-Schnittstelle aus dem Quellcode überprüfen. Dabei Score `ANS-TEST-*` und Vorher-/Nachher-Signaturen kontrollieren. GUI-Sitzung nach abgeschlossenem Versuch mit klarem Beleg protokollieren.
+- Keine Veröffentlichung, Änderung der Live-App oder neue Versionsnummer.
