@@ -94,5 +94,9 @@ jobs:
         if: always()
         with:
           name: ans-native-probe-logs
-          path: |\n            /tmp/ans-native-probe.log\n            /tmp/ans-before-menu.png\n            /tmp/ans-menu.png\n            /tmp/ans-after-menu.png
+          path: |
+            /tmp/ans-native-probe.log
+            /tmp/ans-before-menu.png
+            /tmp/ans-menu.png
+            /tmp/ans-after-menu.png
           if-no-files-found: ignore
