@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const C=require('../compactscore-context.js');
 function part(id,name,hidden,staves,bars) {
- const def='<score-part id="'+id+'"'+(hidden?' print-object="no"':'')+'><part-name>'+name+'</part-name></score-part>';
+ const def='<score-part id="'+id+'"><part-name'+(hidden?' print-object="no"':'')+'>'+name+'</part-name></score-part>';
  const m=Array.from({length:bars},(_,k)=>{
   const attrs=k===0?'<attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time>'+(staves===2?'<staves>2</staves><clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef>':'<clef><sign>G</sign><line>2</line></clef>')+'</attributes>':'';
   const n='<note><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><staff>1</staff></note>';
