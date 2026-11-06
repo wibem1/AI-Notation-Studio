@@ -25,7 +25,7 @@ let result=runtime.context.combine(original,generated,{kind:'prependPrelude',tar
 assert.equal(runtime.context.inspect(result.xml,0).meters.length,18);
 assert.equal(runtime.context.inspect(original,0).meters.length,16);
 let split=runtime.context.expandPreludeParts(original,[{splitPiano:true,indices:[0,1]}]);
-split=split.replace('<score-part id="prelude_0_2">','<score-part id="prelude_0_2" print-object="no">');
+split=split.replace('<score-part id="prelude_0_2"><part-name>','<score-part id="prelude_0_2"><part-name print-object="no">');
 catalog=runtime.context.preludeCatalog(split);
 assert.equal(catalog.length,1);
 assert.deepEqual(catalog[0].indices,[0,1]);
