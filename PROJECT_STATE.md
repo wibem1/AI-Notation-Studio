@@ -1,5 +1,12 @@
 # Projektstand – AI Notation Studio
 
+## Komplexer nativer Test: Infrastrukturfehler präzisiert und Fixture korrigiert (06.11.2026)
+- GitHub Actions #42306437542 ist **fehlgeschlagen vor dem MuseScore-Import**. Der Runner installierte GUI-Abhängigkeiten und lud die offizielle MuseScore-4.7.6-AppImage erfolgreich herunter; dann brach `tests/generate_native_complex_fixture.py` bei `ET.tostring` ab: `TypeError: cannot serialize 84 (type int)`. Ursache: numerisches XML-Attribut `sound tempo=84`, das Python 3.14 nicht serialisiert.
+- Gezielte Korrektur Commit `5735edd`: der zentrale `sub()`-Helfer konvertiert XML-Attributwerte mit `str(value)`; musikalische Testdaten und produktive Dateien unverändert. **Noch kein neuer nativer Lauf und kein erfolgreicher komplexer Test bestätigt.**
+- Nächster einzelner Schritt: komplexe Fixture unter Python 3.14 erzeugen und deren XML-Syntax validieren, danach genau einen nativen MuseScore-4.7.6-Integritätstest für 2 Parts/3 Staves, Stimmen, Tempo, Dynamik, Pedal und Crescendo ausführen und alle MusicXML-Snapshots vergleichen. Erst danach Transfer-/UI-Implementierung erwägen.
+- Live 0.11.11, Starter und Updater unverändert; Draft-PR #3 ungemergt.
+
+
 ## Erweiterter nativer Integritätstest – komplexe Partitur (06.11.2026)
 - Auf dem isolierten Branch erzeugt `tests/generate_native_complex_fixture.py` jetzt eine Wegwerfpartitur für Flöte und zweisystemiges Klavier, rechte Hand mit zwei Stimmen sowie Tempo, Dynamik, Pedal und Crescendo. `tests/verify_native_measure_snapshots.py` vergleicht musikalische Ereignisse für beide Parts in abgeschlossener Einfügung, Rollback und Ein-Schritt-Undo. Die GitHub-Action nutzt diese Fixture statt vier identischer bzw. einstimmiger Takte.
 - **Prüfstufe:** Implementiert und auf GitHub gesichert; die sieben simulierten Sicherheitsprüfungen in CI liefen erfolgreich. **Kein nativer komplexer Prüfungserfolg behauptet.** Erster komplexer Run https://github.com/wibem1/AI-Notation-Studio/actions/runs/42306437542 blieb bei der Installation der Linux-GUI-Abhängigkeiten hängen (Status beim Eintrag noch in Bearbeitung). Ergebnis des eigentlichen Plugin-/XML-Tests nicht bekannt.
