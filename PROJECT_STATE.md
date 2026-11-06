@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Native Einfügeposition, Notenerhaltung und Ein-Schritt-Undo nachgewiesen (06.11.2026)
+- **Echter MuseScore-Studio-4.7.6-Linux-GUI-Lauf**: https://github.com/wibem1/AI-Notation-Studio/actions/runs/42302624344, isoliertes QML-Testplugin auf Wegwerfpartitur, sieben Mock-Sicherheitstests und externer MusicXML-Vergleich erfolgreich.
+- Aus vier voneinander unterscheidbaren Ursprungstakten mit Noten C–D–E–F wurde **Leertakt–C–D–E–F**, die vier ursprünglichen Noten blieben in der Reihenfolge unverändert erhalten. Native MusicXML-Snapshots aus `writeScore` **nach Abschluss** der Transaktion belegen die Verschiebung.
+- **Zwei Rücknahmewege bestanden:** `endCmd(true)` während offener Transaktion und, nach `endCmd(false)`, **ein** `cmd("action://notation/undo")`. XML-Signaturen danach wieder C–D–E–F; Taktzahl jeweils vier. Das generische `cmd("undo")` war wirkungslos; dokumentierte und bereits in App genutzte Aktion korrigiert.
+- MuseScores `writeScore` während noch laufender Transaktion exportierte zuvor vier statt fünf Takte; für gültige Vergleiche daher **ausschließlich** den fertig abgeschlossenen Stand exportieren.
+- **Grenze:** Einzelpart, Einzelstaff, ganze Noten ohne Stimmenüberlagerung, Tuplets, Pedal, Tempo, Dynamik, Spanner oder Layoutmarkierungen. Kein realer Windows-End-to-End-Test, kein CS1-In-Place-Writer, keine neue Auswahloption freigegeben.
+- **Nächster einzelner Schritt:** strukturell reichhaltige Wegwerfpartitur (zwei Staves, mehrere Stimmen, Pedal/Tempo/Spanner) mit denselben nativen XML-Integritätsprüfungen testen; danach erst Writer entwickeln. `0.11.11`, Starter und Live-Feed unverändert.
+
+
 ## Erster echter nativer Einfüge-/Rollback-Nachweis (06.11.2026)
 - **Erfolgreicher GitHub-Actions-Lauf:** https://github.com/wibem1/AI-Notation-Studio/actions/runs/42300323853, originale MuseScore Studio 4.7.6 Linux AppImage unter Xvfb, QML-Plugin tatsächlich über das Plugins-Menü aufgerufen (ActionsDispatcher loggt `action://extensions/v1/native_measure_insertion_probe.qml?action=main`).
 - **Direkt aus Plugin-Protokolldatei `/tmp/ans-native-result.txt`:** `START`; vor Befehl 4 Takte/1 Staff; nach `cmd('insert-measure')` 5 Takte/1 Staff; nach `endCmd(true)` 4 Takte/1 Staff; `PASS`. Damit ist die *ausgeführte* native Taktzahl-Änderung mit Rollback belegt, nicht bloß eine JS-Simulation.
