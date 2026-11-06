@@ -1,3 +1,7 @@
+# AI Notation Studio v0.11.10 – 06.11.2026
+
+**Vorspiel-Fix nach einem echten MuseScore-Diagnosebericht:** Die gesicherte KI-Antwort enthielt einen um ein Achtel überlangen 4/4-Takt. Version 0.11.10 kann die drei letzten Achtel dieses Ausnahmefalls als Triole rekonstruieren und den vorhandenen KI-Entwurf **kostenfrei erneut prüfen**. Getrennte zweizeilige Klavier-Parts werden korrekt als selbstständige Partitur-Parts behandelt. **Update prüfen → Update installieren**. [Release-Details](RELEASE-0.11.10.md).
+
 # AI Notation Studio v0.11.9 – 06.11.2026
 
 **Neu: „Vorspiel voranstellen“** mit beliebigen vorhandenen Instrumenten der Partitur, Mehrfachauswahl, frei wählbarer Taktzahl, musikalischem Anschluss an das Folgestück und sicherer Einfügung vor Takt 1 in einer neuen Partitur. Gesplittete Klavierhände werden als ein Instrument behandelt.
