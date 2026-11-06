@@ -38,12 +38,15 @@ selection=[
  {"label":"Flöte (Part 1)","name":"Flöte","indices":[0],"splitPiano":False},
  {"label":"Klavier (beide Hände; Parts 3 + 4)","name":"Klavier","indices":[2,3],"splitPiano":True}
 ]
-root.setProperty("preludeTargets",selection)
-root.setProperty("preludeSelectedIndices",[1])
+engine=view.engine()
+engine.globalObject().setProperty("studio",engine.newQObject(root))
+script='studio.preludeTargets = '+repr(selection).replace("False","false").replace("True","true")+"; studio.preludeSelectedIndices=[1];"
+result=engine.evaluate(script)
+assert not result.isError(),result.toString()
 for _ in range(10):app.processEvents()
 first=root.findChild(QQuickItem,"preludeTargetCheckbox_0")
 second=root.findChild(QQuickItem,"preludeTargetCheckbox_1")
-assert first is not None and second is not None,"Instrument selectors not rendered"
+assert first is not None and second is not None, ("Instrument selectors not rendered",root.property("preludeTargets"), [(c.objectName(),c.metaObject().className()) for c in root.findChildren(QObject) if "prelude" in (c.objectName() or "").lower()])
 assert first.property("text")=="Flöte (Part 1)"
 assert second.property("text").startswith("Klavier (beide Hände")
 assert not first.property("checked") and second.property("checked"),"Selection state not reflected"
