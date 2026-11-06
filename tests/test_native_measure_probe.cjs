@@ -34,13 +34,13 @@ function run(options = {}) {
     Qt:{quit(){ops.push('quit')}},
     console:{log(m){log.push(m)}},
     isFinite,JSON,Number,String,Error,
-    cmd(action){ops.push('cmd:'+action);commandCount++;if(options.cmdThrows)throw Error('injected command failure');if(!options.cmdNoOp)count++}
+    cmd(action){ops.push('cmd:'+action);commandCount++;if(options.cmdThrows)throw Error('injected command failure');if(action==='undo'){count--;return}if(!options.cmdNoOp)count++}
   };
   vm.runInNewContext(helpers+'\n'+body,context,{timeout:1000});
   return {log,ops,count,transaction,commandCount};
 }
 const cases=[
-  ['rollback normal path',{},r=>{assert(r.log.some(x=>x.includes('PASS')));assert.equal(r.count,32);assert(r.ops.includes('end:true'));assert.equal(r.commandCount,1)}],
+  ['rollback normal path',{},r=>{assert(r.log.some(x=>x.includes('PASS')));assert.equal(r.count,32);assert(r.ops.includes('end:true'));assert.equal(r.commandCount,3)}],
   ['ordinary score rejected',{title:'Original Symphony'},r=>{assert.equal(r.commandCount,0);assert(!r.ops.includes('start'));assert(r.log.some(x=>x.includes('Safety guard')))}],
   ['no score rejected',{noScore:true},r=>{assert.equal(r.commandCount,0);assert(r.log.some(x=>x.includes('No score')))}],
   ['missing selection API rejected',{noSelection:true},r=>{assert.equal(r.commandCount,0);assert(!r.ops.includes('start'))}],
