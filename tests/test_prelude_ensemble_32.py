@@ -1,5 +1,6 @@
 """32-measure orchestration integration: four parts, split piano, two intro bars, XSD and preservation."""
 from copy import deepcopy
+import os
 from pathlib import Path
 import json
 from lxml import etree
@@ -86,4 +87,8 @@ for i,(old,new) in enumerate(zip(oldparts,newparts)):
     else:
         assert any(n.find("pitch") is not None for m in after[:2] for n in m.findall("note"))
 assert etree.tostring(original.find("part-list"),method="c14n")==etree.tostring(out.find("part-list"),method="c14n")
+output_path=os.getenv("PRELUDE_NATIVE_XML_PATH")
+if output_path:
+    Path(output_path).write_text(combined,encoding="utf-8")
+    print("Wrote native MuseScore import fixture:",output_path)
 print("Prelude 32->34 bars, flute + two-hand piano, violin rests, all source measures unchanged, XSD passed")
