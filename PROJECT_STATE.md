@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Erster echter nativer Einfüge-/Rollback-Nachweis (06.11.2026)
+- **Erfolgreicher GitHub-Actions-Lauf:** https://github.com/wibem1/AI-Notation-Studio/actions/runs/42300323853, originale MuseScore Studio 4.7.6 Linux AppImage unter Xvfb, QML-Plugin tatsächlich über das Plugins-Menü aufgerufen (ActionsDispatcher loggt `action://extensions/v1/native_measure_insertion_probe.qml?action=main`).
+- **Direkt aus Plugin-Protokolldatei `/tmp/ans-native-result.txt`:** `START`; vor Befehl 4 Takte/1 Staff; nach `cmd('insert-measure')` 5 Takte/1 Staff; nach `endCmd(true)` 4 Takte/1 Staff; `PASS`. Damit ist die *ausgeführte* native Taktzahl-Änderung mit Rollback belegt, nicht bloß eine JS-Simulation.
+- **Ausdrücklich NICHT belegt:** tatsächliche Einfügeposition vor dem ersten Takt, vollständige Identität bestehender Noten, Stimmen/Spanner/Pedal/Tempi, 32→34-Ensemble und Windows-End-to-End. Ein Zähltest allein ist hierfür nicht ausreichend.
+- **Nächster einzelner Entwicklungsschritt:** MusicXML-Snapshots aus der nativen Engine **vor**, **während** und **nach** der Transaktion exportieren und extern alle originalen Noten-/Taktereignisse auf exakte Verschiebung und vollständige Rücknahme prüfen. Bei Erfolg Polyphonie/Mehrstaffs hinzufügen, danach Kompositions-Transfer.
+- Live `0.11.11`, Updater und Starter bleiben unverändert; Draft-PR #3 bleibt ungemergt.
+
+
 ## Laufende isolierte Entwicklung – native Partiturübernahme (Branch, nicht Live)
 - **Branch:** `feat/native-output-target-spike-20261106`, Draft-PR #3. `tests/native_measure_insertion_probe.qml` und `tests/test_native_measure_probe.cjs` angelegt, auf dem Branch gesichert; `NATIVE-OUTPUT-TARGET-SPIKE.md` enthält die Abbruch- und Qualitätsbedingungen.
 - **Prüfstufe:** Sieben simulierbare JavaScript-/QML-Ausführungspfade mit Node erfolgreich geprüft. Echte native MuseScore-QML-Ausführung, zuverlässige Einfügung vor Takt 1, Noten-/Spanner-Erhaltung, Undo und Windows-UI **nicht getestet**. Daher keine Implementierung/Veröffentlichung der Option „Bestehende Partitur“.
