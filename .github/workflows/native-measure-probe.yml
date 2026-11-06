@@ -94,7 +94,8 @@ jobs:
           SH
           chmod +x /tmp/ans-gui-driver.sh
           timeout 55 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- /tmp/ans-gui-driver.sh || true
-          if grep -q 'ANS_NATIVE_PROBE PASS:' /tmp/ans-native-probe.log; then
+          if test -s /tmp/ans-native-result.txt; then cat /tmp/ans-native-result.txt; fi
+          if grep -q 'ANS_NATIVE_PROBE PASS:' /tmp/ans-native-result.txt; then
             echo 'Native QML probe reached and returned PASS'
           else
             echo 'Native probe NOT VERIFIED; GUI screenshots/logs are diagnostic only'
@@ -106,6 +107,7 @@ jobs:
           name: ans-native-probe-logs
           path: |
             /tmp/ans-native-probe.log
+            /tmp/ans-native-result.txt
             /tmp/ans-before-menu.png
             /tmp/ans-menu.png
             /tmp/ans-after-menu.png
