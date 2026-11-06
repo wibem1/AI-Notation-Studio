@@ -18,6 +18,13 @@ MuseScore {
     }
 
     function fail(message) { throw new Error(message) }
+    function snapshot(score, stage) {
+        // Export is observational; the original score remains the transaction target.
+        var target = "/tmp/ans-native-" + stage + ".musicxml"
+        if (!writeScore(score, target, "musicxml"))
+            fail("Cannot export " + stage + " MusicXML")
+        trace("ANS_NATIVE_SNAPSHOT " + stage + " " + target)
+    }
     function inspect(score, stage) {
         if (!score || !score.firstMeasure || score.nmeasures < 1) fail(stage + ": no usable score")
         var result = {
@@ -46,6 +53,7 @@ MuseScore {
             if (score.nstaves < 1 || score.nmeasures < 2)
                 fail("Test score must have >=1 staff and >=2 measures")
             initial = inspect(score, "before")
+            snapshot(score, "before")
             var selectRange = score.selection && score.selection.selectRange
             if (typeof selectRange !== "function")
                 fail("Selection.selectRange unavailable; safe abort before mutation")
@@ -65,12 +73,14 @@ MuseScore {
             started = true
             cmd("insert-measure")
             var after = inspect(score, "after-insert")
+            snapshot(score, "after")
             if (after.measures !== initial.measures + 1 || after.staves !== initial.staves)
                 fail("Insertion structural postcondition failed")
             // The probe ALWAYS rolls back. It must never leave a newly inserted measure.
             score.endCmd(true)
             started = false
             var restored = inspect(score, "after-rollback")
+            snapshot(score, "rollback")
             if (restored.measures !== initial.measures || restored.staves !== initial.staves)
                 fail("CRITICAL: rollback did not restore measure/staff counts")
             trace("ANS_NATIVE_PROBE PASS: insert one before-first measure and rollback; " +
