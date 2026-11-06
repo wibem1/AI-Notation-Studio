@@ -44,6 +44,9 @@ script='studio.preludeTargets = '+repr(selection).replace("False","false").repla
 result=engine.evaluate(script)
 assert not result.isError(),result.toString()
 for _ in range(10):app.processEvents()
+repeater=root.findChild(QQuickItem,"preludeTargetRepeater")
+print("Prelude target binding:",bool(repeater),"count",repeater.property("count") if repeater else None,
+      "source",root.property("preludeTargets").toVariant() if hasattr(root.property("preludeTargets"),"toVariant") else root.property("preludeTargets"),flush=True)
 first=root.findChild(QQuickItem,"preludeTargetCheckbox_0")
 second=root.findChild(QQuickItem,"preludeTargetCheckbox_1")
 assert first is not None and second is not None, ("Instrument selectors not rendered",root.property("preludeTargets"), [(c.objectName(),c.metaObject().className()) for c in root.findChildren(QObject) if "prelude" in (c.objectName() or "").lower()])
