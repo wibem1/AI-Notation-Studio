@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.9"
+    version: "0.11.10"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -597,7 +597,8 @@ MuseScore {
         if (job.mode === 7) task += "\nNur die Zielstimme neu komponieren, genau "+job.measures+" vollständige Takte; keine anderen Stimmen ausgeben. Bei Klavier genau ein System wählen, andere Stimmen unverändert.";
         if (job.mode === 1) task += "\nDie neue Stimme muss genau den Zeitraum der Auswahl abdecken; danach im letzten Takt gegebenenfalls Pausen. Keine vorhandenen Stimmen kopieren."
         if(job.mode===9)task+="\nVORSPIEL VOR TAKT 1: Erzeuge "+job.measures+" vollständige neue Takte für genau "+job.instruments.length+" Instrumente in der angegebenen Reihenfolge. "+
-            "Klavier als ein zweizeiliges System (rechte und linke Hand). Taktart "+job.sourceTime+". Die Komposition muss motivisch, harmonisch und stilistisch zum anschließenden Stück führen. "+
+            "Klavier in genau EINEM P-Block mit beiden Händen/Stimmen notieren. Keine getrennten P-Blöcke für RH und LH. " +
+            "Vor Ausgabe jeden erzeugten Takt in jeder Stimme auf die Taktart prüfen; kein überfüllter Takt. Taktart "+job.sourceTime+". Die Komposition muss motivisch, harmonisch und stilistisch zum anschließenden Stück führen. "+
             "Keine alten Stimmen kopieren; die vorhandene Musik wird automatisch verschoben.\nMUSIKALISCHER KONTEXT DES FOLGESTÜCKS:\n"+job.preludeReference
         return workflowCore.prompt(job.mode===3 ? "continue" : job.analysis ? "revise" : "compose")+"\n"+task+(job.analysis ? "\nFREIGEGEBENE ANALYSE:\n"+job.analysis : "")
     }
@@ -618,12 +619,51 @@ MuseScore {
         }, stage, format, { provider: config.provider, model: config.model, jobId: job.id, maxTokens: 32768 })
     }
 
+    function repairPreludeTripletOverrun(data) {
+        // Narrow, reversible musical interpretation: in 4/4, three final
+        // eighth notes after three full quarter beats form a triplet.
+        // Preserve all notes and refuse every other rhythmic discrepancy.
+        var meter=String(data.score.timeSignature||"")
+        var mm=/^(\d+)\/(\d+)$/.exec(meter)
+        if(!mm)return []
+        var expected=Number(mm[1])*4/Number(mm[2]), fixed=[]
+        var duration={whole:4,half:2,quarter:1,eighth:0.5,"16th":0.25,"32nd":0.125,"64th":0.0625}
+        data.parts.forEach(function(part,p){
+            part.measures.forEach(function(measure){
+                measure.voices.forEach(function(voice){
+                    var events=voice.events
+                    if(events.length<3||events.some(function(e){return !["note","rest","chord"].includes(e.type)||e.grace||!duration[e.duration]}))return
+                    var total=events.reduce(function(n,e){return n+duration[e.duration]*(2-Math.pow(.5,e.dots||0))},0)
+                    if(Math.abs(total-expected-0.5)>0.0000001)return
+                    var ending=events.slice(-3)
+                    if(!ending.every(function(e){return e.type==="note"&&e.duration==="eighth"&&!e.dots}))return
+                    var before=events.slice(0,-3).reduce(function(n,e){return n+duration[e.duration]*(2-Math.pow(.5,e.dots||0))},0)
+                    if(Math.abs(before-(expected-1))>0.0000001)return
+                    events.splice(events.length-3,0,{type:"tupletStart",ratio:"3:2",duration:"eighth"})
+                    events.push({type:"tupletEnd"})
+                    fixed.push("Vorspiel: Instrument "+(p+1)+", Takt "+measure.number+", Stimme "+voice.voice+
+                        ": drei abschließende Achtel als Triole 3:2 gedeutet, um den 4/4-Takt ohne Notenverlust zu schließen.")
+                })
+            })
+        })
+        return fixed
+    }
+
     function finishComposition(job, text) {
         job.raw_response=text
         try {
             acceptCompactText(text)
             var data = JSON.parse(compositionJson)
-            if (data.parts.length !== job.instruments.length) throw Error("Die Anzahl der Instrumente passt nicht zur Zielbesetzung.")
+            var preludeRepairs = job.mode===9 ? repairPreludeTripletOverrun(data) : []
+            if(preludeRepairs.length){
+                compositionJson=JSON.stringify(data)
+                compactSourceText=compact.score.encode(data)
+                compactWarnings=compact.score.inspect(data).concat(compact.xml.convert(data).warnings).concat(preludeRepairs)
+            }
+            if (data.parts.length !== job.instruments.length &&
+                !(job.mode===9 && job.preludeTargets && job.preludeTargets.length===1 &&
+                  job.preludeTargets[0].splitPiano && data.parts.length===2))
+                throw Error("Die Anzahl der Instrumente passt nicht zur Zielbesetzung.")
             if (job.sourcePath !== "") {
                 var merged = workflowCombine(job,compact.xml.convert(data).xml)
                 compactWarnings = compactWarnings.concat(merged.warnings)
@@ -2982,7 +3022,12 @@ MuseScore {
             var piano=/^(?:piano|klavier)$/i.test(name),hiddenNext=false;
             if(piano&&st===1&&i+1<defs.length){
              var next=defs[i+1],nname=text(next,'part-name','').replace(/\s+/g,' ').trim();
-             hiddenNext=(/\bprint-object=["']no["']/.test(next.open)||/\bprint-object=["']no["']/.test(first(next,'part-name').open))&&nname.toLowerCase()===name.toLowerCase()&&timeline(parts[i+1]).rows[0].staves===1;
+             var continuation=/^(?:klavier|piano)(?:\s*,\s*(?:klavier|piano))?\s*(?:lh|left\s*hand|linke\s*hand)$/i.test(nname);
+             var nameMatches=nname.toLowerCase()===name.toLowerCase()||continuation;
+             var nextNameNode=first(next,'part-name');
+             var hidden=!!nextNameNode&&(/\bprint-object=["']no["']/.test(next.open)||/\bprint-object=["']no["']/.test(nextNameNode.open));
+             var sameSound=text(first(next,'score-instrument')||{children:[]},'instrument-sound','')===text(first(def,'score-instrument')||{children:[]},'instrument-sound','');
+             hiddenNext=hidden&&nameMatches&&sameSound&&timeline(parts[i+1]).rows[0].staves===1;
             }
             if(hiddenNext){
              out.push({label:name+' (beide Hände; Parts '+(i+1)+' + '+(i+2)+')',name:name,indices:[i,i+1],splitPiano:true});
@@ -2995,6 +3040,29 @@ MuseScore {
           }
           function expandPreludeParts(xml,groups){
            var doc=parse(xml),parts=children(doc,'part'),defs=children(first(doc,'part-list'),'score-part');
+           // Some providers emit separate RH and LH piano parts instead of a grand staff.
+           // Respect the two parts, retaining all voices and the exact rhythm. Never
+           // silently quantize or discard excess notes; invalid bars remain explicit errors.
+           if(groups.length===1&&groups[0].splitPiano&&parts.length===2&&defs.length===2){
+            parts.forEach(function(part,i){
+             var name=text(defs[i],'part-name','').toLowerCase();
+             var sound=text(first(defs[i],'score-instrument')||{children:[]},'instrument-sound','');
+             if(!/(piano|klavier)/.test(name)&&sound!=='keyboard.piano')
+              throw Error('Vorspiel: Die erzeugte rechte/linke Hand ist kein Klavier.');
+             children(part,'measure').forEach(function(measure){
+              var a=attrs(measure);
+              if(a){
+               var st=first(a,'staves');if(st)st.children=['1'];
+               var clefs=children(a,'clef'),chosen=clefs.find(function(c){return text(c,'sign','')===(i===1?'F':'G');})||clefs[0];
+               a.children=a.children.filter(function(n){return typeof n==='string'||n.name!=='clef';});
+               if(chosen){var cp=clone(chosen);cp.open=cp.open.replace(/\snumber=["'][^"']+["']/,'');a.children.push(cp);}
+              }
+              children(measure,'note').forEach(function(n){var st=first(n,'staff');if(st)st.children=['1'];});
+              children(measure,'direction').forEach(function(n){var st=first(n,'staff');if(st)st.children=['1'];});
+             });
+            });
+            return '<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc);
+           }
            if(parts.length!==groups.length||defs.length!==groups.length)throw Error('Vorspiel: Die Anzahl erzeugter Instrumente stimmt nicht.');
            var expanded=[],expandedDefs=[];
            function elem(name,value){return {name:name,open:'<'+name+'>',close:'</'+name+'>',children:[String(value)]};}
@@ -3063,14 +3131,54 @@ MuseScore {
           /* Insert an instrumental prelude before the score (pure, non-destructive MusicXML copy).
              targetPartIndices correspond to incoming score parts in their stated order.
              Ambiguous or unsupported score layouts fail closed. */
-          function prependPrelude(baseXML, addedXML, options) {
+          
+          /* Only repair a single extra final eighth; preserve the pitch as a grace note. */
+function repairPreludeFinalEighth(xml, expectedQuarter) {
+ var doc=parse(xml), warnings=[],parts=children(doc,'part');
+ parts.forEach(function(part,pi){
+  var rows=timeline(part).rows;
+  rows.forEach(function(row,mi){
+   var overflow=row.observedLength-expectedQuarter;
+   if(overflow<1e-7)return;
+   if(mi!==rows.length-1 || Math.abs(overflow-0.5)>1e-7)
+    throw Error('Vorspiel: Instrument '+(pi+1)+', Takt '+(mi+1)+' enthält einen Rhythmusfehler ('+row.observedLength+' statt '+expectedQuarter+' Viertel).');
+   var cursor=0,last=null,division=row.division;
+   row.node.children.forEach(function(n){
+    if(typeof n==='string')return;
+    if(n.name==='backup')cursor-=Number(text(n,'duration',0))/division;
+    if(n.name==='forward')cursor+=Number(text(n,'duration',0))/division;
+    if(n.name==='note'&&!first(n,'chord')&&!first(n,'grace')){
+     var dur=Number(text(n,'duration',0))/division;
+     if(Math.abs(cursor-expectedQuarter)<1e-7&&Math.abs(dur-overflow)<1e-7&&first(n,'pitch'))
+      last=n;
+     cursor+=dur;
+    }
+   });
+   if(!last)throw Error('Vorspiel: Überzähliger Schlusswert kann nicht sicher als Vorschlagsnote interpretiert werden.');
+   var duration=first(last,'duration'),at=last.children.indexOf(duration);
+   if(at<0)throw Error('Vorspiel: Dauerangabe fehlt.');
+   last.children.splice(at,1);
+   last.children.unshift({name:'grace',open:'<grace slash="yes"/>',close:'',children:[]});
+   if(Math.abs(timeline(part).rows[mi].observedLength-expectedQuarter)>1e-7)
+    throw Error('Vorspiel: Reparatur ergab keinen vollständigen Takt.');
+   warnings.push('Vorspiel: Instrument '+(pi+1)+', letzter Takt – eine überzählige Achtelnote als Vorschlagsnote erhalten.');
+  });
+ });
+ return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),warnings:warnings};
+}
+
+function prependPrelude(baseXML, addedXML, options) {
            if(options&&options.targetGroups){
             var groups=options.targetGroups;
             options={targetPartIndices:[].concat.apply([],groups.map(function(g){return g.indices;}))};
             addedXML=expandPreludeParts(addedXML,groups);
            }
-           var original=parse(baseXML), incoming=parse(addedXML);
-           var baseParts=children(original,'part'), newParts=children(incoming,'part');
+           var original=parse(baseXML),baseParts=children(original,'part');
+ var rows=baseParts.length?timeline(baseParts[0]).rows:[];
+ if(!rows.length)throw Error('Vorspiel: Ausgangspartitur enthält keine Takte.');
+ var repaired=repairPreludeFinalEighth(addedXML,rows[0].length);
+ addedXML=repaired.xml;
+ var incoming=parse(addedXML),newParts=children(incoming,'part');
            var indices=(options&&options.targetPartIndices)||[];
            if(!baseParts.length||!newParts.length||indices.length!==newParts.length)
             throw Error('Vorspiel: Jedes erzeugte Instrument benötigt genau einen ausgewählten Zielpart.');
@@ -3117,7 +3225,7 @@ MuseScore {
             for(var k=0;k<count;k++){
              if(Math.abs(fresh.rows[k].length-firstRow.length)>1e-7||
                 Math.abs(fresh.rows[k].observedLength-firstRow.length)>1e-7)
-              throw Error('Vorspiel: Instrument enthält einen unvollständigen Takt.');
+              throw Error('Vorspiel: Instrument '+(j+1)+', Takt '+(k+1)+' enthält '+fresh.rows[k].observedLength+' statt '+firstRow.length+' Viertel. Die gespeicherte KI-Antwort ist rhythmisch ungültig; keine Noten wurden verändert.');
             }
            });
            function setFirstAttributes(measure,sourcePart,divisions) {
@@ -3169,7 +3277,7 @@ MuseScore {
             part.children=part.children.filter(function(x){return typeof x==='string'||x.name!=='measure';}).concat(all);
            });
            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(result),
-            warnings:['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.']};
+            warnings:repaired.warnings.concat(['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.'])};
           }
           
           
