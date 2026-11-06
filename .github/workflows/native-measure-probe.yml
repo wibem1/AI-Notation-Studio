@@ -71,14 +71,18 @@ jobs:
           sleep 10
           xdotool search --onlyvisible --name 'MuseScore|ANS-TEST' getwindowname 2>&1 || true
           scrot /tmp/ans-before-menu.png || true
-          # Standard Qt menu shortcut; instrumented as exploratory until native log proves plugin execution.
-          xdotool key --clearmodifiers alt+p || true
-          sleep 2
+          # First-launch setup covers the score in a clean runner; finish it explicitly.
+          for i in 1 2 3 4; do
+            xdotool mousemove --sync 788 617 click 1 || true
+            sleep 1
+          done
           scrot /tmp/ans-menu.png || true
-          # If alt+p opened the Plugins menu, the plugin entry should be accessible by initial letter.
-          xdotool key --clearmodifiers n Return || true
-          sleep 5
+          # Top-level Plugins menu in the official 1440x900 MuseScore 4.7.6 GUI.
+          xdotool mousemove --sync 293 13 click 1 || true
+          sleep 2
           scrot /tmp/ans-after-menu.png || true
+          # The entry location must be confirmed from the screenshot before clicking.
+          # Never claim native success from merely opening a menu.
           kill "$pid" 2>/dev/null || true
           wait "$pid" 2>/dev/null || true
           SH
