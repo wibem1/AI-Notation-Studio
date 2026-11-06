@@ -30,6 +30,10 @@ MuseScore {
         var initial = null
         try {
             if (!score) fail("No score")
+            // Deliberate opt-in: only sacrificial scores named ANS-TEST-* may be mutated.
+            var title = String(score.metaTag("workTitle") || "")
+            if (title.indexOf("ANS-TEST-") !== 0)
+                fail("Safety guard: set disposable score workTitle to ANS-TEST-* first")
             if (score.nstaves < 1 || score.nmeasures < 2)
                 fail("Test score must have >=1 staff and >=2 measures")
             initial = inspect(score, "before")
