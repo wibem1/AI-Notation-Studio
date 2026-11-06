@@ -423,6 +423,8 @@ function prependPrelude(baseXML, addedXML, options) {
  if(!count||count>128)throw Error('Vorspiel: Ungültige Anzahl neuer Takte.');
  if(!originalTime.rows.length)throw Error('Vorspiel: Leere Ausgangspartitur.');
  var firstRow=originalTime.rows[0];
+ if(Math.abs(firstRow.observedLength-firstRow.length)>1e-7)
+  throw Error('Vorspiel: Unvollständiger Anfangstakt der Originalpartitur.');
  if(Math.abs(firstRow.length-newTime.rows[0].length)>1e-7||
     Math.abs(firstRow.length-newTime.rows[0].observedLength)>1e-7)
   throw Error('Vorspiel: Auftakt oder abweichende Taktlänge am Anfang ist noch nicht unterstützt.');
