@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),assert=require('node:assert/strict');
-const qml=fs.readFileSync('AI-Notation-Studio-App-0.11.10.qml','utf8');
+const qml=fs.readFileSync('AI-Notation-Studio-App-0.11.11.qml','utf8');
 const a=qml.indexOf('    function createCompactRuntime() {'),b=qml.indexOf('    // END COMPACTSCORE RUNTIME',a);
 assert(a>0&&b>a);
 const c=Function(qml.slice(a,b)+';return createCompactRuntime()')();
@@ -12,8 +12,11 @@ const cs='CS1\nS {"t":"Prelude","k":"g major","m":"4/4","b":{"v":96}}\n'+
 '2/2 R:e [G4,B4]:e R:e [G4,C#5]:e [F#4,D5]:q R:q\n'+
 'P {"i":"piano-lh","n":"piano"}\n'+
 '1/1 G3:q B3:q D4:q D3:q\n'+
-'2/1 E3:q A3:q D3:q D2:e E2:e F#2:e\n';
+'2/1 E3:q A3:q D3:q D2:e E2:e F#2:e\n'+
+'E {"t":"pedal","s":{"m":1,"b":1},"e":{"m":1,"b":2.9}}\n'+
+'E {"t":"pedal","s":{"m":2,"b":3},"e":{"m":2,"b":4.9}}\n';
 const added=c.xml.convert(c.score.decode(cs)).xml;
+assert(added.includes("<pedal type="),"Fractional pedal annotation missing");
 const names=['Flöte','Violine','Klavier','Klavier, Klavier LH'];
 const parts=names.map((n,i)=>{
  const two=i>=2,attrs='<attributes><divisions>4</divisions><key><fifths>1</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time>'+(two?'<staves>2</staves><clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef>':'<clef><sign>G</sign><line>2</line></clef>')+'</attributes>';
