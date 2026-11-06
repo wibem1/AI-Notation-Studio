@@ -1,4 +1,18 @@
 # Projektstand – AI Notation Studio
+Stand: 06.11.2026 · **0.11.10 im Update-Feed, Regression bestätigt**
+
+## Aktueller Fehlerfix: Vorspiel aus echter Nutzerdiagnose
+- 0.11.9: Die KI hatte das zweitägige Vorspiel komponiert, die fertige Partitur blieb wegen eines **übervollen Taktes im zweiten Klavier-Part (4,5 statt 4/4 Viertel)** aus. In der Diagnose wurde `workflowState=invalid` mit `Vorspiel: Instrument enthält einen unvollständigen Takt` gefunden; der originale 32-Takte-Score blieb intakt.
+- Der tatsächliche MuseScore-Score besitzt vier MusicXML-Parts: P1 Flöte, P2 Violine, P3 Klavier, P4 „Klavier, Klavier LH“, wobei **P3/P4 jeweils zwei eigene Systeme** haben. Das ist **nicht** der normale Zwei-Einzelstaff-Export einer einzelnen Klavierpartitur. Als separate Zielparts behandelt; die Erkennung wirklich gesplitteter Ein-Staff-Klavierparts bleibt erhalten.
+- **0.11.10**: gezielte CS1-Rhythmusreparatur `repairPreludeTripletOverrun`, die in dem konkreten Ausnahmefall die drei letzten Achtel einer überlangen 4/4-Stimme als 3:2-Triole notiert, ohne einen Ton zu entfernen. Andere Unregelmäßigkeiten bleiben als Fehler sichtbar. Zusätzlich bietet der separat geprüfte MusicXML-Kern einen eng begrenzten Single-Eighth-Grace-Fallback.
+- Die bereits gespeicherte KI-Antwort kann über `Gespeicherte KI-Antwort erneut prüfen (kostenfrei)` **ohne weiteren API-Aufruf** neu verarbeitet werden; anschließend `Fertige Fassung in MuseScore öffnen`. Die ursprüngliche Partitur wird nicht überschrieben.
+- **Tests**: `tests/test_prelude_0110_recovery.cjs` und die übrigen Regressionen bestanden im Live-Feed `0.11.10`, https://github.com/wibem1/AI-Notation-Studio/actions/runs/42287786062. Der analoge vierstimmige 32→34-Takte-Fall bestand auch echten MuseScore-Studio-4.7.6-Import-/Export (Linux AppImage): https://github.com/wibem1/AI-Notation-Studio/actions/runs/42287184798.
+- `AI-Notation-Studio-App.qml` ist auf 0.11.10 aktualisiert; `versions/AI-Notation-Studio-App-0.11.10.qml` archiviert. Originaldateien 0.11.8/0.11.9 bleiben erhalten.
+- **Grenzen:** Kein bestätigter End-to-End-Test in der Windows-Plugin-Oberfläche durch Nutzer; Triole ist eine musikalische Interpretation, nicht zwingend die einzige. Die Diagnose/Originalpartitur wurde nur lokal analysiert, **nicht** ins öffentliche GitHub hochgeladen.
+- **Nächster Schritt:** Benutzer aktualisiert auf 0.11.10, lässt die gespeicherte fehlerhafte Antwort kostenfrei erneut prüfen und öffnet die neue MuseScore-Partitur. Bei einem neuen Fehler aus dem Diagnoseexport die genaue Ursache eingrenzen; keine grundlose erneute KI-Generierung.
+- Siehe `RELEASE-0.11.10.md` und Issue #1.
+
+## Frühere Projektstände
 Stand: 06.11.2026 · **0.11.9 freigegeben, bestehender Starter 0.7.27**
 
 ## Aktueller verifizierter Stand
