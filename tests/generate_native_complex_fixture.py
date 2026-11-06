@@ -7,7 +7,8 @@ from xml.etree import ElementTree as ET
 from pathlib import Path
 
 def sub(parent, name, value=None, **attrs):
-    x=ET.SubElement(parent,name,attrs)
+    # ElementTree requires XML attribute values to be strings (Python 3.14 is strict).
+    x=ET.SubElement(parent,name,{key: str(value) for key, value in attrs.items()})
     if value is not None: x.text=str(value)
     return x
 
