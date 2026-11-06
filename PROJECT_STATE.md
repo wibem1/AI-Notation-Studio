@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Laufende isolierte Entwicklung – native Partiturübernahme (Branch, nicht Live)
+- **Branch:** `feat/native-output-target-spike-20261106`, Draft-PR #3. `tests/native_measure_insertion_probe.qml` und `tests/test_native_measure_probe.cjs` angelegt, auf dem Branch gesichert; `NATIVE-OUTPUT-TARGET-SPIKE.md` enthält die Abbruch- und Qualitätsbedingungen.
+- **Prüfstufe:** Sieben simulierbare JavaScript-/QML-Ausführungspfade mit Node erfolgreich geprüft. Echte native MuseScore-QML-Ausführung, zuverlässige Einfügung vor Takt 1, Noten-/Spanner-Erhaltung, Undo und Windows-UI **nicht getestet**. Daher keine Implementierung/Veröffentlichung der Option „Bestehende Partitur“.
+- **Nächster einzelner Schritt:** Wegwerfpartitur in echter MuseScore-4.7.6-Engine mit dem QML-Probeplugin ausführen; tatsächliche Vorher/Nachher-/Rollback-MusikXML-Dateien und Logs auswerten. Erst nach bestandenem nativen Nachweis den CS1-Transfer entwickeln.
+- **Live bleibt 0.11.11**, Starter 0.7.27 unverändert; keine Änderung an Feed oder Haupt-QML.
+
+
+
 **Live-Version 0.11.11, Stand 06.11.2026.** Der Starter 0.7.27 und ältere Versionen bleiben unverändert.
 
 ## Nächste Entwicklung: wählbares Ausgabeziel (Entscheidung 06.11.2026, Issue #2)
