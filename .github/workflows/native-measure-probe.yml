@@ -15,7 +15,7 @@ jobs:
       - name: Install headless GUI dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libnss3 libasound2t64
+          sudo apt-get install -y -qq xvfb xdotool scrot libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libnss3 libasound2t64
       - name: Download official MuseScore Studio 4.7.6
         shell: bash
         run: |
@@ -45,26 +45,54 @@ jobs:
         run: |
           timeout 90 ./squashfs-root/AppRun -o /tmp/ans-test.mscz /tmp/ans-test.musicxml
           test -s /tmp/ans-test.mscz
-      - name: Execute disposable QML probe in native MuseScore GUI
+      - name: Native GUI plugin discovery and invocation
         env:
           QT_QPA_PLATFORM: xcb
           MU_QT_QPA_PLATFORM: xcb
-          SKIP_LIBJACK: 1
+          QT_QUICK_BACKEND: software
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           mkdir -p "$HOME/Documents/MuseScore4/Plugins"
           cp tests/native_measure_insertion_probe.qml "$HOME/Documents/MuseScore4/Plugins/"
-          timeout 100 xvfb-run -a ./squashfs-root/AppRun --no-synthesizer -p native_measure_insertion_probe /tmp/ans-test.mscz 2>&1 | tee /tmp/ans-native-probe.log || true
+          mkdir -p "$HOME/.local/share/MuseScore/MuseScore4/extensions"
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path.home()/'.local/share/MuseScore/MuseScore4/extensions/config.json'
+          p.write_text(json.dumps([{'uri':'musescore://extensions/v1/native_measure_insertion_probe.qml','actions':[{'code':'main','exec_point':'manually'}]}]))
+          print('Created isolated extension manifest configuration:',p)
+          PY
+          cat >/tmp/ans-gui-driver.sh <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          ./squashfs-root/AppRun /tmp/ans-test.mscz > /tmp/ans-native-probe.log 2>&1 &
+          pid=$!
+          echo "MuseScore GUI pid=$pid"
+          sleep 10
+          xdotool search --onlyvisible --name 'MuseScore|ANS-TEST' getwindowname 2>&1 || true
+          scrot /tmp/ans-before-menu.png || true
+          # Standard Qt menu shortcut; instrumented as exploratory until native log proves plugin execution.
+          xdotool key --clearmodifiers alt+p || true
+          sleep 2
+          scrot /tmp/ans-menu.png || true
+          # If alt+p opened the Plugins menu, the plugin entry should be accessible by initial letter.
+          xdotool key --clearmodifiers n Return || true
+          sleep 5
+          scrot /tmp/ans-after-menu.png || true
+          kill "$pid" 2>/dev/null || true
+          wait "$pid" 2>/dev/null || true
+          SH
+          chmod +x /tmp/ans-gui-driver.sh
+          timeout 55 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- /tmp/ans-gui-driver.sh || true
           if grep -q 'ANS_NATIVE_PROBE PASS:' /tmp/ans-native-probe.log; then
-            echo 'Native command execution returned PASS (note and spanner signatures not checked)'
+            echo 'Native QML probe reached and returned PASS'
           else
-            echo 'Native probe NOT VERIFIED (plugin execution or assertions failed)'
+            echo 'Native probe NOT VERIFIED; GUI screenshots/logs are diagnostic only'
             exit 1
           fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ans-native-probe-logs
-          path: /tmp/ans-native-probe.log
+          path: |\n            /tmp/ans-native-probe.log\n            /tmp/ans-before-menu.png\n            /tmp/ans-menu.png\n            /tmp/ans-after-menu.png
           if-no-files-found: ignore
