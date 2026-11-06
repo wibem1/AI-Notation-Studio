@@ -39,5 +39,5 @@ for(let i=0;i<4;i++){
 }
 assert(kids(kids(updated[0],'measure')[0],'note').every(n=>kids(n,'rest').length===1));
 assert(kids(kids(updated[1],'measure')[0],'note').every(n=>kids(n,'rest').length===1));
-assert.throws(()=>c.context.prependPrelude(base,added.replace('F#2:e','F#2:q'),{targetGroups:[cats[2],cats[3]]}),/Rhythmusfehler/);
+assert.throws(()=>c.context.prependPrelude(base,c.xml.convert(c.score.decode(cs.replace('F#2:e','F#2:q'))).xml,{targetGroups:[cats[2],cats[3]]}),/Rhythmusfehler/);
 console.log('Real diagnostic analogue: 4 parts 32->34, RH/LH, one grace repair, originals preserved');
