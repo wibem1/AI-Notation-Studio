@@ -403,10 +403,106 @@ function replaceInstrumentPart(baseXML,addedXML,options){
 }
 
 
+
+/* Stable identifiers for prelude targets. A hidden, consecutive piano
+   score-part is a continuation staff, not another playable instrument. */
+function preludeCatalog(xml){
+ var root=parse(xml),defs=children(first(root,'part-list'),'score-part'),parts=children(root,'part');
+ if(defs.length!==parts.length)throw Error('Vorspiel: Part-Liste und Partitur stimmen nicht überein.');
+ var out=[];
+ for(var i=0;i<defs.length;i++){
+  var def=defs[i],name=text(def,'part-name','').replace(/\s+/g,' ').trim();
+  var st=timeline(parts[i]).rows[0].staves;
+  var piano=/^(?:piano|klavier)$/i.test(name),hiddenNext=false;
+  if(piano&&st===1&&i+1<defs.length){
+   var next=defs[i+1],nname=text(next,'part-name','').replace(/\s+/g,' ').trim();
+   hiddenNext=/\bprint-object=["']no["']/.test(next.open)&&nname.toLowerCase()===name.toLowerCase()&&timeline(parts[i+1]).rows[0].staves===1;
+  }
+  if(hiddenNext){
+   out.push({label:name+' (beide Hände; Parts '+(i+1)+' + '+(i+2)+')',name:name,indices:[i,i+1],splitPiano:true});
+   i++;
+  }else{
+   out.push({label:(name||'Instrument')+' (Part '+(i+1)+')',name:name,indices:[i],splitPiano:false});
+  }
+ }
+ return out;
+}
+function expandPreludeParts(xml,groups){
+ var doc=parse(xml),parts=children(doc,'part'),defs=children(first(doc,'part-list'),'score-part');
+ if(parts.length!==groups.length||defs.length!==groups.length)throw Error('Vorspiel: Die Anzahl erzeugter Instrumente stimmt nicht.');
+ var expanded=[],expandedDefs=[];
+ function elem(name,value){return {name:name,open:'<'+name+'>',close:'</'+name+'>',children:[String(value)]};}
+ groups.forEach(function(g,i){
+  if(!g||!g.indices||g.indices.length<1||g.indices.length>2)throw Error('Vorspiel: Ungültige Instrumentgruppe.');
+  if(g.indices.length===1){
+   expanded.push(clone(parts[i]));expandedDefs.push(clone(defs[i]));return;
+  }
+  if(!g.splitPiano||g.indices.length!==2||timeline(parts[i]).rows[0].staves!==2)
+   throw Error('Vorspiel: Gesplittetes Klavier benötigt eine zweizeilige Klavierausgabe.');
+  var sourceMeasures=children(parts[i],'measure'),groupParts=[];
+  for(var hand=1;hand<=2;hand++){
+   var part=clone(parts[i]),newId='prelude_'+i+'_'+hand;
+   part.open=part.open.replace(/\bid=["'][^"']+["']/,'id="'+newId+'"');
+   var def=clone(defs[i]);
+   def.open=def.open.replace(/\bid=["'][^"']+["']/,'id="'+newId+'"');
+   children(def,'score-instrument').forEach(function(ins){
+    ins.open=ins.open.replace(/\bid=["'][^"']+["']/,'id="'+newId+'_inst"');
+   });
+   children(def,'midi-instrument').forEach(function(ins){
+    ins.open=ins.open.replace(/\bid=["'][^"']+["']/,'id="'+newId+'_inst"');
+   });
+   part.children=part.children.filter(function(n){return typeof n==='string'||n.name!=='measure';});
+   sourceMeasures.forEach(function(m,k){
+    var n=clone(m),attrsNode=attrs(n),originalNotes=children(m,'note'),picked=originalNotes.filter(function(x){return text(x,'staff','1')===String(hand);});
+    var durations=0,voices={};
+    picked.forEach(function(x){
+     if(!first(x,'chord')&&!first(x,'grace'))durations+=Number(text(x,'duration',0));
+     voices[text(x,'voice','1')]=true;
+    });
+    if(Object.keys(voices).length!==1)throw Error('Vorspiel: Mehrstimmige Klavierhand kann noch nicht sicher aufgeteilt werden.');
+    var row=timeline(parts[i]).rows[k];
+    if(Math.abs(durations-row.length*row.division)>1e-7)
+     throw Error('Vorspiel: Klavierhand ist rhythmisch unvollständig.');
+    n.children=n.children.filter(function(x){return typeof x==='string'||x.name!=='note'&&x.name!=='backup'&&x.name!=='forward'&&x.name!=='direction'&&x.name!=='harmony';});
+    if(attrsNode){
+     var a=attrs(n),oldClefs=children(a,'clef'),selected=oldClefs.filter(function(c){return (/\bnumber=["']([^"']+)["']/.exec(c.open)||[])[1]===String(hand)||(hand===1&&oldClefs.length===1&&!/\bnumber=/.test(c.open));});
+     a.children=a.children.filter(function(x){return typeof x==='string'||x.name!=='staves'&&x.name!=='clef';});
+     selected.forEach(function(c){var clef=clone(c);clef.open=clef.open.replace(/\snumber=["'][^"']+["']/,'');a.children.push(clef);});
+    }
+    // Preserve staff-bound expression; staffless expression is anchored to the upper hand.
+    children(m,'direction').forEach(function(direction){
+     if(text(direction,'staff','1')===String(hand))n.children.push(clone(direction));
+    });
+    children(m,'harmony').forEach(function(harmony){
+     if(text(harmony,'staff','1')===String(hand))n.children.push(clone(harmony));
+    });
+    picked.forEach(function(note){
+     var cp=clone(note),staff=first(cp,'staff'),voice=first(cp,'voice');
+     if(staff)staff.children=['1'];else cp.children.push(elem('staff','1'));
+     if(voice)voice.children=['1'];else cp.children.push(elem('voice','1'));
+     n.children.push(cp);
+    });
+    part.children.push(n);
+   });
+   groupParts.push(part);expandedDefs.push(def);
+  }
+  expanded.push.apply(expanded,groupParts);
+ });
+ var list=first(doc,'part-list');
+ list.children=list.children.filter(function(n){return typeof n==='string'||n.name!=='score-part';}).concat(expandedDefs);
+ doc.children=doc.children.filter(function(n){return typeof n==='string'||n.name!=='part';}).concat(expanded);
+ return '<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc);
+}
+
 /* Insert an instrumental prelude before the score (pure, non-destructive MusicXML copy).
    targetPartIndices correspond to incoming score parts in their stated order.
    Ambiguous or unsupported score layouts fail closed. */
 function prependPrelude(baseXML, addedXML, options) {
+ if(options&&options.targetGroups){
+  var groups=options.targetGroups;
+  options={targetPartIndices:[].concat.apply([],groups.map(function(g){return g.indices;}))};
+  addedXML=expandPreludeParts(addedXML,groups);
+ }
  var original=parse(baseXML), incoming=parse(addedXML);
  var baseParts=children(original,'part'), newParts=children(incoming,'part');
  var indices=(options&&options.targetPartIndices)||[];
@@ -553,5 +649,5 @@ function combine(baseXML,addedXML,options){
  warnings.push('Die kombinierte Fassung wird als neue Partitur geöffnet. Das Original bleibt erhalten; MuseScore-spezifisches Layout kann sich durch MusicXML ändern.');
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(base),warnings:warnings};
 }
-var api={parse:parse,inspect:inspect,combine:combine,prependPrelude:prependPrelude,checkBoundaries:checkBoundaries};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.CompactContext=api;
+var api={parse:parse,inspect:inspect,combine:combine,prependPrelude:prependPrelude,preludeCatalog:preludeCatalog,expandPreludeParts:expandPreludeParts,checkBoundaries:checkBoundaries};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.CompactContext=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
