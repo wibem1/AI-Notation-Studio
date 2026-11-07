@@ -5,6 +5,8 @@ on:
     paths:
       - native-prelude-target-map.js
       - tests/test_native_prelude_target_map.cjs
+      - tests/AI-Notation-Studio-App-native-output-staging.qml
+      - tests/test_native_output_staging.cjs
       - .github/workflows/native-binding-tests.yml
   workflow_dispatch:
 jobs:
@@ -17,4 +19,6 @@ jobs:
           node --check native-prelude-target-map.js
           node --check tests/test_native_prelude_target_map.cjs
       - name: Run identity and safety tests
-        run: node tests/test_native_prelude_target_map.cjs
+        run: |
+          node tests/test_native_prelude_target_map.cjs
+          node tests/test_native_output_staging.cjs
