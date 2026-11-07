@@ -1287,17 +1287,24 @@ MuseScore {
             var inherited = ""
             if (compositionJob && compositionJob.sourcePath && curScore)
                 inherited = String(curScore.metaTag(compositionRecordTag()) || "")
+            var originalScore = curScore
             var imported = readScore(base + ".musicxml", false)
+            var handedOff = imported && originalScore && (imported === originalScore ||
+                (typeof imported.is === "function" && imported.is(originalScore)))
             if (!imported) throw Error("MuseScore konnte die MusicXML-Datei nicht öffnen: " + base + ".musicxml")
             if(compositionJob) compositionJob.workflowState=workflowCore.advance(compositionJob.workflowState||"ready","apply")
-            if (inherited) imported.setMetaTag(compositionRecordTag(), inherited)
-            imported.setMetaTag("AI-Notation-Studio-Source-CS1", source)
-            imported.setMetaTag(scoreMemoryTagName(), JSON.stringify(currentScoreMemoryObject()))
-            stampScoreComposition(imported)
+            // MuseScore 4.7.6 can launch a separate process yet return the
+            // current source score from readScore(). Never tag it as the result.
+            if (!handedOff) {
+                if (inherited) imported.setMetaTag(compositionRecordTag(), inherited)
+                imported.setMetaTag("AI-Notation-Studio-Source-CS1", source)
+                imported.setMetaTag(scoreMemoryTagName(), JSON.stringify(currentScoreMemoryObject()))
+                stampScoreComposition(imported)
+            }
             archiveComposition()
-            statusText = "Neue Partitur geöffnet. Bitte in MuseScore speichern." + (result.warnings.length ? " Hinweise: " + result.warnings.join(" · ") : "")
+            statusText = (handedOff ? "Fassung an ein neues MuseScore-Fenster übergeben. Bitte dort prüfen und speichern." : "Neue Partitur geöffnet. Bitte in MuseScore speichern.") + (result.warnings.length ? " Hinweise: " + result.warnings.join(" · ") : "")
             logEvent("MUSESCORE", "CS1 über MusicXML geöffnet", { path: base + ".musicxml", warnings: result.warnings })
-            return imported
+            return {score: handedOff ? null : imported, path: base + ".musicxml", handedOff: !!handedOff}
         } catch (e) { statusText = "Öffnen fehlgeschlagen: " + e; logEvent("MUSESCORE", statusText) }
     }
 

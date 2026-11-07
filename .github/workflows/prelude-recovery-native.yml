@@ -82,6 +82,21 @@ jobs:
           timeout 3 xdotool mousemove 372 82 click 1 || true
           sleep 12
           scrot /tmp/ans-after-menu.png || true
+          # The new project is a separate MuseScore process/window. Invoke the
+          # same verification action in that window to export its actual score.
+          if ! test -s /tmp/recovery-new.musicxml; then
+            child=$(xdotool search --onlyvisible --name 'AI-Notation-Studio-Result-' | tail -n 1)
+            if test -n "$child"; then
+              xdotool getwindowname "$child" || true
+              xdotool windowmove "$child" 0 0 windowsize "$child" 1440 900 windowfocus --sync "$child" || true
+              sleep 1
+              xdotool mousemove 293 13 click 1
+              sleep 1
+              xdotool mousemove 372 82 click 1
+              sleep 3
+              scrot /tmp/ans-imported-window.png || true
+            fi
+          fi
           # Log verdict is the sole source for a native PASS; never infer from a menu click.
           kill "$pid" 2>/dev/null || true
           wait "$pid" 2>/dev/null || true
@@ -103,6 +118,8 @@ jobs:
           path: |
             /tmp/ans-recovery-probe.log
             /tmp/ans-recovery-result.txt
+            /tmp/ans-recovery-imported-result.txt
+            /tmp/ans-imported-window.png
             /tmp/recovery-before.musicxml
             /tmp/recovery-new.musicxml
             /tmp/recovery-original-after.musicxml

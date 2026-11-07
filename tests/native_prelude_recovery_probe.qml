@@ -22,6 +22,14 @@ MuseScore {
     onRun: {
         var original=curScore, app=null
         try {
+            // Invoke this same test action in the newly opened child window.
+            // Its API context owns the imported score, unlike the source plugin.
+            if(original&&String(original.metaTag('workTitle')).indexOf('ANS-TEST-')===0&&original.nmeasures===34&&original.nstaves===4){
+                output.source='/tmp/ans-recovery-imported-result.txt'
+                save(original,'new')
+                log('ANS_RECOVERY_IMPORTED PASS: actual 34-measure score in the new window exported')
+                Qt.quit();return
+            }
             if(!original||String(original.metaTag('workTitle')).indexOf('ANS-TEST-')!==0||original.nmeasures!==32||original.nstaves!==4)
                 throw Error('Only the synthetic disposable 32-measure/4-staff fixture is permitted')
             var component=Qt.createComponent('AI-Notation-Studio-App-0.11.13.qml')
@@ -49,12 +57,17 @@ MuseScore {
             choice.currentIndex=1;choice.activated(1) // explicit request, never a silent fallback
             // Same apply function used by the button. MuseScore 4.7.6 opens a
             // separate window; this plugin's curScore correctly stays original.
-            var imported=app.applySelectedCompactResult()
-            if(!imported||original.is(imported)||imported.nmeasures!==34)throw Error('Explicit new-window output failed: '+app.statusText)
-            save(imported,'new')
+            var sourceTag=String(original.metaTag('AI-Notation-Studio-Source-CS1')||'')
+            var receipt=app.applySelectedCompactResult()
+            if(!receipt||!receipt.path)throw Error('Explicit new-window handoff failed: '+app.statusText)
+            if(!receipt.handedOff){
+                if(!receipt.score||original.is(receipt.score)||receipt.score.nmeasures!==34)throw Error('Imported score is invalid')
+                save(receipt.score,'new')
+            }
             if(original.nmeasures!==32)throw Error('Original was altered')
+            if(String(original.metaTag('AI-Notation-Studio-Source-CS1')||'')!==sourceTag)throw Error('Source received result metadata')
             save(original,'original-after')
-            log('ANS_RECOVERY PASS: actual invalid→retry→ready UI, explicit new-window apply route, 32→34; no provider request')
+            log('ANS_RECOVERY PASS: actual invalid→retry→ready UI, explicit new-window handoff; source music/CS1 tag unchanged; no provider request')
         }catch(error){log('ANS_RECOVERY FAIL: '+String(error))}
         finally{if(app)app.destroy();Qt.quit()}
     }
