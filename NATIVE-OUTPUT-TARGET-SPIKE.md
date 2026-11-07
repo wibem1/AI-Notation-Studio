@@ -46,3 +46,20 @@ Als **implementiert** gilt nur nach Code-Commit; als **statisch geprüft** nach 
 - Keine Aussage zu `insert-measure`, Rollback oder Notenerhaltung zulässig. Der native Versuch gilt als fehlgeschlagen, nicht als teilweise erfolgreicher Plugin-Test.
 - **Vorgehen ändern:** Nicht die gleiche CLI-Methode wiederholen. Für den nächsten nativen Test den echten Pluginmanager in einer Xvfb-GUI automatisieren bzw. die von 4.7.6 tatsächlich unterstützte Plugin-Host-Schnittstelle aus dem Quellcode überprüfen. Dabei Score `ANS-TEST-*` und Vorher-/Nachher-Signaturen kontrollieren. GUI-Sitzung nach abgeschlossenem Versuch mit klarem Beleg protokollieren.
 - Keine Veröffentlichung, Änderung der Live-App oder neue Versionsnummer.
+
+
+## 07.11.2026 – Mehrstimmiger CS1-Transfer und Fehler-Rollback nachgewiesen
+
+Das Entwicklungsmodul `native-prelude-writer.js` besitzt zwei getrennte Schritte: `prepare(score, decodedCS1, explicitMappings)` validiert ohne Mutation; `apply(score, plan, hostAPI)` fügt Takte und Noten in einer nativen Transaktion ein. Es wird noch nicht von der veröffentlichten App geladen. Die CS1-Fixture und die explizite Zuordnung liegen in `tests/fixtures/native-prelude.cs` und `tests/test_native_prelude_plan.cjs`; der Testhost ist `tests/native_polyphonic_probe.qml`.
+
+**Erfolgreicher echter Integrationsnachweis:** https://github.com/wibem1/AI-Notation-Studio/actions/runs/42352037957 (Commit `35d61d8`). Zwei neue Takte, drei Klavierstimmen auf zwei Systemen, 22 Ereignisse mit Akkorden/Pausen/Punktierung und korrektem Fis. `verify_native_polyphonic.py` vergleicht unabhängig handgeschriebene Sollereignisse, sämtliche verschobenen Originaltakte, wirksame Notationsattribute, Fehler-Rollback nach Teilbeschriftung und Ein-Schritt-Undo. Alle Prüfungen bestanden. Kein erneuter KI-Aufruf.
+
+### Ursachen der zuvor gefundenen API-Probleme
+
+- MuseScore v4.7.6 `src/engraving/api/v1/selection.cpp`: `selectRange` verwendet während einer aktiven Transaktion `setRangeTicks`, sonst `setRange`. Bereichsauswahl innerhalb einer offenen Transaktion kann dem Einfügebefehl daher eine ungültige Auswahl hinterlassen (im ersten Test nativer Absturz). Die initiale Auswahl muss vorher erfolgen.
+- `src/notationscene/internal/notationactioncontroller.cpp`: `insert-measure` verlangt eine vorhandene Auswahl. Nach der ersten Einfügung war diese innerhalb der äußeren Transaktion nicht nutzbar; der zweite Befehl wurde mit `no one can handle the action` abgelehnt. Vor jeder weiteren Einfügung wählt der Writer eine echte Pause im ersten neuen Takt über `Selection.select`; dieser Aufruf geht direkt über `Score::select` und umgeht die verzögerte Bereichsauswahl. Der endgültige Test beweist zwei Einfügungen in einer Transaktion.
+- MusicXML-Exporte wechselten durch die neu eingefügten Achtel von divisions=1 auf divisions=2, auch für Originaltakte. Eine rohe Dauerzeichenketten-Prüfung schlug deshalb trotz gleicher Musik fehl. Der Komparator rechnet Dauer/Offset/Backup/Forward in exakte Brüche um. Drei Negativ-/Äquivalenztests stellen sicher, dass diese Normalisierung keine echten musikalischen Änderungen verdeckt.
+
+### Genaue Grenze
+
+Vollständige 4/4-Takte in C-Dur; Zielinstrumente aktuell Piano/Flöte, explizite Part-/Stimm-/Systemzuordnung. Neue Pedal-/Tempo-/Dynamikzeichen und sonstige unbekannte Ereignisfelder, Tuplets, Vorschläge, Bögen oder andere Takt-/Tonarten werden vor Mutation abgelehnt. **Vorhandene** solche Ausdruckszeichen werden im Test erhalten; ihre **neue Erzeugung** ist damit nicht bewiesen. Keine produktive Ausgabeziel-UI, keine Integration sämtlicher Kompositionsmodi, kein Windows-End-to-End-Test und keine Freigabe. Live 0.11.11 bleibt unverändert.
