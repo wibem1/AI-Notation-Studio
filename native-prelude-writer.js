@@ -119,7 +119,7 @@ function createNativePreludeWriter() {
             var part = score.parts[b.index]
             if (!part || Number(part.startTrack) !== b.start || Number(part.endTrack) !== b.end || part.instrumentId !== b.instrumentId) fail('Zielparts wurden verändert.')
         })
-        if (!score.selection || typeof score.selection.selectRange !== 'function') fail('Bereichsauswahl fehlt.')
+        if (!score.selection || typeof score.selection.selectRange !== 'function' || typeof score.selection.select !== 'function') fail('Sichere Auswahl-API fehlt.')
         var check = score.newCursor()
         if (typeof check.rewindToFraction !== 'function' || typeof check.addRest !== 'function') fail('Exakte Cursorposition oder Pausen-API fehlt.')
         check.rewind(0)
@@ -158,8 +158,18 @@ function createNativePreludeWriter() {
             score.startCmd('AI Notation Studio: native Vorspieltakte')
             active = true
             for (var bar=0; bar<plan.measures; bar++) {
-                // NotationInteraction::addBoxes selects the newly added bar.
-                // Reusing that native selection prepends the next bar before it.
+                if (bar > 0) {
+                    // After addBoxes, its deferred range selection is empty while
+                    // our outer command is active, so the next action is disabled.
+                    // Selection.select(Rest) directly calls Score::select instead
+                    // of deferred setRangeTicks. No range mutation in a command.
+                    var first = score.newCursor()
+                    first.staffIdx = 0
+                    first.voice = 0
+                    first.rewind(0)
+                    if (Number(first.tick) !== 0 || !first.element || first.element.name !== 'Rest' || !score.selection.select(first.element, false))
+                        fail('Neuer Anfangstakt nicht sicher auswählbar.')
+                }
                 api.cmd('insert-measure')
                 if (Number(score.nmeasures) !== plan.originalMeasures+bar+1) fail('Takteinfügung fehlgeschlagen.')
             }
