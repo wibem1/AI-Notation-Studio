@@ -28,6 +28,27 @@ MuseScore {
             var plan = writer.prepare(score, request.data, request.mapping)
             log('ANS_POLY_PROBE prepared '+plan.events.length+' events, '+plan.measures+' bars')
             save(score, 'before')
+            // Fail after the first voice already contains notes, chords and rests.
+            // The writer must roll back BOTH inserted bars and all partial music.
+            var calls = 0
+            var injected = false
+            try {
+                writer.apply(score, plan, {
+                    fractionFromTicks:function(tick) {
+                        calls++
+                        if (calls === 15) throw Error('ANS_EXPECTED_PARTIAL_WRITE_FAILURE')
+                        return root.fractionFromTicks(tick)
+                    },
+                    cmd:function(action) { root.cmd(action) }
+                })
+            } catch (expectedError) {
+                if (String(expectedError).indexOf('ANS_EXPECTED_PARTIAL_WRITE_FAILURE') < 0) throw expectedError
+                injected = true
+            }
+            if (!injected || calls !== 15 || score.nmeasures !== 4 || score.nstaves !== 3)
+                throw Error('Partial-write rollback failed')
+            save(score, 'rollback')
+            log('ANS_POLY_PROBE partial-write rollback completed; XML check required')
             writer.apply(score, plan, {
                 fractionFromTicks:function(tick) { return root.fractionFromTicks(tick) },
                 cmd:function(action) {

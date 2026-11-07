@@ -12,29 +12,53 @@ def root(stage):
     assert path.is_file() and path.stat().st_size > 100, ('missing snapshot',stage)
     return ET.parse(path).getroot()
 
-def semantic(node):
-    return (node.tag,(node.text or '').strip(),
+def semantic(node, divisions=1):
+    text = (node.text or '').strip()
+    if node.tag in ('duration','offset') and text:
+        text = str(Fraction(text)/divisions)
+    return (node.tag,text,
             tuple(sorted((k,v) for k,v in node.attrib.items()
                          if k not in ('default-x','default-y','relative-x','relative-y'))),
-            tuple(semantic(child) for child in node))
+            tuple(semantic(child, divisions) for child in node))
 
-def musical(measure):
-    return tuple(semantic(node) for node in measure
+def musical(measure, divisions):
+    return tuple(semantic(node, divisions) for node in measure
                  if node.tag in ('note','direction','backup','forward','harmony'))
+
+def signatures(part):
+    # MusicXML divisions may increase for the entire score after adding eighths.
+    # Compare exact musical fractions, never raw tick integers from different units.
+    divisions = None
+    context = {}
+    result = []
+    for measure in part.findall('measure'):
+        for attributes in measure.findall('attributes'):
+            for node in attributes:
+                if node.tag == 'divisions':
+                    divisions = int(node.text)
+                elif node.tag in ('key','time','clef','staves','transpose'):
+                    context[(node.tag,node.get('number') or '1')] = semantic(node)
+        assert divisions
+        result.append((tuple(sorted(context.items())),musical(measure,divisions)))
+    return result
 
 def identity(score):
     return tuple((p.get('id'),p.findtext('part-name'),p.findtext('part-abbreviation'))
                  for p in score.findall('part-list/score-part'))
 
-before, committed, undo = (root(stage) for stage in ('before','committed','undo'))
+before, committed, undo, rollback = (root(stage) for stage in ('before','committed','undo','rollback'))
 assert identity(before) == identity(committed) == identity(undo), 'instrument identities changed'
+assert identity(before) == identity(rollback), 'rollback changed instrument identities'
 bp,cp,up = (r.findall('part') for r in (before,committed,undo))
+rp = rollback.findall('part')
 assert len(bp) == len(cp) == len(up) == 2
+assert len(rp) == 2
 for i in range(2):
     b,c,u = (parts[i].findall('measure') for parts in (bp,cp,up))
     assert (len(b),len(c),len(u)) == (4,6,4)
-    assert list(map(musical,b)) == list(map(musical,c[2:])), ('original music changed',i)
-    assert list(map(musical,b)) == list(map(musical,u)), ('undo changed music',i)
+    assert signatures(bp[i]) == signatures(cp[i])[2:], ('original music changed',i)
+    assert signatures(bp[i]) == signatures(up[i]), ('undo changed music',i)
+    assert len(rp[i].findall('measure')) == 4 and signatures(bp[i]) == signatures(rp[i]), ('partial-write rollback changed music',i)
 assert not cp[0].findall('measure')[0].findall('note/pitch')
 assert not cp[0].findall('measure')[1].findall('note/pitch')
 
@@ -81,4 +105,4 @@ for index,measure in enumerate(cp[1].findall('measure')[:2]):
     if index == 1:
         sharp = [n for n in measure.findall('note') if n.findtext('pitch/step') == 'F' and n.findtext('pitch/octave') == '5']
         assert len(sharp) == 1 and sharp[0].findtext('pitch/alter') == '1', 'F# respelled or lost'
-print('NATIVE POLYPHONIC INTEGRITY PASS: 2 CS1 bars, 3 piano voices, both staves, 22 exact events, chords/rests/dots/F#, originals unchanged and one-step undo')
+print('NATIVE POLYPHONIC INTEGRITY PASS: 2 CS1 bars, 3 piano voices, both staves, 22 exact events, chords/rests/dots/F#, originals unchanged, partial-write rollback and one-step undo')
