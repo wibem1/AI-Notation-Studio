@@ -1,3 +1,11 @@
+# AI Notation Studio 0.11.13 – 07.11.2026
+
+**Vorspiel-Korrektur:** Die gespeicherte KI-Antwort kann bei der gemeldeten Klaviersystem-Verwechslung jetzt ohne neue KI-Kosten wiederhergestellt werden. Fehler und Wiederholungs-Schaltfläche werden zuverlässig angezeigt. **Up/Down scrollt auch bei Fokus im schreibgeschützten Ergebnisfeld.**
+
+**Update prüfen → Update installieren → Gespeicherte KI-Antwort erneut prüfen (kostenfrei)**. Für das G-Dur-Vorspiel mit Pedal/Ausdruckszeichen anschließend **Neue Partitur → Fertige Fassung übernehmen**. Die fertige Fassung öffnet sich in einem eigenen MuseScore-Fenster. [Details und Prüfnachweise](RELEASE-0.11.13.md).
+
+## Bisherige Versionshinweise
+
 # AI Notation Studio 0.11.12 – Vorabfassung, 07.11.2026
 
 **Jetzt verfügbar:** Auswahl **Bestehende Partitur / Neue Partitur**. Direktes Einfügen unterstützt zunächst einfache Vorspiele in C-Dur und 4/4, auch mehrstimmiges Klavier mit Akkorden und Pausen. Nicht unterstützte Inhalte werden vor jeder Änderung abgelehnt; dafür bleibt „Neue Partitur“ wählbar. Ein Zielwechsel benötigt keinen neuen KI-Aufruf.
