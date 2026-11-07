@@ -43,21 +43,45 @@ function nativePreludeTargetMap(score, data, job) {
             })
         })
         var voiceIds=Object.keys(voices).map(Number).sort(function(a,b){return a-b})
-        // Deliberately narrow: a single-staff part is allowed a maximum of
-        // four voices. For grand staff require a single, stable group of
-        // source voice identities 1..N and map 1..4 RH / 5..8 LH.
-        // Never infer a staff just from pitch or an instrument display name.
+        // Crucial: voice numbers alone DO NOT encode which hand/staff a
+        // pianist intended. Require a validated, explicit per-voice mapping
+        // for every multi-staff part. Do not guess from pitch or display name.
         if (staffCount !== 1 && staffCount !== 2)
             fail("Instrument mit mehr als zwei Systemen wird noch nicht unterstützt.")
-        if (!voiceIds.length || voiceIds.length > staffCount*4 ||
-            voiceIds.some(function(id,j){return id !== j+1}))
-            fail("Quellstimmen müssen eindeutig, lückenlos und von 1 an nummeriert sein.")
+        var declared=job.nativeVoiceMapping && job.nativeVoiceMapping[source.id]
+        if (staffCount > 1 && !Array.isArray(declared))
+            fail("Für mehrsystemige Parts fehlt die explizite Stimm-/Systemzuordnung.")
         var mapping=[]
-        voiceIds.forEach(function(id) {
-            var staff=staffCount===1 ? 0 : Math.floor((id-1)/4)
-            var voice=(id-1)%4
-            if (staff>=staffCount) fail("Quellstimme ist keinem Zielsystem zugeordnet.")
-            mapping.push({sourceVoice:id,targetStaff:staff,targetVoice:voice})
+        if (Array.isArray(declared)) {
+            var seen={}
+            declared.forEach(function(entry) {
+                if (!entry || !Number.isInteger(entry.sourceVoice) ||
+                    !Number.isInteger(entry.targetStaff) || !Number.isInteger(entry.targetVoice) ||
+                    !voices[entry.sourceVoice] || seen[entry.sourceVoice] ||
+                    entry.targetStaff < 0 || entry.targetStaff >= staffCount ||
+                    entry.targetVoice < 0 || entry.targetVoice > 3)
+                    fail("Mehrdeutige oder ungültige explizite Stimmzuordnung.")
+                seen[entry.sourceVoice]=true
+                mapping.push({sourceVoice:entry.sourceVoice,targetStaff:entry.targetStaff,targetVoice:entry.targetVoice})
+            })
+            if (Object.keys(seen).length !== voiceIds.length)
+                fail("Nicht alle Quellstimmen sind zugeordnet.")
+        } else {
+            if (!voiceIds.length || voiceIds.length>4 ||
+                voiceIds.some(function(id,j){return id !== j+1}))
+                fail("Quellstimmen eines Einzelstaffs sind nicht lückenlos 1..4.")
+            voiceIds.forEach(function(id) {
+                mapping.push({sourceVoice:id,targetStaff:0,targetVoice:id-1})
+            })
+        }
+        var seenTracks={}
+        mapping.forEach(function(entry) {
+            var track=entry.targetStaff*4+entry.targetVoice
+            if (seenTracks[track]) fail("Mehrere Quellstimmen teilen einen Zieltrack.")
+            seenTracks[track]=true
+            if (entry.targetVoice>0 && !mapping.some(function(x) {
+                return x.targetStaff===entry.targetStaff && x.targetVoice===0
+            })) fail("Jedes beschriebene System benötigt die Hauptstimme.")
         })
         maps.push({sourcePart:source.id,targetPartIndex:index,voices:mapping})
     })
