@@ -9,8 +9,6 @@ MuseScore {
     version: "0.0.1-test"
     requiresScore: true
     property string transcript: ""
-    property var originalScore: null
-    property var testedApp: null
     FileIO { id: input; source: "/tmp/prelude-recovery-request.json" }
     FileIO { id: output; source: "/tmp/ans-recovery-result.txt" }
     function log(s) { transcript+=s+'\n';output.write(transcript);console.log(s) }
@@ -21,23 +19,8 @@ MuseScore {
         return null
     }
     function save(score,stage) { if(!writeScore(score,'/tmp/recovery-'+stage+'.musicxml','musicxml'))throw Error('Export failed: '+stage) }
-    Timer {
-        id: finishAfterTabActivation
-        interval: 1000
-        onTriggered: {
-            try {
-                if(root.originalScore.is(curScore)||curScore.nmeasures!==34)
-                    throw Error('New score tab did not activate: '+root.testedApp.statusText)
-                root.save(curScore,'new')
-                if(root.originalScore.nmeasures!==32)throw Error('Original was altered')
-                root.save(root.originalScore,'original-after')
-                root.log('ANS_RECOVERY PASS: actual invalid→retry→ready UI, explicit new-score button, 32→34; no provider request')
-            }catch(error){root.log('ANS_RECOVERY FAIL: '+String(error))}
-            finally{if(root.testedApp)root.testedApp.destroy();Qt.quit()}
-        }
-    }
     onRun: {
-        var original=curScore, app=null, deferred=false
+        var original=curScore, app=null
         try {
             if(!original||String(original.metaTag('workTitle')).indexOf('ANS-TEST-')!==0||original.nmeasures!==32||original.nstaves!==4)
                 throw Error('Only the synthetic disposable 32-measure/4-staff fixture is permitted')
@@ -64,12 +47,15 @@ MuseScore {
             var choice=find(app,'outputTargetSelector'),button=find(app,'applyCompactResultButton')
             if(!choice||!button)throw Error('Apply controls missing')
             choice.currentIndex=1;choice.activated(1) // explicit request, never a silent fallback
-            button.clicked()
-            // readScore opens the tab via queued native UI events. Observe it
-            // after returning to the event loop rather than reading stale curScore.
-            root.originalScore=original;root.testedApp=app
-            deferred=true;finishAfterTabActivation.start()
+            // Same apply function used by the button. MuseScore 4.7.6 opens a
+            // separate window; this plugin's curScore correctly stays original.
+            var imported=app.applySelectedCompactResult()
+            if(!imported||original.is(imported)||imported.nmeasures!==34)throw Error('Explicit new-window output failed: '+app.statusText)
+            save(imported,'new')
+            if(original.nmeasures!==32)throw Error('Original was altered')
+            save(original,'original-after')
+            log('ANS_RECOVERY PASS: actual invalid→retry→ready UI, explicit new-window apply route, 32→34; no provider request')
         }catch(error){log('ANS_RECOVERY FAIL: '+String(error))}
-        finally{if(!deferred){if(app)app.destroy();Qt.quit()}}
+        finally{if(app)app.destroy();Qt.quit()}
     }
 }

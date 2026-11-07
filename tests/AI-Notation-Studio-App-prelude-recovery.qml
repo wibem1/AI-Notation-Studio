@@ -1233,8 +1233,7 @@ MuseScore {
     
     function applySelectedCompactResult() {
         if (settings.nativeOutputTarget === 1) {
-            openCompactScore() // preserve the proven independent MusicXML path
-            return
+            return openCompactScore() // return the actual new-window score to the caller
         }
         if (busy || !isCompactResult()) return
         try {
@@ -1298,6 +1297,7 @@ MuseScore {
             archiveComposition()
             statusText = "Neue Partitur geöffnet. Bitte in MuseScore speichern." + (result.warnings.length ? " Hinweise: " + result.warnings.join(" · ") : "")
             logEvent("MUSESCORE", "CS1 über MusicXML geöffnet", { path: base + ".musicxml", warnings: result.warnings })
+            return imported
         } catch (e) { statusText = "Öffnen fehlgeschlagen: " + e; logEvent("MUSESCORE", statusText) }
     }
 
