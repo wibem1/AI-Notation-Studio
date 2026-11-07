@@ -1,0 +1,47 @@
+// Isolated native writer integration on a DISPOSABLE fixture only.
+import QtQuick 2.2
+import MuseScore 3.0
+import FileIO 3.0
+import "native-prelude-writer.js" as NativePrelude
+
+MuseScore {
+    id: root
+    menuPath: "Plugins.AI Notation Studio Tests.Native polyphonic probe"
+    description: "Disposable fixture: write two CS1 piano bars, then one-step undo"
+    version: "0.0.1-spike"
+    requiresScore: true
+    property string transcript: ""
+    FileIO { id: input; source: "/tmp/ans-prelude-data.json" }
+    FileIO { id: output; source: "/tmp/ans-poly-result.txt" }
+    function log(text) { transcript += text + "\n"; output.write(transcript); console.log(text) }
+    function save(score, stage) {
+        if (!writeScore(score, "/tmp/ans-poly-"+stage+".musicxml", "musicxml")) throw Error('Export failed: '+stage)
+    }
+    onRun: {
+        var committed = false
+        var score = curScore
+        try {
+            if (!score || String(score.metaTag('workTitle')).indexOf('ANS-TEST-') !== 0 || score.nmeasures !== 4 || score.nstaves !== 3)
+                throw Error('Only disposable complex ANS-TEST fixture permitted')
+            var request = JSON.parse(input.read())
+            var writer = NativePrelude.createNativePreludeWriter()
+            var plan = writer.prepare(score, request.data, request.mapping)
+            log('ANS_POLY_PROBE prepared '+plan.events.length+' events, '+plan.measures+' bars')
+            save(score, 'before')
+            writer.apply(score, plan, {
+                fractionFromTicks:function(tick) { return root.fractionFromTicks(tick) },
+                cmd:function(action) { root.cmd(action) }
+            })
+            committed = true
+            save(score, 'committed')
+            cmd('action://notation/undo')
+            committed = false
+            save(score, 'undo')
+            if (score.nmeasures !== 4 || score.nstaves !== 3) throw Error('One undo did not restore fixture')
+            log('ANS_POLY_PROBE PASS: native writer and one undo; independent XML check required')
+        } catch (error) {
+            log('ANS_POLY_PROBE FAIL: '+String(error))
+            if (committed) { try { cmd('action://notation/undo') } catch (undoError) { log('UNDO_ERROR '+undoError) } }
+        } finally { Qt.quit() }
+    }
+}
