@@ -53,7 +53,7 @@ assert run('compact.ai.cost(tokens,compact.ai.prices("anthropic","unknown"))===n
 assert run('compact.ai.sanitize("key secret123",["secret123"])')=='key [Schlüssel entfernt]'
 # Actual application import/open functions with a FileIO / MuseScore test double.
 a=qml.index('    function isCompactResult()');b=qml.index('    Dialog {\n        id: compactImportDialog',a)
-run('''var compositionJob=null,compositionCosts=[],compositionIdea="",ideaReady=false;var compositionJson="",compactSourceText="",compactWarnings=[],musicalDraft="",aiAnswer="",statusText="",busy=false;
+run('''var curScore=null;var compositionJob=null,compositionCosts=[],compositionIdea="",ideaReady=false;var compositionJson="",compactSourceText="",compactWarnings=[],musicalDraft="",aiAnswer="",statusText="",busy=false;
 var files={},opened=[],metatags={};var Qt={resolvedUrl:function(p){return "file:///tmp/"+p;}};
 var compactFile={source:"",write:function(x){files[this.source]=x;return true;},read:function(){return files[this.source];}};
 function fileUrlToLocalPath(x){return x.replace("file://","");}

@@ -47,6 +47,19 @@ const vm=require('node:vm');
 const app=fs.readFileSync(process.env.PRELUDE_RECOVERY_APP||'tests/AI-Notation-Studio-App-prelude-recovery.qml','utf8');
 const a=app.indexOf('    function createCompactRuntime()'),b=app.indexOf('    // END COMPACTSCORE RUNTIME',a);
 const scope={};vm.createContext(scope);vm.runInContext(app.slice(a,b)+'\nthis.compact=createCompactRuntime();',scope);check(scope.compact.context);
+// Native MuseScore exports use voice 5 for the lower staff. Incoming CS1/XML
+// uses voice 2 there. Mixing the IDs makes import create an extra rest voice.
+const nativeBase=ctx.parse(base),nativePiano=nodes(nativeBase,'part')[1];
+nodes(nativePiano,'measure').forEach(m=>nodes(m,'note').forEach(n=>{
+ if(nodes(n,'staff')[0].children.join('').trim()==='2')nodes(n,'voice')[0].children=['5'];
+}));
+const nativeOriginal=serialize(nativeBase);
+for(const context of [ctx,scope.compact.context]){
+ const aligned=context.prependPrelude(nativeOriginal,incoming,options),bars=allParts(ctx.parse(aligned.xml))[1];
+ for(const m of bars.slice(0,2))for(const n of nodes(m,'note'))
+  if(nodes(n,'staff')[0].children.join('').trim()==='2')assert.equal(nodes(n,'voice')[0].children.join('').trim(),'5','incoming bass must reuse native LH voice 5');
+ for(let m=0;m<32;m++)assert.deepEqual(canonical(bars[m+2]),canonical(nodes(nativePiano,'measure')[m]));
+}
 const twoActive=score([part('also-active','piano',[[N('C5')],[N('C3')]],2),active]);
 assert.throws(()=>ctx.prependPrelude(base,xml.convert(twoActive).xml,options),/Notensystemzahl/);
 const other=ctx.parse(base),def=nodes(nodes(other,'part-list')[0],'score-part')[2];

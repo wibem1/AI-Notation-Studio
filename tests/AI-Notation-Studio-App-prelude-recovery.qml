@@ -3663,6 +3663,41 @@ function repairPreludeFinalEighth(xml, expectedQuarter) {
            ]};
           }
           
+                    
+          function normalizePreludeVoiceIds(part,originalPart){
+           var original={},incoming={},used={};
+           function collect(part,byStaff){
+            children(part,'measure').forEach(function(m){children(m,'note').forEach(function(n){
+             var staff=text(n,'staff','1'),voice=text(n,'voice','1');
+             if(!byStaff[staff])byStaff[staff]={};
+             byStaff[staff][voice]=true;
+            });});
+           }
+           collect(originalPart,original);collect(part,incoming);
+           Object.keys(original).forEach(function(staff){Object.keys(original[staff]).forEach(function(v){used[v]=true;});});
+           var mapping={};
+           Object.keys(incoming).sort(function(a,b){return Number(a)-Number(b);}).forEach(function(staff){
+            var old=Object.keys(incoming[staff]).sort(function(a,b){return Number(a)-Number(b);});
+            var existing=Object.keys(original[staff]||{}).sort(function(a,b){return Number(a)-Number(b);});
+            old.forEach(function(voice,index){
+             var target=existing[index];
+             if(target===undefined){
+              var candidate=(Number(staff)-1)*4+index+1;
+              while(used[String(candidate)])candidate++;
+              target=String(candidate);used[target]=true;
+             }
+             mapping[staff+'/'+voice]=target;
+            });
+           });
+           children(part,'measure').forEach(function(m){
+            ['note','forward','direction'].forEach(function(kind){children(m,kind).forEach(function(n){
+             var voice=first(n,'voice');if(!voice)return;
+             var target=mapping[text(n,'staff','1')+'/'+text(n,'voice','1')];
+             if(target!==undefined)voice.children=[target];
+            });});
+           });
+          }
+          
           function prependPrelude(baseXML, addedXML, options) {
            if(options&&options.targetGroups){
             var groups=options.targetGroups;
@@ -3750,6 +3785,7 @@ function repairPreludeFinalEighth(xml, expectedQuarter) {
             var firstMeasure=old[0],previous=baseParts[i],addedIdx=indices.indexOf(i),prefix=[];
             if(addedIdx>=0){
              var music=clone(newParts[addedIdx]);
+             normalizePreludeVoiceIds(music,previous);
              // Incoming pitches are sounding pitches; transfer to the written pitches of the target.
              transposePart(music,baseRow.transpose);
              prefix=children(music,'measure').map(clone);
