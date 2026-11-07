@@ -52,9 +52,9 @@ MuseScore {
             // Only the first staff/first voice: no claim about transferring chords,
             // polyphony, pedal, tuplets, ties or other MusicXML element types.
             var writer = score.newCursor()
-            writer.rewind(0)
             writer.staffIdx = 0
             writer.voice = 0
+            writer.rewind(0)
             writer.setDuration(1, 4)
             writer.addNote(72, false) // C5 quarter note
             if (score.nmeasures !== 5) fail("Writing note altered measure count")
