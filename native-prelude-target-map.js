@@ -55,8 +55,8 @@ function nativePreludeTargetMap(score, data, job) {
         if (Array.isArray(declared)) {
             var seen={}
             declared.forEach(function(entry) {
-                if (!entry || !Number.isInteger(entry.sourceVoice) ||
-                    !Number.isInteger(entry.targetStaff) || !Number.isInteger(entry.targetVoice) ||
+                if (!entry || !(typeof entry.sourceVoice === 'number' && entry.sourceVoice % 1 === 0) ||
+                    !(typeof entry.targetStaff === 'number' && entry.targetStaff % 1 === 0) || !(typeof entry.targetVoice === 'number' && entry.targetVoice % 1 === 0) ||
                     !voices[entry.sourceVoice] || seen[entry.sourceVoice] ||
                     entry.targetStaff < 0 || entry.targetStaff >= staffCount ||
                     entry.targetVoice < 0 || entry.targetVoice > 3)
