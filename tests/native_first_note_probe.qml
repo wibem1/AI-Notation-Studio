@@ -64,6 +64,8 @@ MuseScore {
             save(score, "committed")
             // One native undo must remove BOTH the inserted bar and the note.
             cmd("action://notation/undo")
+            // Never undo a second time if export/verification fails after undo.
+            committed = false
             save(score, "undo")
             if (score.nmeasures !== 4 || score.nstaves !== 3)
                 fail("One-step undo did not restore original structure")

@@ -6,25 +6,32 @@ structural PASS is not sufficient evidence without this comparator.
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+roots = {}
 def measures(stage):
     path = Path("/tmp/ans-note-" + stage + ".musicxml")
     assert path.is_file() and path.stat().st_size > 100, f"missing {stage} export"
     root = ET.parse(path).getroot()
+    roots[stage] = root
     return [p.findall("measure") for p in root.findall("part")]
 
 def events(measure):
-    out = []
-    for node in measure.iter():
-        if node.tag == "note":
-            out.append(("note", node.findtext("pitch/step"), node.findtext("pitch/octave"),
-                        node.findtext("duration"), node.findtext("voice"), node.findtext("staff")))
-        elif node.tag in ("pedal", "wedge", "metronome", "dynamics", "tie", "slur"):
-            out.append((node.tag, (node.text or "").strip(),
-                        tuple(sorted((key, val) for key, val in node.attrib.items()
-                                     if key not in ("default-x","default-y","relative-x","relative-y")))))
-    return tuple(out)
+    # Preserve hierarchy and child values: <f/> vs <p/>, tempo text/sound,
+    # chord membership, accidentals, offsets and backup/forward durations.
+    # Flat parent-only signatures silently missed these musical changes.
+    def semantic(node):
+        return (node.tag, (node.text or "").strip(),
+                tuple(sorted((key, val) for key, val in node.attrib.items()
+                             if key not in ("default-x", "default-y", "relative-x", "relative-y"))),
+                tuple(semantic(child) for child in node))
+    return tuple(semantic(node) for node in measure
+                 if node.tag in ("note", "direction", "backup", "forward", "harmony"))
 
 before, committed, undo = (measures(stage) for stage in ("before", "committed", "undo"))
+def part_identity(root):
+    return tuple((part.get("id"), part.findtext("part-name"),
+                  part.findtext("part-abbreviation"))
+                 for part in root.findall("part-list/score-part"))
+assert part_identity(roots["before"]) == part_identity(roots["committed"]) == part_identity(roots["undo"]), "instrument mapping changed"
 assert len(before) == len(committed) == len(undo) == 2
 assert [len(p) for p in before] == [4,4]
 assert [len(p) for p in committed] == [5,5]
@@ -38,7 +45,10 @@ pitched = [n for n in notes if n.find("pitch") is not None]
 assert len(pitched) == 1, ("one pitched note expected", len(pitched))
 note = pitched[0]
 assert (note.findtext("pitch/step"),note.findtext("pitch/octave"),note.findtext("type")) == ("C","5","quarter")
+divisions = committed[0][0].findtext("attributes/divisions")
+assert divisions and int(note.findtext("duration")) == int(divisions), "C5 is not exactly a quarter"
 for part in committed:
     for measure in part[0:1]:
         assert not any(n.find("pitch") is not None for n in measure.findall("note") if n is not note), "unexpected note"
 print("NATIVE SINGLE NOTE INTEGRITY PASS: original bars unchanged, C5 added, one-step undo restores originals")
+
