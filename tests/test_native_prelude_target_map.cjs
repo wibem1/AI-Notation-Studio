@@ -35,7 +35,8 @@ reject({parts:[flute,{...piano,id:'p1'}]},job);
 reject({parts:[flute,{...piano,instrument:'violin'}]},job);
 reject(d,{...job,nativeVoiceMapping:{p2:explicit.p2.slice(0,2)}});
 reject(d,{...job,nativeVoiceMapping:{p2:[explicit.p2[0],explicit.p2[0],explicit.p2[2]]}});
-reject(d,{...job,nativeVoiceMapping:{p2:[explicit.p2[0],{sourceVoice:2,targetStaff:1,targetVoice:1},explicit.p2[2]]}});
+// Reject a secondary voice on staff 2 when that staff has no primary voice.
+reject(d,{...job,nativeVoiceMapping:{p2:[explicit.p2[0],{sourceVoice:2,targetStaff:1,targetVoice:1},{sourceVoice:3,targetStaff:0,targetVoice:2}]}});
 reject(d,{...job,nativeVoiceMapping:{p2:[explicit.p2[0],{sourceVoice:2,targetStaff:0,targetVoice:0},explicit.p2[2]]}});
 reject(d,{...job,nativeVoiceMapping:{p2:[explicit.p2[0],{sourceVoice:2,targetStaff:2,targetVoice:0},explicit.p2[2]]}});
 reject(d,job,{...score,parts:[score.parts[0],{...score.parts[1],startTrack:5}]});
