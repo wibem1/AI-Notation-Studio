@@ -42,4 +42,29 @@ function nativeVoiceMappingFromMusicXML(data, tree) {
     })
     return result
 }
-if (typeof module !== 'undefined') module.exports = nativeVoiceMappingFromMusicXML
+function nativeCheckOriginalStartXML(tree) {
+    function nodes(n,name) { return (n.children||[]).filter(function(x){return x && typeof x!=='string' && x.name===name}) }
+    function value(n,name) { var list=nodes(n,name); return list.length===1 ? list[0].children.filter(function(x){return typeof x==='string'}).join('').trim() : '' }
+    var parts=nodes(tree,'part')
+    if (!parts.length) throw Error('Die Originalpartitur konnte nicht geprüft werden.')
+    parts.forEach(function(part) {
+        var measures=nodes(part,'measure')
+        if (!measures.length) throw Error('Originalpart enthält keine Takte.')
+        nodes(measures[0],'attributes').forEach(function(attributes) {
+            nodes(attributes,'key').forEach(function(key) {
+                if (value(key,'fifths')!=='0' || (value(key,'mode') && value(key,'mode')!=='major'))
+                    throw Error('Direkte Übernahme unterstützt vorerst nur einen Originalanfang in C-Dur.')
+            })
+            nodes(attributes,'time').forEach(function(time) {
+                if (value(time,'beats')!=='4' || value(time,'beat-type')!=='4')
+                    throw Error('Direkte Übernahme unterstützt vorerst nur einen Originalanfang in 4/4.')
+            })
+            if (nodes(attributes,'transpose').length)
+                throw Error('Transponierende Originalparts werden noch nicht direkt übernommen.')
+        })
+    })
+}
+if (typeof module !== 'undefined') {
+    module.exports = nativeVoiceMappingFromMusicXML
+    module.exports.checkOriginalStart = nativeCheckOriginalStartXML
+}

@@ -14,4 +14,8 @@ const notes=part.children.filter(n=>n&&n.name==='measure').flatMap(m=>m.children
 const staff=notes[0].children.find(n=>n&&n.name==='staff');staff.children=['2'];
 assert.throws(()=>mapXML(data,broken),/Systemwechsel/);
 assert.throws(()=>mapXML(data,{name:'bad',children:[]}),/MusicXML/);
+const original=(fifths='0',beats='4',beatType='4')=>ctx.parse('<score-partwise><part id="P1"><measure><attributes><key><fifths>'+fifths+'</fifths></key><time><beats>'+beats+'</beats><beat-type>'+beatType+'</beat-type></time></attributes></measure></part></score-partwise>');
+mapXML.checkOriginalStart(original());
+assert.throws(()=>mapXML.checkOriginalStart(original('-1')),/C-Dur/);
+assert.throws(()=>mapXML.checkOriginalStart(original('0','2','2')),/4\/4/);
 console.log('Validated MusicXML-to-native mapping PASS: same hand/voice assignment for both output targets; QML list accepted; ambiguous mapping rejected');
