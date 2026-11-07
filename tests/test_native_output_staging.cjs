@@ -22,5 +22,5 @@ assert.match(st,/if \(isCompactResult\(\)\) applySelectedCompactResult\(\)/);
 assert.match(st,/mode !== 9/);
 assert.match(live,/outputTargetSelector/);
 assert.match(live,/function nativePreludeTargetMap/);
-assert.match(live,/version: "0\.11\.12"/);
+assert.match(live,/version: "0\.11\.13"/);
 console.log('Staging and embedded preview destination contract PASS; native verification tracked separately.');

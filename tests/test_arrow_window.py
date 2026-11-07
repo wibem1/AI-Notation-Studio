@@ -57,6 +57,16 @@ with tempfile.TemporaryDirectory() as tmp:
  before=scroll.property('contentY');QTest.keyClick(window,Qt.Key_Up);QTest.qWait(30)
  assert scroll.property('contentY')==before,(window.activeFocusItem().metaObject().className(),before,scroll.property('contentY'))
  print('Text editor focus: Up remains available to the editor')
+ # A read-only result is not a text editor; its focus must not trap arrows.
+ result=studio.findChild(QQuickItem,'compositionAnswer')
+ assert result and result.property('readOnly')
+ result.setProperty('text','Generated result\\nSecond line')
+ result.forceActiveFocus();scroll.setProperty('contentY',0);QTest.qWait(30)
+ QTest.keyClick(window,Qt.Key_Down);QTest.qWait(30)
+ assert scroll.property('contentY')==48,('Read-only result trapped Down',scroll.property('contentY'))
+ QTest.keyClick(window,Qt.Key_Up);QTest.qWait(30)
+ assert scroll.property('contentY')==0
+ print('Read-only result focus: Up/Down scroll main window')
  # A popup must never scroll the page behind it.
  window.contentItem().forceActiveFocus()
  dialog=next(x for x in studio.findChildren(QObject) if x.property('title')=='AI Notation Studio – Info')

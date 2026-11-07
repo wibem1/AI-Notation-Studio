@@ -1,5 +1,20 @@
 # Projektstand – AI Notation Studio
 
+## Live 0.11.13 – reale Vorspiel-Diagnose und Pfeiltasten behoben (07.11.2026)
+
+- **Realer Fehlerbefund 0.11.12:** Die Antwort war erzeugt, aber `workflowState=invalid`, `validation_error=Vorspiel: Notensystemzahl von Zielinstrument und Komposition stimmt nicht überein`. Drei Originalparts mit 1/2/1 Systemen; beide Piano-Parts ausgewählt. Antwort: ein leerer Piano-Part und ein kompletter zweihändiger Piano-Part; dieser lag fälschlich auf dem einzeiligen Ziel. Kein bloßes Problem des Übernahmebuttons.
+- **Korrektur:** eng begrenzte, rein lokale Neuordnung nur bei zwei explizit ausgewählten Piano-Zielen mit eindeutig 2/1 Systemen, einem vollständig pausierenden einzeiligen Quellstrom und einem vollständigen zweihändigen Quellpart. Aktive Musik auf das einzige passende zweisystemige Ziel; stiller zusätzlicher Part erhält passende Pausentakte. Alle musikalischen Ereignisse/Markierungen bleiben erhalten. Mehrdeutige aktive Konstellationen oder andere Instrumente werden weiterhin abgelehnt.
+- **Stimmnummern:** neue Prefix-Stimmen übernehmen passende IDs des Originalparts. Dadurch erzeugt MuseScores MusicXML-Import keine zusätzliche leere LH-Stimme neben der alten.
+- **UI:** `refreshCompositionJob` veröffentlicht nach Zustandsänderungen ein neues JS-Objekt, damit QML Fehler-/Retry-Steuerungen tatsächlich aktualisiert. Konkreter Fehler sichtbar. Up/Down-WindowShortcuts ignorieren schreibgeschützte Ergebnisfelder als Editor-Sperre; echte Editoren/Dropdowns/Popups behalten die Pfeile.
+- **Neue-Fenster-API:** MuseScore 4.7.6 `EngravingPluginAPIHelper::readScore` startet ggf. einen separaten Prozess, gibt aber den Quellscore des bisherigen Kontexts zurück. Keine Ergebnis-Metadaten auf diesem Original setzen; Status meldet die Übergabe an das neue Fenster. Ein nativer Test wird deshalb im neuen Fenster selbst nochmals ausgeführt.
+- **Prüfnachweise:** private Originaldiagnose lokal 32→34, alle 96 ursprünglichen Part-Takte als XML unverändert. Ausschließlich synthetischer analoger Fall in öffentlichem CI. Erfolgreicher echter MuseScore-GUI-Lauf **#42359032044** exportiert die neue 34-Takt-Partitur und bestätigt Originalnoten, beide Klavierhände, Pedal, Crescendo und Bögen. Vollständige Regression **#42359032055** erfolgreich; inklusive readonly-Pfeiltasten, Kostenfrei-Retry, Update/Neustart und Schutz vor falschem Ergebnis-Metadatenstempel. Codecommit `e1b59ae`.
+- **Auslieferung:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.13.qml` und `versions/AI-Notation-Studio-App-0.11.13.qml` identischer geprüfter Code. Starter/ältere Versionen unverändert.
+- **Nutzerschritt:** Update installieren → gespeicherte Antwort kostenfrei erneut prüfen → für dieses G-Dur-Vorspiel mit Ausdruckszeichen ausdrücklich „Neue Partitur“ → „Fertige Fassung übernehmen“. Kein erneuter KI-Aufruf erforderlich.
+- **Weiterhin offen:** voller nativer Transfer neuer Ausdruckszeichen, rhythmischer Sonderfälle, weiterer Ton-/Taktarten und weiterer Bearbeitungsmodi. Die Profilgrenzen aus 0.11.12 bleiben bestehen. Kein vollständiger Windows-End-to-End-Nachweis. Issue #2 bleibt offen.
+- Details: [RELEASE-0.11.13.md](RELEASE-0.11.13.md).
+
+## Frühere Projektstände
+
 ## Live 0.11.12 – begrenzte Ausgabeziel-Vorabfassung (07.11.2026)
 
 Auf ausdrücklichen Veröffentlichungsauftrag ist die abgesicherte Teilfunktion über den vorhandenen Updatefeed bereitgestellt. **Kein Abschluss der vollständigen Anforderungen aus Issue #2.**

@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.12"
+    version: "0.11.13"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -650,6 +650,14 @@ MuseScore {
         return fixed
     }
 
+    function refreshCompositionJob(job) {
+        // QML cannot observe in-place mutations of a plain JS object.
+        // Publish a new top-level value whenever workflow readiness changes.
+        var copy = {}
+        Object.keys(job).forEach(function(key) { copy[key] = job[key] })
+        compositionJob = copy
+    }
+
     function finishComposition(job, text) {
         job.raw_response=text
         try {
@@ -670,6 +678,7 @@ MuseScore {
                 compactWarnings = compactWarnings.concat(merged.warnings)
             }
             job.workflowState=workflowCore.advance(job.workflowState||"draft","propose")
+            refreshCompositionJob(job)
             musicalDraft = job.draft || compactSourceText
             ideaReady = false
             aiAnswer = (job.draft ? "MUSIKALISCHE FASSUNG:\n" + job.draft + "\n\nCS1:\n" : "") + compactSourceText +
@@ -679,9 +688,10 @@ MuseScore {
         } catch (e) {
             compositionJson = ""
             job.workflowState="invalid"; job.validation_error=String(e)
+            refreshCompositionJob(job)
             aiAnswer = workflowCore.readable(text) + "\n\nUmsetzungsfehler: " + e
             archiveComposition()
-            statusText = "Antwort erhalten; Umsetzung prüfen. Idee und musikalische Fassung bleiben erhalten."
+            statusText = "Nicht übernommen: " + String(e) + ". Die KI-Antwort ist gespeichert und kann kostenfrei erneut geprüft werden."
             saveScoreMemory(true)
         }
     }
@@ -699,7 +709,7 @@ MuseScore {
         job.validation_error=""
         finishComposition(job, answer)
         if (job.workflowState==="ready")
-            statusText="Gespeicherte KI-Antwort erfolgreich geprüft. Mit „Fertige Fassung in MuseScore öffnen“ übernehmen. Keine neuen KI-Kosten."
+            statusText="Gespeicherte KI-Antwort erfolgreich geprüft. Ausgabeziel wählen und „Fertige Fassung übernehmen“ anklicken. Keine neuen KI-Kosten."
         else
             statusText="Erneute Prüfung fehlgeschlagen: "+String(job.validation_error||"Unbekannter Fehler")+" (kein KI-Aufruf)."
     }
@@ -1223,8 +1233,7 @@ MuseScore {
     
     function applySelectedCompactResult() {
         if (settings.nativeOutputTarget === 1) {
-            openCompactScore() // preserve the proven independent MusicXML path
-            return
+            return openCompactScore() // return the actual new-window score to the caller
         }
         if (busy || !isCompactResult()) return
         try {
@@ -1278,16 +1287,24 @@ MuseScore {
             var inherited = ""
             if (compositionJob && compositionJob.sourcePath && curScore)
                 inherited = String(curScore.metaTag(compositionRecordTag()) || "")
+            var originalScore = curScore
             var imported = readScore(base + ".musicxml", false)
+            var handedOff = imported && originalScore && (imported === originalScore ||
+                (typeof imported.is === "function" && imported.is(originalScore)))
             if (!imported) throw Error("MuseScore konnte die MusicXML-Datei nicht öffnen: " + base + ".musicxml")
             if(compositionJob) compositionJob.workflowState=workflowCore.advance(compositionJob.workflowState||"ready","apply")
-            if (inherited) imported.setMetaTag(compositionRecordTag(), inherited)
-            imported.setMetaTag("AI-Notation-Studio-Source-CS1", source)
-            imported.setMetaTag(scoreMemoryTagName(), JSON.stringify(currentScoreMemoryObject()))
-            stampScoreComposition(imported)
+            // MuseScore 4.7.6 can launch a separate process yet return the
+            // current source score from readScore(). Never tag it as the result.
+            if (!handedOff) {
+                if (inherited) imported.setMetaTag(compositionRecordTag(), inherited)
+                imported.setMetaTag("AI-Notation-Studio-Source-CS1", source)
+                imported.setMetaTag(scoreMemoryTagName(), JSON.stringify(currentScoreMemoryObject()))
+                stampScoreComposition(imported)
+            }
             archiveComposition()
-            statusText = "Neue Partitur geöffnet. Bitte in MuseScore speichern." + (result.warnings.length ? " Hinweise: " + result.warnings.join(" · ") : "")
+            statusText = (handedOff ? "Fassung an ein neues MuseScore-Fenster übergeben. Bitte dort prüfen und speichern." : "Neue Partitur geöffnet. Bitte in MuseScore speichern.") + (result.warnings.length ? " Hinweise: " + result.warnings.join(" · ") : "")
             logEvent("MUSESCORE", "CS1 über MusicXML geöffnet", { path: base + ".musicxml", warnings: result.warnings })
+            return {score: handedOff ? null : imported, path: base + ".musicxml", handedOff: !!handedOff}
         } catch (e) { statusText = "Öffnen fehlgeschlagen: " + e; logEvent("MUSESCORE", statusText) }
     }
 
@@ -3588,7 +3605,100 @@ function repairPreludeFinalEighth(xml, expectedQuarter) {
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),warnings:warnings};
 }
 
-function prependPrelude(baseXML, addedXML, options) {
+          
+          // Narrow recovery: a provider emitted a silent piano before the complete
+          // grand-staff prelude, while two explicitly selected piano targets have 2/1 staves.
+          // Only the unique compatible grand staff can receive sounding material.
+          // No sounding note, expression, voice or original measure is rewritten.
+          function alignPreludePianoRestParts(original,incoming,indices) {
+           var baseParts=children(original,'part'),parts=children(incoming,'part');
+           var unchanged={parts:parts,indices:indices,warnings:[]};
+           if(parts.length!==2||indices.length!==2)return unchanged;
+           var baseDefs=children(first(original,'part-list')||{children:[]},'score-part');
+           var freshDefs=children(first(incoming,'part-list')||{children:[]},'score-part');
+           function piano(def){
+            if(!def)return false;
+            var midi=first(def,'midi-instrument')||{children:[]};
+            var program=text(midi,'midi-program','');
+            var ins=first(def,'score-instrument')||{children:[]};
+            if(program&&program!=='1')return false;
+            return program==='1'||text(ins,'instrument-sound','')==='keyboard.piano';
+           }
+           if(!indices.every(function(index){return piano(baseDefs[index]);})||!freshDefs.every(piano))return unchanged;
+           var targetStaves=indices.map(function(index){return timeline(baseParts[index]).rows[0].staves;});
+           if(targetStaves.slice().sort().join(',')!=='1,2')return unchanged;
+           var dimensions=parts.map(function(part){return timeline(part).rows[0].staves;});
+           if(dimensions[0]!==2||dimensions[1]!==2)return unchanged;
+           function plainSilent(part){
+            return children(part,'measure').every(function(measure){
+             var notes=children(measure,'note');
+             if(notes.length!==1||!first(notes[0],'rest')||first(notes[0],'notations')||
+                text(notes[0],'staff','1')!=='1'||text(notes[0],'voice','1')!=='1')return false;
+             if(children(measure,'backup').length||children(measure,'forward').length||children(measure,'harmony').length)return false;
+             return children(measure,'direction').every(function(d){return text(d,'staff','1')==='1';});
+            });
+           }
+           function sounding(part){
+            return children(part,'measure').some(function(m){return children(m,'note').some(function(n){return !!first(n,'pitch');});});
+           }
+           var silent=parts.map(plainSilent),active=parts.map(sounding);
+           if(silent.filter(Boolean).length!==1||active.filter(Boolean).length!==1)return unchanged;
+           var quiet=silent.indexOf(true),music=active.indexOf(true);
+           if(quiet===music)return unchanged;
+           var grand=targetStaves.indexOf(2),single=targetStaves.indexOf(1);
+           var mapped=indices.slice();
+           mapped[music]=indices[grand];mapped[quiet]=indices[single];
+           var adapted=clone(parts[quiet]),rows=timeline(parts[quiet]).rows;
+           adapted.children=adapted.children.filter(function(n){return typeof n==='string'||n.name!=='measure';});
+           rows.forEach(function(row,index){
+            var m=blank(row,index+1,index===0,row.division,1);
+            // Preserve all directions, their offsets and the incoming barline.
+            children(row.node,'direction').forEach(function(d){m.children.push(clone(d));});
+            children(row.node,'barline').forEach(function(b){m.children.push(clone(b));});
+            adapted.children.push(m);
+           });
+           var aligned=parts.slice();aligned[quiet]=adapted;
+           return {parts:aligned,indices:mapped,warnings:[
+            'Vorspiel-Zuordnung korrigiert: Der vollständige zweihändige Klavierpart liegt auf dem vorhandenen zweisystemigen Klavier (Part '+(mapped[music]+1)+'). Der zusätzliche einzeilige Klavierpart pausiert im Vorspiel. Keine Noten oder Ausdruckszeichen wurden entfernt.'
+           ]};
+          }
+          
+                    
+          function normalizePreludeVoiceIds(part,originalPart){
+           var original={},incoming={},used={};
+           function collect(part,byStaff){
+            children(part,'measure').forEach(function(m){children(m,'note').forEach(function(n){
+             var staff=text(n,'staff','1'),voice=text(n,'voice','1');
+             if(!byStaff[staff])byStaff[staff]={};
+             byStaff[staff][voice]=true;
+            });});
+           }
+           collect(originalPart,original);collect(part,incoming);
+           Object.keys(original).forEach(function(staff){Object.keys(original[staff]).forEach(function(v){used[v]=true;});});
+           var mapping={};
+           Object.keys(incoming).sort(function(a,b){return Number(a)-Number(b);}).forEach(function(staff){
+            var old=Object.keys(incoming[staff]).sort(function(a,b){return Number(a)-Number(b);});
+            var existing=Object.keys(original[staff]||{}).sort(function(a,b){return Number(a)-Number(b);});
+            old.forEach(function(voice,index){
+             var target=existing[index];
+             if(target===undefined){
+              var candidate=(Number(staff)-1)*4+index+1;
+              while(used[String(candidate)])candidate++;
+              target=String(candidate);used[target]=true;
+             }
+             mapping[staff+'/'+voice]=target;
+            });
+           });
+           children(part,'measure').forEach(function(m){
+            ['note','forward','direction'].forEach(function(kind){children(m,kind).forEach(function(n){
+             var voice=first(n,'voice');if(!voice)return;
+             var target=mapping[text(n,'staff','1')+'/'+text(n,'voice','1')];
+             if(target!==undefined)voice.children=[target];
+            });});
+           });
+          }
+          
+          function prependPrelude(baseXML, addedXML, options) {
            if(options&&options.targetGroups){
             var groups=options.targetGroups;
             options={targetPartIndices:[].concat.apply([],groups.map(function(g){return g.indices;}))};
@@ -3636,6 +3746,8 @@ function prependPrelude(baseXML, addedXML, options) {
             if(Math.abs(t.rows[0].length-firstRow.length)>1e-7)
              throw Error('Vorspiel: Part beginnt mit abweichender Taktlänge.');
            });
+           var aligned=alignPreludePianoRestParts(original,incoming,indices);
+           newParts=aligned.parts;indices=aligned.indices;
            // Validate the generated material and mapping before modifying a clone.
            newParts.forEach(function(part,j){
             var orig=timeline(baseParts[indices[j]]),fresh=timeline(part);
@@ -3673,6 +3785,7 @@ function prependPrelude(baseXML, addedXML, options) {
             var firstMeasure=old[0],previous=baseParts[i],addedIdx=indices.indexOf(i),prefix=[];
             if(addedIdx>=0){
              var music=clone(newParts[addedIdx]);
+             normalizePreludeVoiceIds(music,previous);
              // Incoming pitches are sounding pitches; transfer to the written pitches of the target.
              transposePart(music,baseRow.transpose);
              prefix=children(music,'measure').map(clone);
@@ -3698,7 +3811,7 @@ function prependPrelude(baseXML, addedXML, options) {
             part.children=part.children.filter(function(x){return typeof x==='string'||x.name!=='measure';}).concat(all);
            });
            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(result),
-            warnings:repaired.warnings.concat(['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.'])};
+            warnings:repaired.warnings.concat(aligned.warnings).concat(['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.'])};
           }
           
           
@@ -6699,7 +6812,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             if (!focused || focused === nativeWindow.contentItem || focused === root) return true
             while (focused) {
                 // Editors and selection controls retain their native arrow actions.
-                if (typeof focused.cursorPosition === "number" ||
+                if ((typeof focused.cursorPosition === "number" && focused.readOnly !== true) ||
                     (typeof focused.currentIndex === "number" && typeof focused.count === "number") ||
                     (typeof focused.value === "number" && typeof focused.stepSize === "number")) return false
                 if (focused === legacyUi) return true
@@ -7203,6 +7316,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
                 TextArea {
                     id: answerBox
+                    objectName: "compositionAnswer"
                     color: "#ededed"
                     placeholderTextColor: "#aaaaaa"
                     background: Rectangle { color: "#2b2d31"; radius: 4 }
@@ -7221,7 +7335,18 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 Label { text: costText; wrapMode: Text.WordWrap; Layout.fillWidth: true; color: "white" }
             }
 
+            Label {
+                objectName: "compositionValidationError"
+                Layout.fillWidth: true
+                visible: compositionJob !== null && compositionJob.workflowState === "invalid"
+                text: visible ? "Nicht übernommen: " + String(compositionJob.validation_error || "Umsetzung fehlgeschlagen.") + "\nDie KI-Antwort bleibt gespeichert. Erneute Prüfung kostet nichts." : ""
+                color: "#ffbf8a"
+                wrapMode: Text.Wrap
+                font.pixelSize: uiSize
+            }
+
             Button {
+                objectName: "retryStoredCompositionButton"
                 text: "Gespeicherte KI-Antwort erneut prüfen (kostenfrei)"
                 visible: compositionJob !== null && compositionJob.workflowState === "invalid"
                          && String(compositionJob.raw_response || "") !== ""
