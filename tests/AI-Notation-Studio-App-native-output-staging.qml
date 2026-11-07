@@ -5,8 +5,8 @@ import QtQuick.Layouts 1.1
 import MuseScore 3.0
 import FileIO 3.0
 import MuseScore 3.0 as MS
-import "native-prelude-writer.js" as NativePrelude
-import "native-prelude-target-map.js" as NativeMapping
+import "../native-prelude-writer.js" as NativePrelude
+import "../native-prelude-target-map.js" as NativeMapping
 
 MuseScore {
     id: root
