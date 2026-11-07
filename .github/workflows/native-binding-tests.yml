@@ -1,0 +1,35 @@
+name: Native output binding preflight (isolated branch)
+on:
+  push:
+    branches: [feat/native-output-target-spike-20261106]
+    paths:
+      - native-prelude-target-map.js
+      - tests/test_native_prelude_target_map.cjs
+      - tests/AI-Notation-Studio-App-native-output-staging.qml
+      - tests/test_native_output_staging.cjs
+      - tests/test_native_output_staging_ui.py
+      - .github/workflows/native-binding-tests.yml
+  workflow_dispatch:
+jobs:
+  binding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: |
+          node --check native-prelude-target-map.js
+          node --check tests/test_native_prelude_target_map.cjs
+      - name: Run identity and safety tests
+        run: |
+          node tests/test_native_prelude_target_map.cjs
+          node tests/test_native_output_staging.cjs
+      - name: Install Qt headless test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          python -m pip install --disable-pip-version-check PySide6
+      - name: Run real Qt Quick staging smoke test (MuseScore stubs)
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+        run: python tests/test_native_output_staging_ui.py
