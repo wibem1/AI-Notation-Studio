@@ -2,7 +2,7 @@
 // part/staff/voice identities. This module never mutates curScore.
 function nativePreludeTargetMap(score, data, job) {
     function fail(s) { throw Error("Native Vorspiel-Zuordnung: " + s) }
-    if (!score || !Array.isArray(score.parts) || !data || !Array.isArray(data.parts) ||
+    if (!score || (!score.parts || typeof score.parts.length !== "number") || !data || !Array.isArray(data.parts) ||
         !job || job.mode !== 9 || !Array.isArray(job.preludeTargets))
         fail("Vorspiel, Partitur oder gespeicherte Instrumentauswahl fehlt.")
     var groups=job.preludeTargets
@@ -87,4 +87,5 @@ function nativePreludeTargetMap(score, data, job) {
     })
     return maps
 }
-if (typeof module !== "undefined") module.exports=nativePreludeTargetMap
+if (typeof module !== 'undefined') module.exports = nativePreludeTargetMap
+
