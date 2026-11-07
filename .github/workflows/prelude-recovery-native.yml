@@ -1,0 +1,114 @@
+name: Native prelude saved-answer recovery (isolated branch)
+on:
+  push:
+    branches: [fix/prelude-staff-recovery-0.11.13]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      # Check rollback, committed native insertion and the established notation undo action.
+      - name: Simulated safety checks
+        run: |
+          node tests/test_native_measure_probe.cjs
+          node tests/test_native_prelude_plan.cjs /tmp/ans-prelude-data.json
+          node tests/test_native_output_xml_map.cjs
+          PRELUDE_RECOVERY_BASE=/tmp/ans-test.musicxml PRELUDE_RECOVERY_REQUEST=/tmp/prelude-recovery-request.json node tests/test_prelude_staff_recovery.cjs
+      - name: Install headless GUI dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xdotool scrot libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libnss3 libasound2t64
+      - name: Download official MuseScore Studio 4.7.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://github.com/musescore/MuseScore/releases/download/v4.7.6
+          NAME=MuseScore-Studio-4.7.6.261022093-x86_64.AppImage
+          curl -fL --retry 1 --max-time 240 -o "$NAME" "$BASE/$NAME"
+          curl -fL --retry 1 --max-time 60 -o checksums.sha256.txt "$BASE/checksums.sha256.txt"
+          awk -v n="$NAME" '$2==n {print}' checksums.sha256.txt | sha256sum -c -
+          chmod +x "$NAME"
+          ./"$NAME" --appimage-extract >/dev/null
+      - name: Import score with official MuseScore
+        env:
+          QT_QPA_PLATFORM: offscreen
+          MU_QT_QPA_PLATFORM: offscreen
+        run: |
+          timeout 90 ./squashfs-root/AppRun -o /tmp/ans-test.mscz /tmp/ans-test.musicxml
+          test -s /tmp/ans-test.mscz
+      - name: Native GUI plugin discovery and invocation
+        env:
+          QT_QPA_PLATFORM: xcb
+          MU_QT_QPA_PLATFORM: xcb
+          QT_QUICK_BACKEND: software
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/Documents/MuseScore4/Plugins"
+          cp tests/native_prelude_recovery_probe.qml "$HOME/Documents/MuseScore4/Plugins/"
+          cp tests/AI-Notation-Studio-App-prelude-recovery.qml "$HOME/Documents/MuseScore4/Plugins/AI-Notation-Studio-App-0.11.13.qml"
+          mkdir -p "$HOME/.local/share/MuseScore/MuseScore4/extensions"
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path.home()/'.local/share/MuseScore/MuseScore4/extensions/config.json'
+          p.write_text(json.dumps([{'uri':'musescore://extensions/v1/native_prelude_recovery_probe.qml','actions':[{'code':'main','exec_point':'manually'}]}]))
+          print('Created isolated extension manifest configuration:',p)
+          PY
+          cat >/tmp/ans-gui-driver.sh <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          ./squashfs-root/AppRun /tmp/ans-test.mscz > /tmp/ans-recovery-probe.log 2>&1 &
+          pid=$!
+          echo "MuseScore GUI pid=$pid"
+          sleep 10
+          xdotool search --onlyvisible --name 'MuseScore|ANS-TEST' getwindowname 2>&1 || true
+          scrot /tmp/ans-before-menu.png || true
+          # First-launch setup covers the score in a clean runner; finish it explicitly.
+          for i in 1 2 3; do
+            timeout 3 xdotool mousemove 788 617 click 1 || true
+            sleep 1
+          done
+          # Onboarding returns to Home: select the score tab before requiring a score plugin.
+          timeout 3 xdotool mousemove 102 46 click 1 || true
+          sleep 2
+          scrot /tmp/ans-menu.png || true
+          # Top-level Plugins menu in the official 1440x900 MuseScore 4.7.6 GUI.
+          timeout 3 xdotool mousemove 293 13 click 1 || true
+          sleep 2
+          scrot /tmp/ans-after-menu.png || true
+          # Native probe entry seen at x~375,y~82 in the preceding diagnostic screenshot.
+          timeout 3 xdotool mousemove 372 82 click 1 || true
+          sleep 12
+          scrot /tmp/ans-after-menu.png || true
+          # Log verdict is the sole source for a native PASS; never infer from a menu click.
+          kill "$pid" 2>/dev/null || true
+          wait "$pid" 2>/dev/null || true
+          SH
+          chmod +x /tmp/ans-gui-driver.sh
+          timeout 55 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- /tmp/ans-gui-driver.sh || true
+          if test -s /tmp/ans-recovery-result.txt; then cat /tmp/ans-recovery-result.txt; fi
+          if grep -q 'ANS_RECOVERY PASS:' /tmp/ans-recovery-result.txt; then
+            python tests/verify_prelude_recovery_native.py
+            echo 'Native QML probe and MusicXML preservation checks PASS'
+          else
+            echo 'Native probe NOT VERIFIED; GUI screenshots/logs are diagnostic only'
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ans-poly-probe-logs
+          path: |
+            /tmp/ans-recovery-probe.log
+            /tmp/ans-recovery-result.txt
+            /tmp/recovery-before.musicxml
+            /tmp/recovery-new.musicxml
+            /tmp/recovery-original-after.musicxml
+            /tmp/ans-before-menu.png
+            /tmp/ans-menu.png
+            /tmp/ans-after-menu.png
+          if-no-files-found: ignore
+
+

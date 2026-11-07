@@ -560,6 +560,64 @@ function repairPreludeFinalEighth(xml, expectedQuarter) {
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),warnings:warnings};
 }
 
+
+// Narrow recovery: a provider emitted a silent piano before the complete
+// grand-staff prelude, while two explicitly selected piano targets have 2/1 staves.
+// Only the unique compatible grand staff can receive sounding material.
+// No sounding note, expression, voice or original measure is rewritten.
+function alignPreludePianoRestParts(original,incoming,indices) {
+ var baseParts=children(original,'part'),parts=children(incoming,'part');
+ var unchanged={parts:parts,indices:indices,warnings:[]};
+ if(parts.length!==2||indices.length!==2)return unchanged;
+ var baseDefs=children(first(original,'part-list')||{children:[]},'score-part');
+ var freshDefs=children(first(incoming,'part-list')||{children:[]},'score-part');
+ function piano(def){
+  if(!def)return false;
+  var midi=first(def,'midi-instrument')||{children:[]};
+  var program=text(midi,'midi-program','');
+  var ins=first(def,'score-instrument')||{children:[]};
+  if(program&&program!=='1')return false;
+  return program==='1'||text(ins,'instrument-sound','')==='keyboard.piano';
+ }
+ if(!indices.every(function(index){return piano(baseDefs[index]);})||!freshDefs.every(piano))return unchanged;
+ var targetStaves=indices.map(function(index){return timeline(baseParts[index]).rows[0].staves;});
+ if(targetStaves.slice().sort().join(',')!=='1,2')return unchanged;
+ var dimensions=parts.map(function(part){return timeline(part).rows[0].staves;});
+ if(dimensions[0]!==2||dimensions[1]!==2)return unchanged;
+ function plainSilent(part){
+  return children(part,'measure').every(function(measure){
+   var notes=children(measure,'note');
+   if(notes.length!==1||!first(notes[0],'rest')||first(notes[0],'notations')||
+      text(notes[0],'staff','1')!=='1'||text(notes[0],'voice','1')!=='1')return false;
+   if(children(measure,'backup').length||children(measure,'forward').length||children(measure,'harmony').length)return false;
+   return children(measure,'direction').every(function(d){return text(d,'staff','1')==='1';});
+  });
+ }
+ function sounding(part){
+  return children(part,'measure').some(function(m){return children(m,'note').some(function(n){return !!first(n,'pitch');});});
+ }
+ var silent=parts.map(plainSilent),active=parts.map(sounding);
+ if(silent.filter(Boolean).length!==1||active.filter(Boolean).length!==1)return unchanged;
+ var quiet=silent.indexOf(true),music=active.indexOf(true);
+ if(quiet===music)return unchanged;
+ var grand=targetStaves.indexOf(2),single=targetStaves.indexOf(1);
+ var mapped=indices.slice();
+ mapped[music]=indices[grand];mapped[quiet]=indices[single];
+ var adapted=clone(parts[quiet]),rows=timeline(parts[quiet]).rows;
+ adapted.children=adapted.children.filter(function(n){return typeof n==='string'||n.name!=='measure';});
+ rows.forEach(function(row,index){
+  var m=blank(row,index+1,index===0,row.division,1);
+  // Preserve all directions, their offsets and the incoming barline.
+  children(row.node,'direction').forEach(function(d){m.children.push(clone(d));});
+  children(row.node,'barline').forEach(function(b){m.children.push(clone(b));});
+  adapted.children.push(m);
+ });
+ var aligned=parts.slice();aligned[quiet]=adapted;
+ return {parts:aligned,indices:mapped,warnings:[
+  'Vorspiel-Zuordnung korrigiert: Der vollständige zweihändige Klavierpart liegt auf dem vorhandenen zweisystemigen Klavier (Part '+(mapped[music]+1)+'). Der zusätzliche einzeilige Klavierpart pausiert im Vorspiel. Keine Noten oder Ausdruckszeichen wurden entfernt.'
+ ]};
+}
+
 function prependPrelude(baseXML, addedXML, options) {
  if(options&&options.targetGroups){
   var groups=options.targetGroups;
@@ -608,6 +666,8 @@ function prependPrelude(baseXML, addedXML, options) {
   if(Math.abs(t.rows[0].length-firstRow.length)>1e-7)
    throw Error('Vorspiel: Part beginnt mit abweichender Taktlänge.');
  });
+ var aligned=alignPreludePianoRestParts(original,incoming,indices);
+ newParts=aligned.parts;indices=aligned.indices;
  // Validate the generated material and mapping before modifying a clone.
  newParts.forEach(function(part,j){
   var orig=timeline(baseParts[indices[j]]),fresh=timeline(part);
@@ -670,7 +730,7 @@ function prependPrelude(baseXML, addedXML, options) {
   part.children=part.children.filter(function(x){return typeof x==='string'||x.name!=='measure';}).concat(all);
  });
  return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(result),
-  warnings:repaired.warnings.concat(['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.'])};
+  warnings:repaired.warnings.concat(aligned.warnings).concat(['Vorspiel vorangestellt; Ausgangspartitur bleibt unverändert. Die erzeugte Kopie kann andere Seitenumbrüche haben.'])};
 }
 
 function combine(baseXML,addedXML,options){
