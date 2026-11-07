@@ -1,5 +1,20 @@
 # Projektstand – AI Notation Studio
 
+## Live 0.11.12 – begrenzte Ausgabeziel-Vorabfassung (07.11.2026)
+
+Auf ausdrücklichen Veröffentlichungsauftrag ist die abgesicherte Teilfunktion über den vorhandenen Updatefeed bereitgestellt. **Kein Abschluss der vollständigen Anforderungen aus Issue #2.**
+
+- **Ausgeliefert:** gespeicherte Auswahl „Bestehende Partitur (Standard) / Neue Partitur“. Gemeinsames validiertes Ergebnis, kein neuer Provideraufruf beim Zielwechsel. Native Einfügung einfacher Vorspiele in derselben Partitur, ein Undo; keine stille Ersatzöffnung. Alle Laufzeitfunktionen sind in der App-QML eingebettet.
+- **Geprüft:** echte MuseScore-Studio-4.7.6-Linux-GUI mit tatsächlicher Vorschau-App und Übernahme-Schaltfläche, vollständiger Quell-Guard und Zuordnung aus demselben MusicXML wie beim Kopierweg. Zwei neue Takte, 3 Klavierstimmen/22 exakt erwartete Ereignisse; Originaltakte und Ausdruckszeichen erhalten; Undo und Ablehnung nicht unterstützter neuer Pedalzeichen. **Run #42356107868 erfolgreich**, Code `22bda28`.
+- **Regressionsfreigabe:** vollständige vorhandene JavaScript-/Python-/Qt-Suite einschließlich Update/Neustart, Run #42356107961 erfolgreich. Der frühere native Writer-Test #42352037957 belegt zusätzlich Fehler-Rollback nach Teilbeschriftung. Keine kostenpflichtigen API-Aufrufe.
+- **Wichtig für den Updater:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.12.qml` und `versions/AI-Notation-Studio-App-0.11.12.qml` enthalten exakt denselben geprüften Code. Starter 0.7.27 und alle älteren Versionsdateien unverändert.
+- **Begrenztes Profil:** vollständige 4/4-Vorspieltakte in C-Dur mit Noten/Akkorden/Pausen/Punktierungen; Originalanfang ebenfalls C-Dur/4/4. Klaviersysteme werden aus dem bereits validierten MusicXML übernommen, nicht neu aus Anzeigenamen oder Tonhöhen erraten. Arrayartige echte QML-Partlisten unterstützt.
+- **Offen:** neue Pedal-/Dynamik-/Tempo-/Spannerzeichen, Tuplets/Vorschläge/Bögen, weitere Ton-/Taktarten, geteilte Klavierparts, native Fortsetzung/Variation/Ersetzen und vollständiger Windows-End-to-End-Test. Solche Fälle werden vor Mutation abgelehnt; „Neue Partitur“ bleibt ausdrücklich wählbar. Hinweistext steht in der App. Issue #2 bleibt offen.
+- **Nächster Entwicklungsschritt:** den nativen Writer um verlustfreie neue Ausdruckszeichen und rhythmische Sonderfälle erweitern, dann weitere Modi anbinden und nativ prüfen.
+- Installation und genaue Nachweise: [RELEASE-0.11.12.md](RELEASE-0.11.12.md).
+
+## Entwicklungsprotokoll vor der Vorabveröffentlichung
+
 ## 07.11.2026 – Gemeinsames Ausgabeziel als abgesicherte Staging-Oberfläche (nicht freigegeben)
 - Nach dem erfolgreich nativ getesteten begrenzten polyphonen Writer (#42352037957) wurde `native-prelude-target-map.js` ergänzt: strikt lesende Zuordnung von Quell-Part-ID zu realem MuseScore-Partindex, Instrument-ID, Staff/Voice/Track mit Schutz vor Mehrdeutigkeit. **Bei zweisystemigem Klavier ist eine EXPLIZITE Stimmen-/Systemzuordnung erforderlich**; aus Stimmentiteln oder Tonhöhen wird sie nicht erraten. Geteilte Original-Klavierparts sowie nicht eindeutige Konstellationen werden abgelehnt.
 - **Staging-App nur im Testbereich**: `tests/AI-Notation-Studio-App-native-output-staging.qml` hat eine gespeicherte Auswahl „Übernehmen in: Bestehende Partitur (Standard) / Neue Partitur“. „Neue Partitur“ verwendet die bisherige `openCompactScore()`-Route. „Bestehende Partitur“ verwendet dasselbe bereits geprüfte `compositionJson`, prüft Workflow-Guard, Parts und jede Schreibfähigkeit **vor** Mutation und ruft den isolierten Writer nur für sein geprüftes **begrenztes** Vorspielprofil auf. Keine automatische Ersatzöffnung einer neuen Partitur bei Ablehnung, kein neuer Provideraufruf. Metadaten außerhalb der nativen Transaktion werden nicht geschrieben. Andere Bearbeitungsmodi werden in der Staging-Fassung sichtbar abgewiesen, statt ein unerprobtes Ziel vorzutäuschen.

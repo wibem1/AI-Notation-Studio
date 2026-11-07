@@ -1,3 +1,11 @@
+# AI Notation Studio 0.11.12 – Vorabfassung, 07.11.2026
+
+**Jetzt verfügbar:** Auswahl **Bestehende Partitur / Neue Partitur**. Direktes Einfügen unterstützt zunächst einfache Vorspiele in C-Dur und 4/4, auch mehrstimmiges Klavier mit Akkorden und Pausen. Nicht unterstützte Inhalte werden vor jeder Änderung abgelehnt; dafür bleibt „Neue Partitur“ wählbar. Ein Zielwechsel benötigt keinen neuen KI-Aufruf.
+
+**Update prüfen → Update installieren.** Starter und gespeicherte Einstellungen bleiben erhalten. [Grenzen und Prüfnachweise](RELEASE-0.11.12.md).
+
+## Bisherige Versionshinweise
+
 # AI Notation Studio 0.11.11 – 06.11.2026
 
 **Vorspiel-Korrektur:** Dezimale Pedal-/Ausdruckspositionen bringen die Notationsübernahme nicht mehr zum Abbruch. Instrumentennamen sind im dunklen Vorspielmodus lesbar. **Update prüfen → Update installieren**, dann **Gespeicherte KI-Antwort erneut prüfen (kostenfrei)** und **Fertige Fassung in MuseScore öffnen**. [Details und Testnachweise](RELEASE-0.11.11.md).

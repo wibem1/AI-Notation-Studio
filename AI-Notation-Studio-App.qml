@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.11"
+    version: "0.11.12"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -124,6 +124,7 @@ MuseScore {
         property string activeHotAppSource: ""
         property string activeHotAppVersion: ""
         property string diagnosticExportDirectory: ""
+        property int nativeOutputTarget: 0 // 0 = existing (desired), 1 = new score
     }
 
     FileIO { id: historyFile; onError: function(msg) { historyError = String(msg) } }
@@ -843,6 +844,419 @@ MuseScore {
         aiAnswer = compactSourceText || compositionJson
         statusText = "Komposition aus Verlauf geladen. Über den Öffnen-Button in MuseScore übernehmen."
         historyDialog.close()
+    }
+
+    // Limited preview: native preflight rejects unsupported content before mutation.
+    // Both targets consume the already validated compositionJson.
+    // Development module only. Not wired into the released app.
+    // Strict, explicitly mapped CS1/Maxi subset: full 4/4 bars, notes/chords/rests.
+    function createNativePreludeWriter() {
+        var DUR = {whole:1920, half:960, quarter:480, eighth:240, '16th':120, '32nd':60, '64th':30, '128th':15}
+        function fail(message) { throw Error('Native Übernahme: ' + message) }
+        function keys(value, allowed, where) {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) fail(where + ': Objekt fehlt.')
+            Object.keys(value).forEach(function(key) {
+                if (allowed.indexOf(key) < 0) fail(where + ': noch nicht unterstütztes Feld ' + key)
+            })
+        }
+        function integer(value, min, max, where) {
+            if (typeof value !== 'number' || !isFinite(value) || value % 1 || value < min || value > max) fail(where)
+            return value
+        }
+        function emptyMarks(value) {
+            if (value !== undefined && (!Array.isArray(value) || value.length)) fail('Neue Ausdruckszeichen werden noch nicht übertragen; Quelle bleibt unverändert.')
+        }
+        function pitch(text) {
+            var match = /^([A-G])(bb|##|b|#)?(-?\d+)$/.exec(text || '')
+            if (!match) fail('Ungültige Tonhöhe: ' + text)
+            var semitone = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[match[1]]
+            var accidental = {'':0,b:-1,bb:-2,'#':1,'##':2}[match[2] || '']
+            return {midi:integer((Number(match[3])+1)*12 + semitone + accidental, 0, 127, 'Tonhöhe außerhalb MIDI-Bereich.'),
+                    tpc:{C:14,D:16,E:18,F:13,G:15,A:17,B:19}[match[1]] + 7*accidental}
+        }
+        function prepare(score, data, mappings) {
+            // This entire function is read-only. Unsupported contents are never dropped.
+            keys(data, ['format','version','score','parts','globalMarkings'], 'Partitur')
+            if (data.format !== 'AI-Notation-Maxi' || data.version !== '0.1') fail('Maxi 0.1 wird erwartet.')
+            keys(data.score, ['title','composer','key','timeSignature'], 'Kopfdaten')
+            if (data.score.timeSignature !== '4/4' || data.score.key !== 'C major') fail('Dieser Entwicklungsschritt unterstützt ausschließlich 4/4 in C-Dur.')
+            emptyMarks(data.globalMarkings)
+            if (!Array.isArray(data.parts) || !data.parts.length || !Array.isArray(mappings) || mappings.length !== data.parts.length) fail('Explizite Partzuordnung fehlt.')
+            if (!score || !score.parts || !score.nmeasures || !score.nstaves) fail('Keine Zielpartitur.')
+            var events = [], count = null, usedTracks = {}, seenPartIds = {}, targetParts = {}
+            var bindings = []
+            data.parts.forEach(function(part) {
+                keys(part, ['id','instrument','measures','markings'], 'Part')
+                emptyMarks(part.markings)
+                if (typeof part.id !== 'string' || !part.id || seenPartIds[part.id]) fail('Ungültige oder doppelte Part-ID.')
+                seenPartIds[part.id] = true
+                var map = mappings.filter(function(m) { return m.sourcePart === part.id })
+                if (map.length !== 1) fail('Part-ID muss genau ein Ziel haben: ' + part.id)
+                map = map[0]
+                keys(map, ['sourcePart','targetPartIndex','voices'], 'Zuordnung')
+                var targetIndex = integer(map.targetPartIndex, 0, score.parts.length-1, 'Zielpart fehlt.')
+                if (targetParts[targetIndex]) fail('Mehrere Quellparts auf demselben Zielpart sind noch nicht unterstützt.')
+                targetParts[targetIndex] = true
+                var target = score.parts[targetIndex]
+                if (['piano','flute'].indexOf(part.instrument) < 0 || target.instrumentId !== part.instrument) fail('Nicht unterstütztes oder abweichendes Zielinstrument.')
+                var start = integer(Number(target.startTrack), 0, score.nstaves*4-1, 'Partanfang ungültig.')
+                var end = integer(Number(target.endTrack), start+1, score.nstaves*4, 'Partende ungültig.')
+                if (start % 4 || end % 4) fail('Partgrenzen liegen nicht auf Systemgrenzen.')
+                if (!Array.isArray(map.voices) || !map.voices.length) fail('Stimmzuordnung fehlt.')
+                var voiceMap = {}, voiceIds = []
+                map.voices.forEach(function(v) {
+                    keys(v, ['sourceVoice','targetStaff','targetVoice'], 'Stimmzuordnung')
+                    var id = integer(v.sourceVoice, 1, 64, 'Ungültige Quellstimme.')
+                    var staff = start/4 + integer(v.targetStaff, 0, (end-start)/4-1, 'Zielsystem außerhalb des Parts.')
+                    var voice = integer(v.targetVoice, 0, 3, 'Ungültige MuseScore-Stimme.')
+                    var track = staff*4+voice
+                    if (voiceMap[id] || usedTracks[track]) fail('Doppelte Stimm-/Systemzuordnung.')
+                    usedTracks[track] = true
+                    voiceIds.push(id)
+                    voiceMap[id] = {staff:staff, voice:voice}
+                })
+                if (!Array.isArray(part.measures) || !part.measures.length) fail('Keine Takte.')
+                if (count === null) count = integer(part.measures.length, 1, 64, 'Zu viele Takte.')
+                if (part.measures.length !== count) fail('Unterschiedliche Taktzahlen.')
+                part.measures.forEach(function(measure, index) {
+                    keys(measure, ['number','voices'], 'Takt')
+                    if (measure.number !== index+1 || !Array.isArray(measure.voices) || measure.voices.length !== voiceIds.length) fail('Takte und Stimmen müssen vollständig und fortlaufend sein.')
+                    var seenVoices = {}
+                    measure.voices.forEach(function(v) {
+                        keys(v, ['voice','events'], 'Stimme')
+                        var dest = voiceMap[v.voice]
+                        if (!dest || seenVoices[v.voice] || !Array.isArray(v.events) || !v.events.length) fail('Stimme fehlt oder ist doppelt.')
+                        seenVoices[v.voice] = true
+                        var offset = 0
+                        v.events.forEach(function(event) {
+                            keys(event, ['type','pitch','pitches','duration','dots'], 'Notenereignis')
+                            if (['note','rest','chord'].indexOf(event.type) < 0) fail('Tuplets, Vorschläge und Bögen sind noch nicht unterstützt.')
+                            var duration = DUR[event.duration]
+                            if (!duration) fail('Unbekannter Notenwert.')
+                            var dots = event.dots === undefined ? 0 : integer(event.dots, 0, 2, 'Ungültige Punktierung.')
+                            duration = duration*(2-Math.pow(0.5,dots))
+                            if (duration % 1) fail('Nicht exakt darstellbarer Notenwert.')
+                            var notes = []
+                            if (event.type === 'note') {
+                                if (event.pitches !== undefined) fail('Note mit zusätzlichem Akkordfeld.')
+                                notes = [pitch(event.pitch)]
+                            } else if (event.type === 'chord') {
+                                if (event.pitch !== undefined || !Array.isArray(event.pitches) || !event.pitches.length) fail('Ungültiger Akkord.')
+                                notes = event.pitches.map(pitch)
+                            } else if (event.pitch !== undefined || event.pitches !== undefined) fail('Pause enthält Tonhöhen.')
+                            var midi = {}
+                            notes.forEach(function(n) { if (midi[n.midi]) fail('Doppelter Akkordton.'); midi[n.midi] = true })
+                            notes.sort(function(a,b) { return a.midi-b.midi })
+                            if (offset+duration > 1920) fail('Übervoller Takt.')
+                            events.push({tick:index*1920+offset, duration:duration, staff:dest.staff, voice:dest.voice, notes:notes})
+                            offset += duration
+                        })
+                        if (offset !== 1920) fail('Unvollständiger Takt. Keine automatische Auffüllung.')
+                    })
+                })
+                bindings.push({index:targetIndex,start:start,end:end,instrumentId:target.instrumentId})
+            })
+            // Each used staff needs voice 1 to avoid hidden host-created placeholder rests.
+            Object.keys(usedTracks).forEach(function(track) {
+                if (!usedTracks[Math.floor(Number(track)/4)*4]) fail('Auf jedem beschriebenen System muss die erste Stimme vorhanden sein.')
+            })
+            return {measures:count, events:events, bindings:bindings, originalMeasures:Number(score.nmeasures), staves:Number(score.nstaves)}
+        }
+        function apply(score, plan, api) {
+            if (!plan || !plan.events || !plan.events.length || !api || typeof api.fractionFromTicks !== 'function' || typeof api.cmd !== 'function') fail('Ungültiger Plan oder fehlende exakte Cursor-API.')
+            if (Number(score.nmeasures) !== plan.originalMeasures || Number(score.nstaves) !== plan.staves) fail('Zielpartitur wurde verändert.')
+            plan.bindings.forEach(function(b) {
+                var part = score.parts[b.index]
+                if (!part || Number(part.startTrack) !== b.start || Number(part.endTrack) !== b.end || part.instrumentId !== b.instrumentId) fail('Zielparts wurden verändert.')
+            })
+            if (!score.selection || typeof score.selection.selectRange !== 'function' || typeof score.selection.select !== 'function') fail('Sichere Auswahl-API fehlt.')
+            var check = score.newCursor()
+            if (typeof check.rewindToFraction !== 'function' || typeof check.addRest !== 'function') fail('Exakte Cursorposition oder Pausen-API fehlt.')
+            check.rewind(0)
+            if (Number(check.tick) !== 0) fail('Auftakt oder verschobener Anfang.')
+            check.nextMeasure()
+            if (Number(check.tick) !== 1920) fail('Kein vollständiger 4/4-Anfangstakt.')
+            function at(event) {
+                var c = score.newCursor()
+                c.staffIdx = event.staff
+                c.voice = event.voice
+                c.rewindToFraction(api.fractionFromTicks(event.tick))
+                if (!c.segment || Number(c.tick) !== event.tick) fail('Exakte Einfügeposition nicht erreichbar: ' + event.tick)
+                return c
+            }
+            function verify(event) {
+                var element = at(event).element
+                if (!element || !element.actualDuration || Number(element.actualDuration.ticks) !== event.duration) fail('Falscher übernommener Notenwert.')
+                if (!event.notes.length) {
+                    if (element.name !== 'Rest') fail('Pause wurde nicht übernommen.')
+                } else {
+                    if (element.name !== 'Chord' || element.notes.length !== event.notes.length) fail('Akkord unvollständig.')
+                    var actual = []
+                    for (var i=0; i<element.notes.length; i++) actual.push({midi:Number(element.notes[i].pitch), tpc:Number(element.notes[i].tpc1)})
+                    actual.sort(function(a,b) { return a.midi-b.midi })
+                    for (var n=0; n<actual.length; n++) if (actual[n].midi !== event.notes[n].midi || actual[n].tpc !== event.notes[n].tpc) fail('Tonhöhe oder Schreibweise stimmt nicht.')
+                }
+            }
+            var active = false
+            try {
+                // MuseScore 4.7.6 Selection.selectRange uses deferred setRangeTicks
+                // during an active command. Clear+selectRange there can leave no
+                // usable segment for insert-measure (native crash). Select first.
+                score.selection.clear()
+                score.selection.selectRange(0, 1920, 0, score.nstaves)
+                if (!score.selection.isRange) fail('Anfangstakt nicht auswählbar.')
+                score.startCmd('AI Notation Studio: native Vorspieltakte')
+                active = true
+                for (var bar=0; bar<plan.measures; bar++) {
+                    if (bar > 0) {
+                        // After addBoxes, its deferred range selection is empty while
+                        // our outer command is active, so the next action is disabled.
+                        // Selection.select(Rest) directly calls Score::select instead
+                        // of deferred setRangeTicks. No range mutation in a command.
+                        var first = score.newCursor()
+                        first.staffIdx = 0
+                        first.voice = 0
+                        first.rewind(0)
+                        if (Number(first.tick) !== 0 || !first.element || first.element.name !== 'Rest' || !score.selection.select(first.element, false))
+                            fail('Neuer Anfangstakt nicht sicher auswählbar.')
+                    }
+                    api.cmd('insert-measure')
+                    if (Number(score.nmeasures) !== plan.originalMeasures+bar+1) fail('Takteinfügung fehlgeschlagen.')
+                }
+                plan.events.forEach(function(event) {
+                    if (!event.notes.length) {
+                        var rest = at(event)
+                        rest.setDuration(event.duration, 1920)
+                        rest.addRest()
+                    } else {
+                        event.notes.forEach(function(note,index) {
+                            var c = at(event)
+                            c.setDuration(event.duration, 1920)
+                            c.addNote(note.midi, index > 0)
+                        })
+                        var chord = at(event).element
+                        if (!chord || chord.name !== 'Chord') fail('Geschriebener Akkord fehlt.')
+                        for (var n=0; n<chord.notes.length; n++) {
+                            var note = chord.notes[n]
+                            var expected = event.notes.filter(function(x) { return x.midi === Number(note.pitch) })
+                            if (expected.length !== 1) fail('Unerwarteter Akkordton.')
+                            note.tpc1 = expected[0].tpc
+                            note.tpc2 = expected[0].tpc
+                        }
+                    }
+                    verify(event)
+                })
+                plan.events.forEach(verify)
+                if (Number(score.nmeasures) !== plan.originalMeasures+plan.measures || Number(score.nstaves) !== plan.staves) fail('Abschließende Strukturprüfung fehlgeschlagen.')
+                score.endCmd(false)
+                active = false
+                return {measures:plan.measures, events:plan.events.length}
+            } catch (error) {
+                if (active) score.endCmd(true)
+                throw error
+            }
+        }
+        return {prepare:prepare, apply:apply}
+    }
+    
+
+    // Development-only strict binding from a validated prelude job to native MuseScore
+    // part/staff/voice identities. This module never mutates curScore.
+    function nativePreludeTargetMap(score, data, job) {
+        function fail(s) { throw Error("Native Vorspiel-Zuordnung: " + s) }
+        if (!score || (!score.parts || typeof score.parts.length !== "number") || !data || !Array.isArray(data.parts) ||
+            !job || job.mode !== 9 || !Array.isArray(job.preludeTargets))
+            fail("Vorspiel, Partitur oder gespeicherte Instrumentauswahl fehlt.")
+        var groups=job.preludeTargets
+        if (!groups.length || groups.length !== data.parts.length)
+            fail("Quellparts und ausgewählte Instrumente stimmen nicht eindeutig überein.")
+        var usedTargets={},usedSource={},maps=[]
+        data.parts.forEach(function(source, i) {
+            if (!source || typeof source.id !== "string" || !source.id || usedSource[source.id])
+                fail("Quell-Part-ID fehlt oder ist doppelt.")
+            usedSource[source.id]=true
+            var group=groups[i]
+            if (!group || !Array.isArray(group.indices) || group.indices.length !== 1 ||
+                group.splitPiano)
+                fail("Geteilte Klavierparts und Gruppen mit mehreren Originalparts brauchen eigene Prüfung.")
+            var index=group.indices[0]
+            if (typeof index !== "number" || !isFinite(index) || index % 1 ||
+                index < 0 || index >= score.parts.length || usedTargets[index])
+                fail("Doppelte oder ungültige Ziel-Part-ID.")
+            usedTargets[index]=true
+            var target=score.parts[index]
+            if (!target || typeof target.instrumentId !== "string" ||
+                target.instrumentId !== source.instrument)
+                fail("Instrument-ID von Original und KI-Ergebnis stimmt nicht überein.")
+            var start=Number(target.startTrack),end=Number(target.endTrack)
+            if (!isFinite(start) || !isFinite(end) || start % 4 || end % 4 ||
+                start < 0 || end > Number(score.nstaves)*4 || end<=start)
+                fail("Notensystemgrenzen des Zielparts ungültig.")
+            var staffCount=(end-start)/4
+            if (!Array.isArray(source.measures) || !source.measures.length)
+                fail("Quellpart enthält keine Takte.")
+            var voices={}
+            source.measures.forEach(function(measure) {
+                if (!measure || !Array.isArray(measure.voices)) fail("Stimmen fehlen.")
+                measure.voices.forEach(function(v) {
+                    if (!v || typeof v.voice !== "number" || v.voice % 1 ||
+                        v.voice < 1 || v.voice > 64) fail("Ungültige Quellstimme.")
+                    voices[v.voice]=true
+                })
+            })
+            var voiceIds=Object.keys(voices).map(Number).sort(function(a,b){return a-b})
+            // Crucial: voice numbers alone DO NOT encode which hand/staff a
+            // pianist intended. Require a validated, explicit per-voice mapping
+            // for every multi-staff part. Do not guess from pitch or display name.
+            if (staffCount !== 1 && staffCount !== 2)
+                fail("Instrument mit mehr als zwei Systemen wird noch nicht unterstützt.")
+            var declared=job.nativeVoiceMapping && job.nativeVoiceMapping[source.id]
+            if (staffCount > 1 && !Array.isArray(declared))
+                fail("Für mehrsystemige Parts fehlt die explizite Stimm-/Systemzuordnung.")
+            var mapping=[]
+            if (Array.isArray(declared)) {
+                var seen={}
+                declared.forEach(function(entry) {
+                    if (!entry || !(typeof entry.sourceVoice === 'number' && entry.sourceVoice % 1 === 0) ||
+                        !(typeof entry.targetStaff === 'number' && entry.targetStaff % 1 === 0) || !(typeof entry.targetVoice === 'number' && entry.targetVoice % 1 === 0) ||
+                        !voices[entry.sourceVoice] || seen[entry.sourceVoice] ||
+                        entry.targetStaff < 0 || entry.targetStaff >= staffCount ||
+                        entry.targetVoice < 0 || entry.targetVoice > 3)
+                        fail("Mehrdeutige oder ungültige explizite Stimmzuordnung.")
+                    seen[entry.sourceVoice]=true
+                    mapping.push({sourceVoice:entry.sourceVoice,targetStaff:entry.targetStaff,targetVoice:entry.targetVoice})
+                })
+                if (Object.keys(seen).length !== voiceIds.length)
+                    fail("Nicht alle Quellstimmen sind zugeordnet.")
+            } else {
+                if (!voiceIds.length || voiceIds.length>4 ||
+                    voiceIds.some(function(id,j){return id !== j+1}))
+                    fail("Quellstimmen eines Einzelstaffs sind nicht lückenlos 1..4.")
+                voiceIds.forEach(function(id) {
+                    mapping.push({sourceVoice:id,targetStaff:0,targetVoice:id-1})
+                })
+            }
+            var seenTracks={}
+            mapping.forEach(function(entry) {
+                var track=entry.targetStaff*4+entry.targetVoice
+                if (seenTracks[track]) fail("Mehrere Quellstimmen teilen einen Zieltrack.")
+                seenTracks[track]=true
+                if (entry.targetVoice>0 && !mapping.some(function(x) {
+                    return x.targetStaff===entry.targetStaff && x.targetVoice===0
+                })) fail("Jedes beschriebene System benötigt die Hauptstimme.")
+            })
+            maps.push({sourcePart:source.id,targetPartIndex:index,voices:mapping})
+        })
+        return maps
+    }
+    
+
+    // Bind native voices to the staff assignments in the SAME validated MusicXML
+    // used by the alternative output target. No new pitch/name/hand heuristic.
+    function nativeVoiceMappingFromMusicXML(data, tree) {
+        function children(node, name) {
+            return (node.children || []).filter(function(n) { return n && typeof n !== 'string' && n.name === name })
+        }
+        function text(node, name) {
+            var found = children(node,name)
+            return found.length === 1 ? found[0].children.filter(function(n) { return typeof n === 'string' }).join('').trim() : ''
+        }
+        var roots = tree && tree.name === 'score-partwise' ? [tree] : children(tree,'score-partwise')
+        if (roots.length !== 1) throw Error('Die geprüfte MusicXML-Partitur fehlt.')
+        var parts = children(roots[0],'part')
+        if (parts.length !== data.parts.length) throw Error('MusicXML-Partzuordnung ist nicht eindeutig.')
+        var result = {}
+        data.parts.forEach(function(source,index) {
+            var voices = {}, perStaff = {}
+            children(parts[index],'measure').forEach(function(measure) {
+                children(measure,'note').forEach(function(note) {
+                    var voice = Number(text(note,'voice')), staff = Number(text(note,'staff') || '1')
+                    if (!isFinite(voice) || voice%1 || voice < 1 || !isFinite(staff) || staff%1 || staff < 1 || staff > 2)
+                        throw Error('MusicXML-Stimmzuordnung wird noch nicht unterstützt.')
+                    if (voices[voice] !== undefined && voices[voice] !== staff)
+                        throw Error('Systemwechsel innerhalb einer Stimme wird noch nicht unterstützt.')
+                    voices[voice] = staff
+                })
+            })
+            Object.keys(voices).map(Number).sort(function(a,b){return a-b}).forEach(function(voice) {
+                var staff = voices[voice]
+                if (!perStaff[staff]) perStaff[staff] = []
+                perStaff[staff].push(voice)
+            })
+            var expected = {}
+            source.measures.forEach(function(measure) { measure.voices.forEach(function(v) { expected[v.voice] = true }) })
+            if (Object.keys(expected).length !== Object.keys(voices).length || Object.keys(expected).some(function(v) { return voices[v] === undefined }))
+                throw Error('Nicht jede CS1-Stimme ist eindeutig im MusicXML enthalten.')
+            result[source.id] = Object.keys(voices).map(Number).sort(function(a,b){return a-b}).map(function(voice) {
+                var staff = voices[voice], local = perStaff[staff].indexOf(voice)
+                if (local > 3) throw Error('Mehr als vier Stimmen in einem System.')
+                return {sourceVoice:voice,targetStaff:staff-1,targetVoice:local}
+            })
+        })
+        return result
+    }
+    
+
+    
+    function nativeCheckOriginalStartXML(tree) {
+        function nodes(n,name) { return (n.children||[]).filter(function(x){return x && typeof x!=='string' && x.name===name}) }
+        function value(n,name) { var list=nodes(n,name); return list.length===1 ? list[0].children.filter(function(x){return typeof x==='string'}).join('').trim() : '' }
+        var parts=nodes(tree,'part')
+        if (!parts.length) throw Error('Die Originalpartitur konnte nicht geprüft werden.')
+        parts.forEach(function(part) {
+            var measures=nodes(part,'measure')
+            if (!measures.length) throw Error('Originalpart enthält keine Takte.')
+            nodes(measures[0],'attributes').forEach(function(attributes) {
+                nodes(attributes,'key').forEach(function(key) {
+                    if (value(key,'fifths')!=='0' || (value(key,'mode') && value(key,'mode')!=='major'))
+                        throw Error('Direkte Übernahme unterstützt vorerst nur einen Originalanfang in C-Dur.')
+                })
+                nodes(attributes,'time').forEach(function(time) {
+                    if (value(time,'beats')!=='4' || value(time,'beat-type')!=='4')
+                        throw Error('Direkte Übernahme unterstützt vorerst nur einen Originalanfang in 4/4.')
+                })
+                if (nodes(attributes,'transpose').length)
+                    throw Error('Transponierende Originalparts werden noch nicht direkt übernommen.')
+            })
+        })
+    }
+    
+    function applySelectedCompactResult() {
+        if (settings.nativeOutputTarget === 1) {
+            openCompactScore() // preserve the proven independent MusicXML path
+            return
+        }
+        if (busy || !isCompactResult()) return
+        try {
+            if (!compositionJob || compositionJob.mode !== 9 || !compositionJob.sourcePath)
+                throw Error("Direkte Übernahme ist derzeit nur für geprüfte Vorspiele verfügbar. Bitte „Neue Partitur“ wählen.")
+            workflowApplyCheck(compositionJob)
+            if (!curScore) throw Error("Keine Originalpartitur geöffnet.")
+            var data = JSON.parse(compositionJson)
+            var converted = compact.xml.convert(data)
+            nativeCheckOriginalStartXML(compact.context.parse(compositionJob.sourceXml || readWorkflowSource(compositionJob)))
+            var mappedJob = {}
+            Object.keys(compositionJob).forEach(function(key) { mappedJob[key] = compositionJob[key] })
+            mappedJob.nativeVoiceMapping = nativeVoiceMappingFromMusicXML(data, compact.context.parse(converted.xml))
+            var maps = nativePreludeTargetMap(curScore, data, mappedJob)
+            var writer = createNativePreludeWriter()
+            // prepare() is completely read-only and rejects all unsupported
+            // markings, grace notes, tuplets, meters and ambiguous staff mappings.
+            var plan = writer.prepare(curScore, data, maps)
+            var result = writer.apply(curScore, plan, {
+                fractionFromTicks: function(tick) { return root.fractionFromTicks(tick) },
+                cmd: function(action) { root.cmd(action) }
+            })
+            statusText = "Vorspiel in bestehende Partitur eingefügt: " + result.measures +
+                         " Takte. Ein Rückgängig-Schritt entfernt die gesamte Einfügung."
+            // No metadata writes outside the command: keep one-step undo.
+            if (compositionJob)
+                compositionJob.workflowState = workflowCore.advance(compositionJob.workflowState || "ready", "apply")
+        } catch (e) {
+            statusText = "Keine sichere direkte Übernahme: " + String(e) +
+                         ". Es wurde keine neue Partitur als Ersatz geöffnet."
+            logEvent("MUSESCORE", statusText)
+        }
     }
 
     function openCompactScore() {
@@ -6816,17 +7230,47 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 onClicked: retryFailedComposition()
             }
 
+            Label {
+                Layout.fillWidth: true
+                visible: compositionJson !== "" && isCompactResult()
+                text: "Vorabfassung: Direktes Einfügen nur für einfache Vorspiele in C-Dur und 4/4, ohne neue Ausdruckszeichen, Triolen oder Bindungen. Für weitere Fälle bitte „Neue Partitur“ wählen."
+                color: "#ffcf77"
+                wrapMode: Text.Wrap
+                font.pixelSize: uiSize
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                visible: compositionJson !== "" && isCompactResult()
+                Label {
+                    text: "Übernehmen in:"
+                    color: "white"
+                    font.pixelSize: uiSize
+                }
+                ComboBox {
+                    id: nativeTargetChoice
+                    objectName: "outputTargetSelector"
+                    Layout.fillWidth: true
+                    model: ["Bestehende Partitur (Standard)", "Neue Partitur"]
+                    currentIndex: settings.nativeOutputTarget
+                    enabled: !busy
+                    font.pixelSize: uiSize
+                    onActivated: settings.nativeOutputTarget = currentIndex
+                }
+            }
+
             Button {
-                text: isCompactResult() ? "Fertige Fassung in MuseScore öffnen" : modeBox.currentIndex === 2
+                text: isCompactResult() ? "Fertige Fassung übernehmen" : modeBox.currentIndex === 2
                       ? "Freie Komposition in Partitur einfügen"
                       : (modeBox.currentIndex >= 3
                          ? pendingContextMode + " in Partitur einfügen"
                          : "KI-Komposition als neue Spur einfügen")
+                objectName: "applyCompactResultButton"
                 visible: compositionJson !== ""
                 enabled: compositionJson !== "" && !busy
                 font.pixelSize: uiSize
                 onClicked: {
-                    if (isCompactResult()) openCompactScore()
+                    if (isCompactResult()) applySelectedCompactResult()
                     else if (modeBox.currentIndex === 2) insertFreeComposition()
                     else if (modeBox.currentIndex >= 3) insertContextComposition()
                     else insertCompositionAsNewPart()
