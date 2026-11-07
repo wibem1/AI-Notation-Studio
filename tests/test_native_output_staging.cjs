@@ -1,0 +1,26 @@
+// Staging UI contract only; not a real MuseScore integration test.
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const st=fs.readFileSync(__dirname+'/AI-Notation-Studio-App-native-output-staging.qml','utf8');
+const live=fs.readFileSync(__dirname+'/../AI-Notation-Studio-App.qml','utf8');
+const bind=require('../native-prelude-target-map.js');
+const writer=require('../native-prelude-writer.js');
+assert.equal(typeof bind,'function');
+assert.equal(typeof writer,'function');
+assert.match(st,/import "\.\.\/native-prelude-writer\.js" as NativePrelude/);
+assert.match(st,/import "\.\.\/native-prelude-target-map\.js" as NativeMapping/);
+assert.match(st,/objectName: "outputTargetSelector"/);
+assert.match(st,/model: \["Bestehende Partitur \(Standard\)", "Neue Partitur"\]/);
+assert.match(st,/property int nativeOutputTarget: 0/);
+assert.match(st,/onActivated: settings\.nativeOutputTarget = currentIndex/);
+assert.match(st,/if \(settings\.nativeOutputTarget === 1\)\s*\{\s*openCompactScore\(\)/);
+assert.match(st,/workflowApplyCheck\(compositionJob\)/);
+assert.match(st,/NativeMapping\.nativePreludeTargetMap\(curScore, data, compositionJob\)/);
+assert.match(st,/writer\.prepare\(curScore, data, maps\)/);
+assert.match(st,/writer\.apply\(curScore, plan/);
+assert.match(st,/if \(isCompactResult\(\)\) applySelectedCompactResult\(\)/);
+assert.match(st,/mode !== 9/);
+assert.match(live,/outputTargetSelector/);
+assert.match(live,/function nativePreludeTargetMap/);
+assert.match(live,/version: "0\.11\.12"/);
+console.log('Staging and embedded preview destination contract PASS; native verification tracked separately.');
