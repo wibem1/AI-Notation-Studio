@@ -30,7 +30,11 @@ MuseScore {
             save(score, 'before')
             writer.apply(score, plan, {
                 fractionFromTicks:function(tick) { return root.fractionFromTicks(tick) },
-                cmd:function(action) { root.cmd(action) }
+                cmd:function(action) {
+                    log('ANS_POLY_PROBE calling '+action+' at '+score.nmeasures+' bars')
+                    root.cmd(action)
+                    log('ANS_POLY_PROBE returned '+action+' at '+score.nmeasures+' bars')
+                }
             })
             committed = true
             save(score, 'committed')

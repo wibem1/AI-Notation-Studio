@@ -149,12 +149,17 @@ function createNativePreludeWriter() {
         }
         var active = false
         try {
+            // MuseScore 4.7.6 Selection.selectRange uses deferred setRangeTicks
+            // during an active command. Clear+selectRange there can leave no
+            // usable segment for insert-measure (native crash). Select first.
+            score.selection.clear()
+            score.selection.selectRange(0, 1920, 0, score.nstaves)
+            if (!score.selection.isRange) fail('Anfangstakt nicht auswählbar.')
             score.startCmd('AI Notation Studio: native Vorspieltakte')
             active = true
             for (var bar=0; bar<plan.measures; bar++) {
-                score.selection.clear()
-                score.selection.selectRange(0, 1920, 0, score.nstaves)
-                if (!score.selection.isRange) fail('Anfangstakt nicht auswählbar.')
+                // NotationInteraction::addBoxes selects the newly added bar.
+                // Reusing that native selection prepends the next bar before it.
                 api.cmd('insert-measure')
                 if (Number(score.nmeasures) !== plan.originalMeasures+bar+1) fail('Takteinfügung fehlgeschlagen.')
             }
