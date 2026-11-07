@@ -1,0 +1,20 @@
+name: Native output binding preflight (isolated branch)
+on:
+  push:
+    branches: [feat/native-output-target-spike-20261106]
+    paths:
+      - native-prelude-target-map.js
+      - tests/test_native_prelude_target_map.cjs
+      - .github/workflows/native-binding-tests.yml
+  workflow_dispatch:
+jobs:
+  binding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: |
+          node --check native-prelude-target-map.js
+          node --check tests/test_native_prelude_target_map.cjs
+      - name: Run identity and safety tests
+        run: node tests/test_native_prelude_target_map.cjs
