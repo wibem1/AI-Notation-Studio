@@ -39,6 +39,18 @@ MuseScore {
     if(component.status!==Component.Ready)throw Error(component.errorString())
     app=component.createObject(root)
     if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?|19(?:-dev)?|20(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
+    if(String(app.version)==="0.11.20") {
+      // Exercise the new entry point in real MuseScore with no range selection.
+      // Invalid selections must not trigger a paid model request or change music.
+      if(original.selection && original.selection.isRange)
+        throw Error("Notation negative fixture unexpectedly has a range selection")
+      app.notationImprove()
+      if(String(app.statusText).indexOf("Kein KI-Aufruf")<0 || app.busy ||
+         app.notationChanges.length!==0 || app.structureSnapshot!==null)
+        throw Error("Unsafe notation-improve preflight: "+app.statusText)
+      save(original,"notation-preflight")
+      log("ANS_01120_NOTATION_PREFLIGHT PASS: invalid selection blocked, no AI call")
+    }
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
       sourceXml:source,sourceGuard:app.workflowGuard(source),sourceTime:"4/4",
