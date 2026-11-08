@@ -18,7 +18,7 @@ Im Plugin **Update prüfen → Update installieren**. Beim reinen Analysieren de
 
 - `tests/test_analysis_intent_guard.cjs`: exakter Diagnosewortlaut einschließlich Schreibfehler, „Bitte analysiere“, „Untersuche“, „Beurteile“, reguläre Fortsetzung als Gegenbeispiel; Aufruf-Sperre vor Providerzugriff.
 - Native GUI mit MuseScore Studio 4.7.6 und synthetischer 28-Takt-Partitur: [Testlauf #42498315192](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42498315192) **SUCCESS** für 0.11.15-dev. Kompositionstext wurde direkt im realen Plugin-UI gesetzt, beide falschen Kompositionsmodi wurden ohne Provideranfrage blockiert.
-- Der finale 0.11.15-Build wird vor Main-Veröffentlichung erneut geprüft. Der ältere, versionsspezifische 0.11.14-Test wurde auf seinen früheren Entwicklungszweig beschränkt.
+- **Finalversion 0.11.15 erfolgreich in MuseScore geprüft:** [Testlauf #42498488520](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42498488520) **SUCCESS**; reale QML-UI, kein Provideraufruf im Konfliktfall. Der ältere versionsgebundene 0.11.14-Test ist auf seinen früheren Zweig beschränkt.
 
 ## Einschränkungen
 
