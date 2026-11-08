@@ -1,6 +1,16 @@
 # Projektstand – AI Notation Studio
 
-## Staging 0.11.14-dev – Klavier-Part-ID und XML-Metadaten (08.11.2026)
+## Live 0.11.14 – reale 28-Takt-Überarbeitung erfolgreich geprüft (08.11.2026)
+
+- **Veröffentlichung:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.14.qml` und `versions/AI-Notation-Studio-App-0.11.14.qml` sind identische, versionierte Releasequellen; bewährter Starter/Updateweg bleibt erhalten. Bisherige Versionen, insbesondere 0.11.13, bleiben unangetastet.
+- **Behebungen:** Doppelte Klavier-Part-ID bei getrennten RH-/LH-Parts, ausdrücklich protokollierte Korrektur der neu erzeugten A1-Note in Takt 12 auf Viertel (nur exakt erkannter Fehlerfall), rekursives Score-Gedächtnis in MusicXML-Exporten und irreführende 0-Dollar-Gesamtsumme bei unbekannten Preisen. Andere Rhythmusabweichungen werden vor jeder Übernahme abgefangen.
+- **Offizieller nativer Test der finalen Version 0.11.14:** [GitHub Actions #42493365875](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42493365875) **SUCCESS**, echter MuseScore Studio 4.7.6 unter Linux: synthetischer 28-Takt-/3-Part-Nutzerstrukturfall, invalid-Zustand samt sichtbarer Fehlermeldung und Retrybutton, Klick zum **kostenfreien Retry**, gültiger korrigierter CS1-Entwurf, neues MuseScore-Fenster mit 28 Takten/3 Notensystemen; Originalnoten/Partitur vor und nach Ausführung identisch. JavaScript-Regression bestanden. Keine API-Kosten.
+- **Originalfall:** Reale private Gemini-Antwort aus Diagnose intern gegen originale bereinigte MusicXML geprüft, 28 Takte/3 Parts zusammenführbar; keine persönliche Musik in das Repository übernommen. Ein reales visuelles Nutzerurteil zur Qualität des neuen Notenbilds steht noch aus.
+- **Nutzungsweg:** Plugin Update prüfen → Update installieren → Gespeicherte KI-Antwort erneut prüfen (kostenfrei) → **Neue Partitur** → Fertige Fassung übernehmen. Der allgemeine direkte Replace-Workflow innerhalb der geöffneten Partitur ist ausdrücklich **nicht** freigegeben; deshalb kein Undo-Eingriff ins Original.
+- **Release-Dokumentation:** [RELEASE-0.11.14.md](RELEASE-0.11.14.md). Nächste Aufgabe: bei Nutzer-Rückmeldung das reale Notenbild beurteilen; separate Entwicklung einer sicheren nativen Übernahme beliebiger Replace-Workflows erst nach eigenem Design und MuseScore-Integrationstests.
+
+
+## Entwicklungsnachweise für 0.11.14 – vor der Freigabe (08.11.2026)
 
 - **Reale Diagnose:** Nutzerfall 0.11.13, Überarbeitung einer 28-taktigen Violine/Klavier-Partitur. Eine gespeicherte CS1-Antwort enthält `P {"i":"piano","n":"Klavier (R.H.)"}` und `P {"i":"piano","n":"Klavier (L.H.)"}`. Fehler `Zeile 116: Doppelte Part-ID`; vorhandene Antwort bleibt für kostenfreien Retry erhalten.
 - **Staging-Code:** `AI-Notation-Studio-App.qml` auf Branch `fix/score-memory-piano-ids-20261108` (nicht live). Bei mehrfach erwarteten Klavierparts wird ausschließlich eine klar identifizierte doppelte Piano-ID in eine eindeutige technische ID umbenannt; Notenzeilen/Noten bleiben unberührt, andere Dubletten werden weiterhin abgelehnt.
