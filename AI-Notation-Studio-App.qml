@@ -6378,7 +6378,23 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
     function exportDiagnostic() {
         if (diagnosticExportBusy) return
         if (Qt.platform.os !== "windows") {
-            statusText = "Die freie Diagnose-Zielauswahl ist derzeit nur für Windows verfügbar."
+            // MuseScore's FileIO is usable on macOS, but the Windows-only
+            // PowerShell SaveFileDialog is not. Save and verify in the user's
+            // writable plugin folder as a no-helper, no-network fallback.
+            try {
+                diagnosticSourcePath = defaultDiagnosticPath()
+                var body=diagnosticText()
+                writeVerifiedCompactFile(diagnosticSourcePath, body, "Diagnose speichern")
+                compactFile.source=diagnosticSourcePath
+                if (String(compactFile.read()) !== body)
+                    throw Error("Die gespeicherte Diagnose stimmt nicht mit dem Original überein.")
+                lastDiagnosticPath=diagnosticSourcePath
+                statusText="Diagnose gespeichert: " + diagnosticSourcePath +
+                    ". Im Finder mit „Gehe zu Ordner“ den Plugin-Ordner öffnen; die JSON-Datei kann von dort weitergegeben werden."
+            } catch (e) {
+                statusText="Diagnose konnte nicht gespeichert werden: "+String(e)+
+                    ". Alternativ „Diagnose anzeigen“ verwenden und den Text kopieren."
+            }
             return
         }
         try {
