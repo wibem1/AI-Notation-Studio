@@ -13,6 +13,9 @@ const expected=score.replace('"}E5:sA5:sC6:s','"} E5:s A5:s C6:s').replace('"}A5
 const result=repair(score);
 assert.strictEqual(result,expected,'only separators should be inserted');
 assert.strictEqual(repair(result),result,'recovery must be idempotent');
+const quoted='1/1 C5:q{"x":"literal }E5:q"}D5:q';
+assert.strictEqual(repair(quoted),'1/1 C5:q{"x":"literal }E5:q"} D5:q',
+    'must never insert separators inside quoted JSON values');
 assert.strictEqual(result.split('\n')[1],score.split('\n')[1],'score header untouched');
 assert.strictEqual(result.split('\n')[2],score.split('\n')[2],'instrument definition untouched');
 const compact=vm.runInContext(src.slice(src.indexOf('function createCompactRuntime()'),src.indexOf('// END COMPACTSCORE RUNTIME'))+'\ncreateCompactRuntime()',vm.createContext({}));
