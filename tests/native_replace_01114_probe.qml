@@ -29,13 +29,22 @@ MuseScore {
                 throw Error("Not the synthetic 0.11.14 fixture")
             if(original.nmeasures!==28 || original.nstaves!==3)
                 throw Error("Unexpected native fixture: "+original.nmeasures+" bars / "+original.nstaves+" staves")
-            // Run a second time in the imported result window: verify actual native import.
-            if (String(original.metaTag("AI-Notation-Studio-Source-CS1")||"").indexOf("CS1")===0) {
+            // The original and replacement have the same title/bar count:
+            // distinguish them by the actual first violin note, not metadata.
+            var cursor=original.newCursor()
+            cursor.staffIdx=0
+            cursor.voice=0
+            cursor.rewind(0)
+            var first=cursor.element
+            var firstPitch=first&&first.notes&&first.notes.length ? Number(first.notes[0].pitch) : -1
+            // A4=69 in the base score; G5=79 in the replacement.
+            if(firstPitch===79) {
                 resultFile.source="/tmp/ans-01114-imported-result.txt"
                 save(original,"imported")
                 log("ANS_01114_IMPORTED PASS: imported child-window score has 28 bars and 3 staves")
                 Qt.quit(); return
             }
+            if(firstPitch!==69)throw Error("Unexpected source violin pitch: "+firstPitch)
             save(original,"before")
             var sourceTag=String(original.metaTag("AI-Notation-Studio-Source-CS1")||"")
             var component=Qt.createComponent("AI-Notation-Studio-App.qml")
