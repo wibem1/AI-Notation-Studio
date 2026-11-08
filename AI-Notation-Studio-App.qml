@@ -6155,7 +6155,9 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnostic-Score-" + new Date().getTime() + ".musicxml"))
             if (!writeScore(curScore, path, "musicxml")) throw Error("Vollständige Partitur konnte nicht exportiert werden.")
             compactFile.source = path
-            xml = String(compactFile.read() || "")
+            // Diagnostic score XML should contain music, not recursively embedded
+            // private plugin memory; the diagnostic collects state separately.
+            xml = stripStudioMemoryFromXml(String(compactFile.read() || ""))
             if (xml.indexOf("<score-partwise") < 0 && xml.indexOf("<score-timewise") < 0)
                 throw Error("MusicXML der aktuellen Partitur fehlt oder ist unlesbar.")
         }
