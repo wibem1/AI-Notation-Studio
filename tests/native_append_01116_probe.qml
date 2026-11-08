@@ -38,7 +38,7 @@ MuseScore {
     var component=Qt.createComponent("AI-Notation-Studio-App.qml")
     if(component.status!==Component.Ready)throw Error(component.errorString())
     app=component.createObject(root)
-    if(!app||!/^0\.11\.(?:16|17(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
+    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18-dev)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
       sourceXml:source,sourceGuard:app.workflowGuard(source),sourceTime:"4/4",
@@ -48,7 +48,7 @@ MuseScore {
       strategy:0,selection:"",preferences:"",instruction:"Setze für 2 Takte fort",
       sourceKey:{fifths:0,mode:"minor"},sourceTempo:132}
     app.compositionJob=job
-    if(/^0\.11\.17(?:-dev)?$/.test(String(app.version))){
+    if(/^0\.11\.(?:17(?:-dev)?|18-dev)$/.test(String(app.version))){
       // Native negative case: same 2-bar score but unrelated output key.
       var wrong=request.raw.replace('"k":"a minor"','"k":"G major"')
       if(wrong===request.raw)throw Error("Failed to construct wrong-key counterexample")
@@ -56,6 +56,17 @@ MuseScore {
       if(app.compositionJob.workflowState!=="invalid" ||
          String(app.compositionJob.validation_error).indexOf("Grundtonart")<0)
         throw Error("Wrong-key continuation was not rejected")
+      job.workflowState="draft";job.validation_error=""
+      app.compositionJob=job
+    }
+    if(String(app.version)==="0.11.18-dev"){
+      // Gemini can omit spaces between legal note events. Repair must preserve
+      // the music and allow a complete append without another provider call.
+      var glued=request.raw.replace("1/1 G5:w","1/1 G5:hG5:h")
+      if(glued===request.raw)throw Error("Missing fixture token for glued-note test")
+      app.finishComposition(job,glued)
+      if(app.compositionJob.workflowState!=="ready")
+        throw Error("Glued-note continuation was not recovered: "+app.compositionJob.validation_error)
       job.workflowState="draft";job.validation_error=""
       app.compositionJob=job
     }
