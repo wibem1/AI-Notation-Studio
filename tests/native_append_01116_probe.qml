@@ -50,6 +50,16 @@ MuseScore {
         throw Error("Unsafe notation-improve preflight: "+app.statusText)
       save(original,"notation-preflight")
       log("ANS_01120_NOTATION_PREFLIGHT PASS: invalid selection blocked, no AI call")
+      // Positive native selection test: deterministic stage must analyze a real
+      // one-instrument range without launching a provider or mutating the score.
+      original.selection.selectRange(0,1920,0,1)
+      if(!original.selection.isRange)throw Error("Cannot select native notation range")
+      app.notationStructurePrepare()
+      if(String(app.structureStatus).indexOf("Strukturprüfung:")!==0 || app.busy)
+        throw Error("Notation structure analysis failed: "+app.structureStatus)
+      save(original,"notation-selection")
+      log("ANS_01120_NOTATION_STRUCTURE PASS: selected range analyzed without AI")
+      original.selection.clear()
     }
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
