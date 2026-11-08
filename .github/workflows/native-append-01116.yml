@@ -23,7 +23,7 @@ jobs:
           node tests/test_mac_diagnostic_save_dialog.cjs
           node tests/generate_01114_native_fixture.cjs
           node tests/generate_01116_append_request.cjs
-          test -s /tmp/ans-01116-base.musicxml
+          test -s /tmp/ans-01114-base.musicxml
           test -s /tmp/ans-01116-append-request.json
       - name: Install MuseScore GUI dependencies
         run: |
@@ -44,7 +44,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           MU_QT_QPA_PLATFORM: offscreen
         run: |
-          timeout 90 ./squashfs-root/AppRun -o /tmp/ans-01116-base.mscz /tmp/ans-01116-base.musicxml
+          timeout 90 ./squashfs-root/AppRun -o /tmp/ans-01116-base.mscz /tmp/ans-01114-base.musicxml
           test -s /tmp/ans-01116-base.mscz
       - name: Native GUI plugin invocation, retry and imported score verification
         env:
