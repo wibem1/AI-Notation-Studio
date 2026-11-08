@@ -1,0 +1,85 @@
+name: AI Notation Studio 0.11.15 analysis safety
+on:
+  push:
+    branches: [fix/analysis-intent-guard-20261108]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    env:
+      QT_QUICK_BACKEND: software
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline wrong-mode dispatch regression
+        run: |
+          node tests/test_analysis_intent_guard.cjs
+          node tests/generate_01114_native_fixture.cjs
+      - name: MuseScore dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xdotool libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libnss3 libasound2t64
+      - name: Official MuseScore Studio 4.7.6 checksum verification
+        run: |
+          set -euo pipefail
+          BASE=https://github.com/musescore/MuseScore/releases/download/v4.7.6
+          NAME=MuseScore-Studio-4.7.6.261022093-x86_64.AppImage
+          curl -fL --retry 1 --max-time 240 -o "$NAME" "$BASE/$NAME"
+          curl -fL --retry 1 --max-time 60 -o checksums.sha256.txt "$BASE/checksums.sha256.txt"
+          awk -v n="$NAME" '$2==n {print}' checksums.sha256.txt | sha256sum -c -
+          chmod +x "$NAME"
+          ./"$NAME" --appimage-extract >/dev/null
+      - name: Import isolated fixture
+        env:
+          QT_QPA_PLATFORM: offscreen
+          MU_QT_QPA_PLATFORM: offscreen
+        run: |
+          timeout 90 ./squashfs-root/AppRun -o /tmp/ans-01115-fixture.mscz /tmp/ans-01114-base.musicxml
+          test -s /tmp/ans-01115-fixture.mscz
+      - name: Native GUI analysis safety gate
+        env:
+          QT_QPA_PLATFORM: xcb
+          MU_QT_QPA_PLATFORM: xcb
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/Documents/MuseScore4/Plugins"
+          cp tests/native_analysis_guard_01115_probe.qml "$HOME/Documents/MuseScore4/Plugins/"
+          cp AI-Notation-Studio-App.qml "$HOME/Documents/MuseScore4/Plugins/"
+          mkdir -p "$HOME/.local/share/MuseScore/MuseScore4/extensions"
+          python - <<'PY'
+          import json,pathlib
+          p=pathlib.Path.home()/'.local/share/MuseScore/MuseScore4/extensions/config.json'
+          p.write_text(json.dumps([{'uri':'musescore://extensions/v1/native_analysis_guard_01115_probe.qml','actions':[{'code':'main','exec_point':'manually'}]}]))
+          PY
+          cat > /tmp/ans-01115-driver.sh <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          ./squashfs-root/AppRun /tmp/ans-01115-fixture.mscz >/tmp/ans-01115-gui.log 2>&1 &
+          pid=$!
+          sleep 10
+          for i in 1 2 3;do timeout 3 xdotool mousemove 788 617 click 1 || true;sleep 1;done
+          timeout 3 xdotool mousemove 102 46 click 1 || true
+          sleep 2
+          timeout 3 xdotool mousemove 293 13 click 1 || true
+          sleep 2
+          timeout 3 xdotool mousemove 372 82 click 1 || true
+          sleep 5
+          kill "$pid" 2>/dev/null || true
+          wait "$pid" 2>/dev/null || true
+          SH
+          chmod +x /tmp/ans-01115-driver.sh
+          timeout 48 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- /tmp/ans-01115-driver.sh || true
+          cat /tmp/ans-01115-result.txt || true
+          grep -q 'ANS_01115 PASS:' /tmp/ans-01115-result.txt
+      - name: Failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ans-01115-native-guard-logs
+          path: |
+            /tmp/ans-01115-result.txt
+            /tmp/ans-01115-gui.log

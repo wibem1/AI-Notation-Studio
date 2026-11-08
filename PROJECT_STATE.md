@@ -1,5 +1,24 @@
 # Projektstand – AI Notation Studio
 
+## Live 0.11.15 – Schutz vor irrtümlich kostenpflichtiger Komposition (08.11.2026)
+
+- **Nutzerdiagnose 0.11.14:** Der eingegebene Auftrag `Analysiere die Komposititon` wurde bei aktivem Modus `Fortsetzen` (mode 3) als 16-Takt-Komposition statt Analyse an Google Gemini 4 Argon versendet; 12.539 Tokens laut Diagnose, Geldbetrag nicht belegt. KI-Ausgabe in G-Dur bei geöffneter 28-Takt-Partitur in a-Moll. Anschließend sichere Ablehnung der Ausgabe durch Violine, Takt 7 (5/4 statt 4/4). Das Original wurde nicht überschrieben.
+- **0.11.15-Code:** `sendToAI` erkennt eindeutige Analysebefehle vor jedem API-Aufruf und blockiert den Einstieg in alle Kompositionsmodi mit einer klaren Statusmeldung („Modus widersprechen … bitte Analyse wählen … Kein KI-Aufruf“). Keine automatische Umschaltung, keine Kosten, keine Notenänderung. Textfeld durch `objectName` für QML-UI-Regression zugänglich.
+- **Validierung:** Vollständiger JavaScript-Test `tests/test_analysis_intent_guard.cjs` (ursprüngliche Formulierung und Gegenproben) **PASS**. Echte offizielle MuseScore-Studio-4.7.6-GUI unter Linux mit synthetischem 28-Takt-/3-Part-Score: [Run #42498315192](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42498315192) **SUCCESS** für Vorabcode. Finale Versionsnummer 0.11.15 nativ erneut geprüft: [Run #42498488520](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42498488520) **SUCCESS**. Modusabweichung über tatsächliche QML-Widgets ausgelöst, kein Provideraufruf.
+- **Dateien:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.15.qml`, `versions/AI-Notation-Studio-App-0.11.15.qml` enthalten denselben Releasequellcode; ältere Version 0.11.14 bleibt archiviert. Bestehender Updateweg: **Update prüfen → Update installieren**.
+- **Tests getrennt:** Die native 0.11.14-Replace-Regression ist auf ihren versionsgebundenen Zweig beschränkt und wird nicht mehr fälschlich durch 0.11.15-PRs ausgelöst.
+- **Nächster Schritt:** Nach Installation im echten Anwendersystem kontrollieren, ob die Moduskonfliktmeldung erscheint; weitere Fehlermeldungen per Diagnose prüfen. Eine semantische Generalerkennung beliebig formulierter Aufträge ist noch nicht umgesetzt.
+
+
+## Entwicklungsnachweise 0.11.15 – Analyseauftrag im falschen Kompositionsmodus (08.11.2026)
+
+- **Nutzerdiagnose 0.11.14:** Am 08.11.2026 wurde im Plugin der Modus `Fortsetzen` (mode=3) mit der Eingabe `Analysiere die Komposititon` ausgeführt. Die App sendete trotzdem eine 16-taktige Kompositionsanfrage an Google `gemini-4-argon`; die Antwort war ein neues G-Dur-Stück zur geöffneten 28-Takt-a-Moll-Sonate. Belegt: 12.539 Tokens laut Diagnosestufe, genaue Kosten unbekannt. Die Antwort wurde mit `workflowState=invalid` und `violin Takt 7 Stimme 1: 5 statt 4 Viertel` abgewiesen. Originalpartitur nicht überschrieben.
+- **Ursache:** `sendToAI` routet ausschließlich nach dem Modus-Dropdown; ein ausdrücklich analytischer Freitext im Kompositionsmodus wird ungeachtet der Nutzerabsicht kostenpflichtig an `runCompositionJob` gegeben. Der Rhythmusfehler ist ein zusätzlicher Fehler in der generierten Antwort und nicht die Ursache für die falsche Auswahl des Arbeitsablaufs.
+- **Korrektur auf Branch `fix/analysis-intent-guard-20261108`:** Der neue Guard `explicitAnalysisRequest` erkennt eindeutige analytische Auftragsanfänge (Analysiere, Untersuche, Beurteile, Bewerte, auch mit „Bitte“) und zeigt im nichtanalytischen Modus den Konflikt an, **bevor** API-Keys, Auswahl oder Providerfunktion angefasst werden. Keine automatische kostenpflichtige Umleitung und keine pauschale Notenänderung. Die bestehende `0.11.14` bleibt live und unverändert.
+- **Prüfung:** `tests/test_analysis_intent_guard.cjs` gegen den echten QML-Auszug erfolgreich in V8 mit Node-kompatiblen Mocks ausgeführt. Exakter Tippfehler aus der Diagnose und weitere analytische Texte werden geblockt, normaler Fortsetzungsauftrag nicht. Noch **kein** vollständiger Node-/CI-/MuseScore-Test der neuen Version. Release erst nach nativer Absicherung.
+- **Nächster Schritt:** QML-UI unter MuseScore mit analytischem Text + „Fortsetzen“ testen; sicherstellen, dass sichtbare Fehlermeldung erscheint und kein Provideraufruf ausgelöst wird. Erst dann 0.11.15 veröffentlichen.
+
+
 ## Live 0.11.14 – reale 28-Takt-Überarbeitung erfolgreich geprüft (08.11.2026)
 
 - **Veröffentlichung:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.14.qml` und `versions/AI-Notation-Studio-App-0.11.14.qml` sind identische, versionierte Releasequellen; bewährter Starter/Updateweg bleibt erhalten. Bisherige Versionen, insbesondere 0.11.13, bleiben unangetastet.
