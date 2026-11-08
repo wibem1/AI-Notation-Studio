@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Live 0.11.21 – erste ausführbare Notationskorrekturen (08.11.2026)
+
+- **Veröffentlichung:** [Pull Request #14](https://github.com/wibem1/AI-Notation-Studio/pull/14) erfolgreich nach `main` gemergt. Merge-Commit `e031258acbecf68fd504f0b97416fe6f74cdb79a`. `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.21.qml` und `versions/AI-Notation-Studio-App-0.11.21.qml` sind identisch (Blob `b9699cfdb3bc56c8e6c721bb1e74b03843ace0cd`). Letzte Version 0.11.20 bleibt unverändert archiviert; regulärer Updateweg liest die neue App.
+- **Erstmals tatsächlich korrigiert:** Eindeutig redundante Notenschlüssel und fehlende Achtel-Balkengruppen werden kostenlos automatisch in MusicXML repariert. Nach Prüfung öffnet der Nutzer eine korrigierte Partiturkopie. Klingende Tonereignisse werden vor und nach der Reparatur validiert; Originalpartitur bleibt unverändert. Separate sichere Stimmenstruktur-/Vorzeichenkorrekturen bestehen weiter.
+- **Testnachweise:** [Notation Regression #42532109653](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42532109653) **SUCCESS**, [Continuation Contract #42532109712](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42532109712) **SUCCESS**, [nativer MuseScore-4.7.6-Test #42532109789](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42532109789) **SUCCESS** mit real ausgeführter redundanter Schlüsselentfernung und Achtelbalken-Reparatur (synthetische Partitur). Keine KI-Kosten. Reale Bedienoberflächenprüfung für das Öffnen der Ergebniskopie noch offen.
+- **Grenzen:** Nicht jede von der KI erkannte Auffälligkeit ist reparierbar. Komplexe Rhythmen, überflüssige Pausen, Verzierungen, Schlüsselentscheidungen ohne offensichtliche Redundanz, Akkordumverteilung und grafische Kollisionen bleiben vorerst Analysehinweise. Keine automatische Änderung von Notenanschlägen, Tonhöhen oder klingenden Dauern.
+- **Anwendertest:** In MuseScore Update installieren → vollständige Takte eines Instruments markieren → „Sichere Notationskorrekturen prüfen“ → gegebenenfalls „Korrigierte Notation öffnen (Kopie)“. Ergebnis vergleichen und als neue Partitur speichern. Bei Fehlverhalten Diagnose sichern und nächste gezielte Reparatur entwickeln.
+
+
 ## Freigabekandidat 0.11.21 – ausführbare Notationskorrekturen (08.11.2026)
 
 - **Neue Funktion:** `notationVisualPrepare` analysiert die ausgewählten vollständigen Takte eines Instruments kostenlos und erzeugt einen verifizierten MusicXML-Plan. `notationVisualOpen` öffnet die korrigierte Fassung erst nach Bestätigung als **neue Partitur**, ohne das Original zu verändern. Zwei Korrekturarten: sichere redundante G/F/C-Schlüssel und vollständige, regelmäßige Achtel-Balkengruppen in 2/4, 3/4, 4/4, 6/8, 9/8 und 12/8. Alle anderen Fälle werden übersprungen.
