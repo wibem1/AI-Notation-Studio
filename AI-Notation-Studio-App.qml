@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.15"
+    version: "0.11.16"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -91,6 +91,7 @@ MuseScore {
     property var compositionHistory: []
     property string historyError: ""
     property bool diagnosticExportBusy: false
+    property string macDiagnosticHelperScript: "#!/bin/bash\nset -euo pipefail\nsource_file=\"$1\"\nreceipt=\"$2\"\nname=\"$(/usr/bin/basename \"$source_file\")\"\nerror_file=\"$receipt.error\"\nif destination=$(/usr/bin/osascript \\\n    -e 'on run argv' \\\n    -e 'return POSIX path of (choose file name with prompt \"AI Notation Studio: Diagnose speichern unter\" default name (item 1 of argv))' \\\n    -e 'end run' \"$name\" 2>\"$error_file\"); then\n    if [ -z \"$destination\" ]; then\n        printf 'error\\nKein Zielpfad ausgewählt.\\n' >\"$receipt\"\n        exit 0\n    fi\nelse\n    if /usr/bin/grep -Eqi '(-128|User canceled|Benutzer.*abgebrochen)' \"$error_file\"; then\n        printf 'cancelled\\n' >\"$receipt\"\n    else\n        printf 'error\\nAppleScript-Speicherdialog fehlgeschlagen.\\n' >\"$receipt\"\n    fi\n    exit 0\nfi\nif ! /bin/cp -f \"$source_file\" \"$destination\"; then\n    printf 'error\\nDiagnosedatei konnte nicht an das gewählte Ziel kopiert werden.\\n' >\"$receipt\"\n    exit 0\nfi\nif ! /usr/bin/cmp -s \"$source_file\" \"$destination\"; then\n    printf 'error\\nDie gespeicherte Diagnose weicht von der Originaldatei ab.\\n' >\"$receipt\"\n    exit 0\nfi\nbytes=\"$(/usr/bin/wc -c <\"$destination\" | /usr/bin/tr -d ' ')\"\nsha=\"$(/usr/bin/shasum -a 256 \"$destination\" | /usr/bin/awk '{print $1}')\"\nprintf 'saved\\n%s\\n%s\\n%s\\n' \"$destination\" \"$bytes\" \"$sha\" >\"$receipt\"\n"
     property string diagnosticSourcePath: ""
     property string diagnosticReceiptPath: ""
     property string diagnosticHelperScript: "param(\n    [Parameter(Mandatory=$true)][string]$Source,\n    [Parameter(Mandatory=$true)][string]$Receipt,\n    [string]$Destination = '',\n    [string]$InitialDirectory = ''\n)\n$ErrorActionPreference = 'Stop'\n$stagingPath = $null\nfunction Get-StreamHash([string]$Path) {\n    $stream = [IO.File]::OpenRead($Path)\n    $sha = [Security.Cryptography.SHA256]::Create()\n    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }\n    finally { $sha.Dispose(); $stream.Dispose() }\n}\nfunction Write-Receipt($Value) {\n    [IO.File]::WriteAllText($Receipt, (ConvertTo-Json -InputObject $Value -Compress), (New-Object Text.UTF8Encoding($false)))\n}\ntry {\n    $Source = [IO.Path]::GetFullPath($Source)\n    if (-not [IO.File]::Exists($Source)) { throw 'Die vorbereitete Diagnosedatei fehlt.' }\n    if (-not $Destination) {\n        Add-Type -AssemblyName System.Windows.Forms\n        $dialog = New-Object Windows.Forms.SaveFileDialog\n        try {\n            $dialog.Title = 'AI Notation Studio: Diagnose speichern unter'\n            $dialog.Filter = 'JSON-Diagnose (*.json)|*.json|Alle Dateien (*.*)|*.*'\n            $dialog.DefaultExt = 'json'\n            $dialog.AddExtension = $true\n            $dialog.OverwritePrompt = $true\n            $dialog.FileName = [IO.Path]::GetFileName($Source)\n            if ($InitialDirectory -and [IO.Directory]::Exists($InitialDirectory)) { $dialog.InitialDirectory = $InitialDirectory }\n            if ($dialog.ShowDialog() -ne [Windows.Forms.DialogResult]::OK) {\n                Write-Receipt @{status='cancelled'; source=$Source}\n                exit 0\n            }\n            $Destination = $dialog.FileName\n        } finally { $dialog.Dispose() }\n    }\n    $Destination = [IO.Path]::GetFullPath($Destination)\n    if ([string]::Equals($Source, $Destination, [StringComparison]::OrdinalIgnoreCase)) {\n        throw 'Die Zieldatei darf nicht die vorbereitete Quelldatei sein.'\n    }\n    $targetDirectory = [IO.Path]::GetDirectoryName($Destination)\n    if (-not [IO.Directory]::Exists($targetDirectory)) { throw 'Der Zielordner existiert nicht.' }\n    $stagingPath = [IO.Path]::Combine($targetDirectory, '.AI-Notation-Studio-' + [Guid]::NewGuid().ToString('N') + '.tmp')\n    $inputStream = [IO.File]::OpenRead($Source)\n    try {\n        $outputStream = [IO.File]::Open($stagingPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)\n        try { $inputStream.CopyTo($outputStream, 81920); $outputStream.Flush($true) }\n        finally { $outputStream.Dispose() }\n    } finally { $inputStream.Dispose() }\n    $hash = Get-StreamHash $Source\n    if ((Get-StreamHash $stagingPath) -ne $hash) { throw 'Die Nachkontrolle der kopierten Datei ist fehlgeschlagen.' }\n    if ([IO.File]::Exists($Destination)) { [IO.File]::Replace($stagingPath, $Destination, [NullString]::Value) }\n    else { [IO.File]::Move($stagingPath, $Destination) }\n    $stagingPath = $null\n    if ((Get-StreamHash $Destination) -ne $hash) { throw 'Die Nachkontrolle der Zieldatei ist fehlgeschlagen.' }\n    Write-Receipt @{status='saved'; source=$Source; target=$Destination; bytes=(Get-Item -LiteralPath $Destination).Length; sha256=$hash}\n    exit 0\n} catch {\n    Write-Receipt @{status='error'; source=$Source; message=$_.Exception.Message}\n    exit 1\n} finally {\n    if ($stagingPath -and [IO.File]::Exists($stagingPath)) { [IO.File]::Delete($stagingPath) }\n}\n"
@@ -374,6 +375,69 @@ MuseScore {
         }
         return JSON.stringify(doc.children.filter(function(n){return typeof n!=='string' && (n.name==='part'||n.name==='part-list')}).map(clean))
     }
+    function alignContinuationPianoStaves(baseXml, addedXml, job) {
+        // Accept a one-staff piano-hand continuation even when the CS1 converter
+        // produced an unused second staff. Do not transpose, delete or move notes.
+        var warnings=[]
+        if (!job || job.mode!==3 || (job.workflowKind && job.workflowKind!=="append"))
+            return {xml:addedXml,warnings:warnings}
+        var base=compact.context.parse(baseXml),added=compact.context.parse(addedXml)
+        function nodes(n,t) {return n.children.filter(function(x){return x&&typeof x!=="string"&&x.name===t})}
+        function first(n,t) {return nodes(n,t)[0]||null}
+        function value(n) {return n?n.children.filter(function(x){return typeof x==="string"}).join("").trim():""}
+        function serialize(n) {return typeof n==="string"?n:n.open+n.children.map(serialize).join("")+n.close}
+        var original=nodes(base,"part"),generated=nodes(added,"part"),
+            oldDefs=nodes(first(base,"part-list"),"score-part"),
+            newDefs=nodes(first(added,"part-list"),"score-part")
+        if(original.length!==generated.length || oldDefs.length!==original.length ||
+           newDefs.length!==generated.length)return {xml:addedXml,warnings:warnings}
+        function declaredStaves(part) {
+            var measures=nodes(part,"measure"),a=measures.length?first(measures[0],"attributes"):null
+            var n=a?first(a,"staves"):null
+            return n?Number(value(n)):1
+        }
+        function firstClef(part) {
+            var measures=nodes(part,"measure"),a=measures.length?first(measures[0],"attributes"):null
+            return a?first(a,"clef"):null
+        }
+        var changed=0
+        for(var i=0;i<original.length;i++){
+            var originalName=value(first(oldDefs[i],"part-name")).toLowerCase(),
+                generatedName=value(first(newDefs[i],"part-name")).toLowerCase()
+            if(!/piano|klavier/.test(originalName) || !/piano|klavier/.test(generatedName) ||
+               declaredStaves(original[i])!==1 || declaredStaves(generated[i])!==2)continue
+            var measures=nodes(generated[i],"measure"),unsafe=false
+            for(var mi=0;mi<measures.length;mi++){
+                var m=measures[mi],items=m.children.filter(function(x){return x&&typeof x!=="string"})
+                for(var ni=0;ni<items.length;ni++){
+                    var n=items[ni],st=first(n,"staff")
+                    if((st&&value(st)!=="1")||n.name==="backup"||n.name==="forward"){unsafe=true;break}
+                }
+                if(unsafe)break
+            }
+            if(unsafe)throw Error("Fortsetzung: Klavierpart "+(i+1)+" enthält tatsächlich ein zweites Notensystem oder mehrstimmige Zeitachsen. Keine automatische Anpassung.")
+            var sourceClef=firstClef(original[i])
+            if(!sourceClef)throw Error("Fortsetzung: Notenschlüssel des ursprünglichen Klavierparts "+(i+1)+" fehlt.")
+            for(var k=0;k<measures.length;k++){
+                var attrs=first(measures[k],"attributes")
+                if(!attrs)continue
+                attrs.children=attrs.children.filter(function(x){return typeof x==="string" ||
+                    (x.name!=="clef" && x.name!=="staves")})
+                if(k===0){
+                    attrs.children.push({name:"staves",open:"<staves>",close:"</staves>",children:["1"]})
+                    // Retain the original staff's treble/bass clef exactly.
+                    attrs.children.push({name:"clef",open:'<clef number="1">' ,close:"</clef>",children:
+                        nodes(sourceClef,"sign").concat(nodes(sourceClef,"line")).map(function(x){
+                            return {name:x.name,open:x.open,close:x.close,children:x.children.slice()}
+                        })})
+                }
+            }
+            warnings.push("Fortsetzung: unbenutztes zweites Klaviersystem in Part "+(i+1)+" entfernt; ursprünglicher Notenschlüssel erhalten. Keine Note verändert.")
+            changed++
+        }
+        return {xml:changed?serialize(added):addedXml,warnings:warnings}
+    }
+
     function workflowCombine(job, xml) {
         var count=compact.context.inspect(xml,0).meters.length
         if(count!==job.measures) throw Error("Die KI lieferte "+count+" statt "+job.measures+" Takten.")
@@ -409,8 +473,12 @@ MuseScore {
                 produced.some(function(p){return sounds(p[0])}))
                 throw Error("Zeitversatz erkannt: Die Ausgangspartitur beginnt mit einem Pausentakt, die Begleitung dagegen mit Noten. Nichts wurde eingefügt.")
         }
-        return compact.context.combine(job.sourceXml || readWorkflowSource(job),xml,
+        var sourceXml=job.sourceXml || readWorkflowSource(job)
+        var aligned=alignContinuationPianoStaves(sourceXml,xml,job)
+        var output=compact.context.combine(sourceXml,aligned.xml,
             {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter,targetInstrument:job.instruments[0],partIndex:job.replacePartIndex,staffNumber:job.replaceStaffNumber,targetGroups:job.preludeTargets||null})
+        output.warnings=(output.warnings||[]).concat(aligned.warnings)
+        return output
     }
     function readWorkflowSource(job) {
         compactFile.source=job.sourcePath
@@ -6310,8 +6378,30 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
     function exportDiagnostic() {
         if (diagnosticExportBusy) return
+        if (Qt.platform.os === "osx" || Qt.platform.os === "macos") {
+            try {
+                diagnosticSourcePath=defaultDiagnosticPath()
+                diagnosticReceiptPath=diagnosticSourcePath+".result.txt"
+                writeVerifiedCompactFile(diagnosticSourcePath,diagnosticText(),"Diagnose vorbereiten")
+                var macHelper=fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Mac-Export-"+root.version+".sh"))
+                writeVerifiedCompactFile(macHelper,macDiagnosticHelperScript,"Mac-Speicherhelfer")
+                diagnosticExportBusy=true
+                statusText="Zielordner und Dateiname im Fenster „Diagnose speichern unter“ wählen …"
+                diagnosticExportProcess.startWithArgs("/bin/bash",[macHelper,diagnosticSourcePath,diagnosticReceiptPath])
+            } catch(e) {
+                diagnosticExportBusy=false
+                statusText="Mac-Diagnoseexport fehlgeschlagen: "+String(e)
+            }
+            return
+        }
         if (Qt.platform.os !== "windows") {
-            statusText = "Die freie Diagnose-Zielauswahl ist derzeit nur für Windows verfügbar."
+            // Other platforms retain the verified plugin-file fallback.
+            try {
+                diagnosticSourcePath=defaultDiagnosticPath()
+                writeVerifiedCompactFile(diagnosticSourcePath,diagnosticText(),"Diagnose speichern")
+                lastDiagnosticPath=diagnosticSourcePath
+                statusText="Diagnose gespeichert: "+diagnosticSourcePath
+            } catch(e){statusText="Diagnoseexport fehlgeschlagen: "+e}
             return
         }
         try {
@@ -6338,7 +6428,16 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         diagnosticExportBusy = false
         try {
             compactFile.source = diagnosticReceiptPath
-            var result = JSON.parse(String(compactFile.read()))
+            var receiptText=String(compactFile.read())
+            var result
+            if (Qt.platform.os === "osx" || Qt.platform.os === "macos") {
+                var lines=receiptText.replace(/\r/g,"").split("\n")
+                result={status:lines[0],source:diagnosticSourcePath,
+                    target:lines[1]||"",bytes:Number(lines[2]||0),sha256:lines[3]||"",
+                    message:lines[1]||"Mac-Speicherhelfer fehlgeschlagen"}
+            } else {
+                result=JSON.parse(receiptText)
+            }
             if (String(result.source || "").replace(/\\/g, "/") !== diagnosticSourcePath.replace(/\\/g, "/"))
                 throw Error("Rückmeldung gehört nicht zu diesem Export.")
             if (result.status === "saved" && result.target && result.bytes > 0 && /^[A-Fa-f0-9]{64}$/.test(result.sha256)) {

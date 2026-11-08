@@ -1,3 +1,15 @@
+# AI Notation Studio 0.11.16 – 08.11.2026
+
+**Fortsetzen mit getrennter Klaviernotation:** Die Fehlermeldung `Anzahl der Notensysteme verändert` bei unbenutztem zusätzlichem Klaviersystem wird vermieden. Originalnoten bleiben erhalten. Bereits gespeicherte KI-Antworten lassen sich über **„Gespeicherte KI-Antwort erneut prüfen (kostenfrei)“** nochmals prüfen.
+
+**Diagnose am Mac:** Statt eine JSON-Datei im Plugin-Verzeichnis suchen zu müssen, erscheint **„Diagnose speichern unter“**. Dort wählst du direkt Ordner und Dateiname. Der Export wird anschließend überprüft.
+
+**Installation:** Update prüfen → Update installieren. Anschließend Fortsetzung erneut prüfen und zunächst als **Neue Partitur** öffnen.
+
+[Details, Tests und noch ausstehender echter macOS-Dialogtest](RELEASE-0.11.16.md).
+
+## Frühere Versionen
+
 # AI Notation Studio 0.11.15 – 08.11.2026
 
 **Schutz gegen falsche KI-Aufrufe:** Ein ausdrücklich formulierter Analyseauftrag wie „Analysiere die Komposititon“ wird jetzt **nicht mehr als Kompositionsauftrag** an das Modell geschickt, wenn „Fortsetzen“ oder ein anderer Kompositionsmodus eingestellt ist. Statt eines kostenpflichtigen Aufrufs erscheint ein Hinweis, den Modus **„Auswahl analysieren“** auszuwählen.

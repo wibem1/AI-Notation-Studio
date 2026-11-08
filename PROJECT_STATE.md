@@ -1,5 +1,25 @@
 # Projektstand – AI Notation Studio
 
+## Live 0.11.16 – sichere Fortsetzung bei getrennten Klavierparts / Mac-Speichern-unter (08.11.2026)
+
+- **Fehler und Korrektur:** Bei `Fortsetzen` deklarierte der MusicXML-Konverter für Klavier grundsätzlich zwei Systeme, obwohl in der geöffneten Partitur Violine, Klavier rechts und Klavier links als drei eigenständige einzeilige Parts stehen. Daraus folgte `Anzahl der Notensysteme verändert`. Die Funktion `alignContinuationPianoStaves` entfernt beim Append ausschließlich das *unbenutzte* zweite Klaviersystem und bewahrt den Originalschlüssel. Noten werden nicht verändert; echte Mehrsystem- oder unklare Zeitachsen werden weiterhin abgelehnt.
+- **Mac-Diagnose:** Der Nutzer wies den Plugin-Ordner als Ziellösung zurück (Dateisuche unzumutbar). 0.11.16 verwendet auf macOS einen echten `osascript choose file name`-Speicherdialog mit Verifikation per `cmp`, Bytezahl und SHA-256. Windows-PowerShell-Export unverändert. macOS-Code wurde durch JavaScript-QML-Mocks auf Aufruf, Erfolg, Abbruch und Fehler geprüft, **nicht auf echtem Mac**.
+- **Native Prüfung:** [MuseScore Studio 4.7.6 / GitHub Actions #42502815232](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42502815232) **SUCCESS** der Staging-Implementierung und [**Finalversion 0.11.16 – Run #42503266627**](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42503266627) **SUCCESS**: synthetische 28→30-Takte-Fortsetzung, drei einzeilige Parts, neue MuseScore-Partitur, musikalisch unverändertes Original, verifizierter Nicht-Windows-JSON-Export; keine Providerkosten. Der native Mac-Speicherdialog wurde nicht getestet.
+- **Release:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.16.qml`, `versions/AI-Notation-Studio-App-0.11.16.qml` sind identisch. 0.11.15 bleibt unverändert archiviert. Details: [RELEASE-0.11.16.md](RELEASE-0.11.16.md).
+- **Nutzung:** Update prüfen → installieren; kostenfrei gespeicherte KI-Antwort erneut prüfen; zunächst neue Partitur auswählen. Noch offen ist nur die echte macOS-Dialogbedienung durch den Nutzer.
+
+
+## Entwicklung 0.11.16-dev – Fortsetzung getrennter Klavierparts und macOS-Diagnose (08.11.2026)
+
+- **Nutzerfehler 0.11.15:** Bei `Fortsetzen` (Violine und separat notierte rechte/linke Klavierhand) erscheint `Nicht übernommen: Error: Anzahl der Notensysteme verändert`. Die gespeicherte KI-Antwort bleibt für einen kostenfreien Retry erhalten.
+- **Ursache im Konverter:** `compact.xml.convert` setzt für jeden `piano`-Part immer `<staves>2</staves>`, auch wenn darin nur ein einziges System benutzt wird. `compact.context.combine` prüft dagegen genau die ursprüngliche Systemzahl (in der Nutzersituation getrennte, einzeilige Klavierparts). Das führt zu einer falschen Ablehnung trotz möglicherweise brauchbarer Noten.
+- **Abhilfe:** Für Append/Mode 3 wird ein offensichtlich ungenutztes zweites Klaviersystem vor dem MusicXML-Merge entfernt; vorhandener Notenschlüssel aus der Originalpartitur bleibt erhalten. Die originale Partitur und alle Noten-Events bleiben unverändert. Tatsächlich verwendete zweite Systeme, `backup`/Zeitachsen und andere Mehrdeutigkeiten werden **nicht** automatisch bereinigt.
+- **Regression:** `tests/test_append_single_piano_staff.cjs` gegen eingebettete CompactScore-Runtime PASS: 3 Parts × (1→2 Takte), Bassschlüssel erhalten, Noten erhalten, idempotent, echte zweite-Staff-Stimme wird abgewiesen. `tests/native_append_01116_probe.qml` und Workflow für echten MuseScore-4.7.6-Test mit synthetischem 28→30-Takt-Fall eingerichtet.
+- **Mac-Diagnose-Benutzerführung:** Der vorherige Windows-Only-Export war auf Mac nicht nutzbar. Eine vorübergehende Ablage im Plugin-Ordner wurde vom Nutzer ausdrücklich als **unbrauchbar** zurückgewiesen. Stattdessen läuft `exportDiagnostic` auf macOS über einen **nativen „Speichern unter“-Dialog** (`osascript` → `choose file name`), danach verifizierte Dateikopie (`cmp`, Bytezahl, SHA-256) und Rückmeldung des ausgewählten Zielpfads. Windows PowerShell-Speicherdialog unverändert, anderer Nicht-Windows-Pfad weiterhin verifiziert. Kein Export in nutzerfremde Verzeichnisse ohne Zielauswahl.
+- **Mac-Tests:** `tests/test_mac_diagnostic_save_dialog.cjs` mit Auszügen aus echtem QML PASS für Aufruf, gültige Rückmeldung, Abbruch und Fehler (Node-/V8-Mock, **kein nativer macOS-Test**). Sicheres Verhalten bei tatsächlichem AppleScript-/macOS-Dialog noch im realen Mac-System zu bestätigen.
+- **Veröffentlichung:** Live 0.11.15 unverändert; 0.11.16-dev nur Branch `fix/append-staves-mac-diagnostic-20261108`, keine Freigabe ohne vollständige Integrationsnachweise.
+
+
 ## Live 0.11.15 – Schutz vor irrtümlich kostenpflichtiger Komposition (08.11.2026)
 
 - **Nutzerdiagnose 0.11.14:** Der eingegebene Auftrag `Analysiere die Komposititon` wurde bei aktivem Modus `Fortsetzen` (mode 3) als 16-Takt-Komposition statt Analyse an Google Gemini 4 Argon versendet; 12.539 Tokens laut Diagnose, Geldbetrag nicht belegt. KI-Ausgabe in G-Dur bei geöffneter 28-Takt-Partitur in a-Moll. Anschließend sichere Ablehnung der Ausgabe durch Violine, Takt 7 (5/4 statt 4/4). Das Original wurde nicht überschrieben.
