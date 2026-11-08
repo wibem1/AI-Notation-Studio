@@ -13,5 +13,6 @@ assert(f.indexOf('notationStructureSelection()') < f.indexOf('notationCheck()'))
 assert(f.indexOf('notationCapture()') < f.indexOf('notationCheck()'));
 assert(f.indexOf('notationStructurePrepare()') < f.indexOf('notationCheck()'));
 assert.match(f, /structureStatus\.indexOf\("abgebrochen"\)/);
+assert(!/notationCheck\(\)\s*\n\s*statusText\s*=/.test(f), 'Do not overwrite asynchronous AI progress or errors');
 assert(!f.includes('notationStructureApply(') && !f.includes('notationApply('), 'No automatic modification');
 console.log('PASS: guarded notation improvement entry point (static checks only)');
