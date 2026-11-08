@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.15"
+    version: "0.11.16-dev"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -374,6 +374,69 @@ MuseScore {
         }
         return JSON.stringify(doc.children.filter(function(n){return typeof n!=='string' && (n.name==='part'||n.name==='part-list')}).map(clean))
     }
+    function alignContinuationPianoStaves(baseXml, addedXml, job) {
+        // Accept a one-staff piano-hand continuation even when the CS1 converter
+        // produced an unused second staff. Do not transpose, delete or move notes.
+        var warnings=[]
+        if (!job || job.mode!==3 || (job.workflowKind && job.workflowKind!=="append"))
+            return {xml:addedXml,warnings:warnings}
+        var base=compact.context.parse(baseXml),added=compact.context.parse(addedXml)
+        function nodes(n,t) {return n.children.filter(function(x){return x&&typeof x!=="string"&&x.name===t})}
+        function first(n,t) {return nodes(n,t)[0]||null}
+        function value(n) {return n?n.children.filter(function(x){return typeof x==="string"}).join("").trim():""}
+        function serialize(n) {return typeof n==="string"?n:n.open+n.children.map(serialize).join("")+n.close}
+        var original=nodes(base,"part"),generated=nodes(added,"part"),
+            oldDefs=nodes(first(base,"part-list"),"score-part"),
+            newDefs=nodes(first(added,"part-list"),"score-part")
+        if(original.length!==generated.length || oldDefs.length!==original.length ||
+           newDefs.length!==generated.length)return {xml:addedXml,warnings:warnings}
+        function declaredStaves(part) {
+            var measures=nodes(part,"measure"),a=measures.length?first(measures[0],"attributes"):null
+            var n=a?first(a,"staves"):null
+            return n?Number(value(n)):1
+        }
+        function firstClef(part) {
+            var measures=nodes(part,"measure"),a=measures.length?first(measures[0],"attributes"):null
+            return a?first(a,"clef"):null
+        }
+        var changed=0
+        for(var i=0;i<original.length;i++){
+            var originalName=value(first(oldDefs[i],"part-name")).toLowerCase(),
+                generatedName=value(first(newDefs[i],"part-name")).toLowerCase()
+            if(!/piano|klavier/.test(originalName) || !/piano|klavier/.test(generatedName) ||
+               declaredStaves(original[i])!==1 || declaredStaves(generated[i])!==2)continue
+            var measures=nodes(generated[i],"measure"),unsafe=false
+            for(var mi=0;mi<measures.length;mi++){
+                var m=measures[mi],items=m.children.filter(function(x){return x&&typeof x!=="string"})
+                for(var ni=0;ni<items.length;ni++){
+                    var n=items[ni],st=first(n,"staff")
+                    if((st&&value(st)!=="1")||n.name==="backup"||n.name==="forward"){unsafe=true;break}
+                }
+                if(unsafe)break
+            }
+            if(unsafe)throw Error("Fortsetzung: Klavierpart "+(i+1)+" enthält tatsächlich ein zweites Notensystem oder mehrstimmige Zeitachsen. Keine automatische Anpassung.")
+            var sourceClef=firstClef(original[i])
+            if(!sourceClef)throw Error("Fortsetzung: Notenschlüssel des ursprünglichen Klavierparts "+(i+1)+" fehlt.")
+            for(var k=0;k<measures.length;k++){
+                var attrs=first(measures[k],"attributes")
+                if(!attrs)continue
+                attrs.children=attrs.children.filter(function(x){return typeof x==="string" ||
+                    (x.name!=="clef" && x.name!=="staves")})
+                if(k===0){
+                    attrs.children.push({name:"staves",open:"<staves>",close:"</staves>",children:["1"]})
+                    // Retain the original staff's treble/bass clef exactly.
+                    attrs.children.push({name:"clef",open:"<clef number=\\"1\\">",close:"</clef>",children:
+                        nodes(sourceClef,"sign").concat(nodes(sourceClef,"line")).map(function(x){
+                            return {name:x.name,open:x.open,close:x.close,children:x.children.slice()}
+                        })})
+                }
+            }
+            warnings.push("Fortsetzung: unbenutztes zweites Klaviersystem in Part "+(i+1)+" entfernt; ursprünglicher Notenschlüssel erhalten. Keine Note verändert.")
+            changed++
+        }
+        return {xml:changed?serialize(added):addedXml,warnings:warnings}
+    }
+
     function workflowCombine(job, xml) {
         var count=compact.context.inspect(xml,0).meters.length
         if(count!==job.measures) throw Error("Die KI lieferte "+count+" statt "+job.measures+" Takten.")
@@ -409,8 +472,12 @@ MuseScore {
                 produced.some(function(p){return sounds(p[0])}))
                 throw Error("Zeitversatz erkannt: Die Ausgangspartitur beginnt mit einem Pausentakt, die Begleitung dagegen mit Noten. Nichts wurde eingefügt.")
         }
-        return compact.context.combine(job.sourceXml || readWorkflowSource(job),xml,
+        var sourceXml=job.sourceXml || readWorkflowSource(job)
+        var aligned=alignContinuationPianoStaves(sourceXml,xml,job)
+        var output=compact.context.combine(sourceXml,aligned.xml,
             {kind:job.workflowKind || (job.mode===3 ? "append":"newParts"),startQuarter:job.startQuarter,endQuarter:job.endQuarter,targetInstrument:job.instruments[0],partIndex:job.replacePartIndex,staffNumber:job.replaceStaffNumber,targetGroups:job.preludeTargets||null})
+        output.warnings=(output.warnings||[]).concat(aligned.warnings)
+        return output
     }
     function readWorkflowSource(job) {
         compactFile.source=job.sourcePath
