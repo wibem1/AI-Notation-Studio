@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.20"
+    version: "0.11.21"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -22,6 +22,8 @@ MuseScore {
     property var notationDirect: createNotationDirect(function(tick) { return root.fractionFromTicks(tick) })
     property var notationStructure: createNotationStructure(compact.context)
     property var structureSnapshot: null
+    property var clefSnapshot: null
+    property string clefReport: ""
     property string structureReport: ""
     property string structureStatus: ""
 
@@ -5200,7 +5202,59 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             if(signature(doc)!==before)throw Error('Die Klangprüfung ist fehlgeschlagen; die Änderung wird verworfen.');
             return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),changed:changed,operations:operations,report:reports.join('\n')||'Keine Passage mit mindestens drei klingenden Stimmen in vollständig markierten Takten erkannt.'}
         }
-        return {repair:repair,signature:function(xml){return signature(context.parse(xml))}}
+        // An intentionally narrow but executable visual repair: remove only
+        // redundant, unstyled G/F/C clefs. The full musical event signature is
+        // checked both here and before opening the resulting score copy.
+        function repairRedundantClefs(xml, selection) {
+            if (!selection || !selection.staffs || !selection.staffs.length ||
+                !(selection.endQuarter > selection.startQuarter))
+                throw Error('Bitte vollständige Takte eines Instruments markieren.');
+            var doc=context.parse(xml), before=signature(doc), changed=0, reports=[];
+            children(doc,'part').forEach(function(part,pi) {
+                var active={};
+                measureRows(part).forEach(function(row) {
+                    var full=row.start>=selection.startQuarter-1e-7 &&
+                        row.start+row.length/row.divisions<=selection.endQuarter+1e-7;
+                    children(row.node,'attributes').forEach(function(attributes) {
+                        var retained=[];
+                        attributes.children.forEach(function(item) {
+                            if (typeof item==='string' || item.name!=='clef') {
+                                retained.push(item); return;
+                            }
+                            var staffMatch=/\\bnumber=["'](\\d+)["']/.exec(item.open);
+                            var staff=staffMatch?Number(staffMatch[1]):1;
+                            var sign=text(item,'sign',''),line=Number(text(item,'line','0'));
+                            var octave=Number(text(item,'clef-octave-change','0'));
+                            var safe=/^<clef(?: number=["']\\d+["'])?>$/.test(item.open) &&
+                                (sign==='G'||sign==='F'||sign==='C') &&
+                                line>=1&&line<=5&&octave>=-2&&octave<=2;
+                            var key=sign+':'+line+':'+octave;
+                            var duplicate=safe && active[staff]===key;
+                            if (safe) active[staff]=key;
+                            if (duplicate && row.index>0 && full &&
+                                pi===selection.partIndex && selection.staffs.indexOf(staff)>=0) {
+                                changed++;
+                                reports.push('Takt '+row.number+', System '+staff+
+                                    ': überflüssiger, unveränderter '+sign+'-Schlüssel entfernt.');
+                            } else retained.push(item);
+                        });
+                        attributes.children=retained;
+                    });
+                    // Empty <attributes> elements have no meaning in the output.
+                    row.node.children=row.node.children.filter(function(n) {
+                        return typeof n==='string'||n.name!=='attributes'||
+                            n.children.some(function(c){return typeof c!=='string'});
+                    });
+                });
+            });
+            if (signature(doc)!==before)
+                throw Error('Klangprüfung fehlgeschlagen; keine Korrektur wird übernommen.');
+            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\\n'+serialize(doc),
+                changed:changed,report:reports.join('\\n')||
+                'Keine sicher überflüssigen Schlüsselwechsel in der Auswahl gefunden.'};
+        }
+        return {repair:repair,repairRedundantClefs:repairRedundantClefs,
+            signature:function(xml){return signature(context.parse(xml))}}
     }
     
     
@@ -5396,6 +5450,45 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
     // Unified, non-destructive improvement workflow. The deterministic structural
     // repair is prepared first; the optional KI call checks enharmonic spellings.
     // Neither stage edits the score until the user chooses an apply action.
+    function notationClefPrepare() {
+        if (busy) return
+        clefSnapshot=null; clefReport=""
+        try {
+            var selection=notationStructureSelection(), xml=notationStructureExport()
+            var result=notationStructure.repairRedundantClefs(xml,selection)
+            clefReport=result.report
+            if (result.changed) {
+                clefSnapshot={score:curScore,sourceXml:xml,xml:result.xml,
+                    count:result.changed,selection:selection}
+                clefReport+='\\n\\nDie '+result.changed+' erkannten Schlüssel-Dubletten können '+
+                    'jetzt in einer korrigierten Partiturkopie entfernt werden. Das Original bleibt erhalten.'
+            }
+            statusText='Schlüsselkorrektur vorbereitet: '+result.changed+' sichere Änderungen.'
+        } catch (e) { clefReport='Schlüsselprüfung abgebrochen: '+String(e); statusText=clefReport }
+    }
+
+    function notationClefOpen() {
+        if (busy||!clefSnapshot) return
+        var snapshot=clefSnapshot
+        try {
+            if (!curScore || !(curScore===snapshot.score||curScore.is(snapshot.score)) ||
+                notationStructureExport()!==snapshot.sourceXml)
+                throw Error('Die Partitur wurde seit der Prüfung verändert. Bitte erneut analysieren.')
+            if (notationStructure.signature(snapshot.xml)!==
+                notationStructure.signature(snapshot.sourceXml))
+                throw Error('Klangprüfung vor dem Öffnen fehlgeschlagen.')
+            var path=fileUrlToLocalPath(Qt.resolvedUrl('AI-Notation-Studio-Clef-'+
+                new Date().getTime()+'.musicxml'))
+            writeVerifiedCompactFile(path,snapshot.xml,'Korrigierte Schlüssel')
+            if (!readScore(path,false))
+                throw Error('MuseScore konnte die korrigierte Partiturkopie nicht öffnen.')
+            clefSnapshot=null
+            statusText='Korrigierte Partiturkopie geöffnet ('+snapshot.count+
+                ' überflüssige Schlüssel entfernt). Original unverändert.'
+            clefReport+='\\n\\n'+statusText
+        } catch (e) {statusText='Schlüsselkorrektur nicht übernommen: '+String(e);clefReport+='\\n'+statusText}
+    }
+
     function notationImprove() {
         if (busy) return
         try {
@@ -5406,6 +5499,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             return
         }
         notationStructurePrepare()
+        notationClefPrepare()
         if (structureStatus.indexOf("abgebrochen") >= 0) {
             statusText = structureStatus + " Kein KI-Aufruf."
             return
@@ -7406,11 +7500,24 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     Layout.fillWidth: true
                     spacing: 8
                     Button { objectName: "notationImproveButton"; text: "Notation verbessern (Analyse starten)"; enabled: !busy; onClicked: notationImprove() }
+                    Button { objectName: "notationClefCheckButton"; text: "Überflüssige Schlüssel prüfen"; enabled: !busy; onClicked: notationClefPrepare() }
+                    Button { objectName: "notationClefOpenButton"; text: "Schlüssel korrigieren (Kopie)"; enabled: !busy && clefSnapshot !== null; onClicked: notationClefOpen() }
                     Button { objectName: "notationStructureCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationStructurePrepare() }
                     Button { objectName: "notationStructureApplyButton"; text: "In der Partitur korrigieren"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureApply() }
                     Button { objectName: "notationStructureOpenButton"; text: "Korrigierte Partitur öffnen"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureOpen() }
                     Button { objectName: "notationCheckButton"; text: "Vorzeichenschreibweise prüfen (KI)"; enabled: !busy; onClicked: notationCheck() }
                     Button { objectName: "notationApplyButton"; text: "Vorgeschlagene Schreibweisen übernehmen"; enabled: !busy && notationChanges.length > 0; onClicked: notationApply() }
+                }
+                TextArea {
+                    objectName: "notationClefReportView"
+                    Layout.fillWidth: true
+                    visible: clefReport !== ""
+                    readOnly: true
+                    selectByMouse: true
+                    wrapMode: TextEdit.Wrap
+                    color: "#ededed"
+                    text: clefReport
+                    background: Rectangle { color: "#2b2d31"; radius: 4 }
                 }
                 TextArea {
                     objectName: "notationStructureStatusView"
