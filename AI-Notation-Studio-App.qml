@@ -601,6 +601,10 @@ MuseScore {
             compactFile.source = path
             var source = String(compactFile.read())
             if(mode===3){
+                // Read the notated key from the original MusicXML, not from
+                // inferred note statistics (which cannot establish a mode).
+                var keyTag=source.match(/<key(?:\\s[^>]*)?>\\s*<fifths>\\s*(-?[0-7])\\s*<\\/fifths>(?:\\s*<mode>\\s*(major|minor)\\s*<\\/mode>)?/i)
+                if(keyTag)job.sourceKey={fifths:Number(keyTag[1]),mode:keyTag[2] ? keyTag[2].toLowerCase() : ""}
                 var tempoTag=source.match(/<per-minute>\\s*([0-9]+(?:\\.[0-9]+)?)\\s*<\\/per-minute>/i)
                 if(tempoTag)job.sourceTempo=Number(tempoTag[1])
             }
@@ -822,6 +826,26 @@ MuseScore {
         return warnings
     }
 
+    function validateContinuationKey(job, data) {
+        if(!job || job.mode!==3 || !job.sourceKey || !data || !data.score)return
+        // An explicitly requested modulation must not be blocked.
+        if(/(?:tonart|modulier|modulation|transponier|transposition|key change|change key)/i.test(String(job.instruction||"")))return
+        var raw=String(data.score.key||"").replace(/♭/g,"b").replace(/♯/g,"#").trim()
+        var match=/^([A-Ga-g])([#b]?)(.*)$/.exec(raw)
+        if(!match)throw Error("Musikalische Fortsetzung abgelehnt: Die KI hat keine auswertbare Grundtonart angegeben.")
+        var modeText=match[3].trim()
+        var minor=/^(?:m|minor|moll)$/i.test(modeText)
+        if(modeText && !minor && !/^(?:major|dur)$/i.test(modeText))
+            throw Error("Musikalische Fortsetzung abgelehnt: Unbekannte Tonart "+raw)
+        var keys={C:0,G:1,D:2,A:3,E:4,B:5,"F#":6,"C#":7,F:-1,Bb:-2,Eb:-3,Ab:-4,Db:-5,Gb:-6,Cb:-7,
+            Am:0,Em:1,Bm:2,"F#m":3,"C#m":4,"G#m":5,"D#m":6,"A#m":7,Dm:-1,Gm:-2,Cm:-3,Fm:-4,Bbm:-5,Ebm:-6,Abm:-7}
+        var name=match[1].toUpperCase()+match[2]+(minor?"m":"")
+        if(keys[name]===undefined)throw Error("Musikalische Fortsetzung abgelehnt: Unbekannte Tonart "+raw)
+        if(keys[name]!==job.sourceKey.fifths || (job.sourceKey.mode && job.sourceKey.mode!==(minor?"minor":"major")))
+            throw Error("Musikalische Fortsetzung abgelehnt: Grundtonart der KI ("+raw+
+                ") stimmt nicht mit der Ausgangspartitur überein. Die gespeicherte Antwort wird nicht automatisch umkomponiert.")
+    }
+
     function validateContinuationTempo(job, data) {
         if(!job || job.mode!==3 || !job.sourceTempo || !data || !data.score)
             return
@@ -854,6 +878,7 @@ MuseScore {
             var errors=compact.score.inspect(data)
             if(errors.length)
                 throw Error("Rhythmusprüfung: "+errors.join("; ")+". Die KI-Antwort bleibt für eine kostenfreie erneute Prüfung gespeichert.")
+            validateContinuationKey(job,data)
             validateContinuationTempo(job,data)
             if (data.parts.length !== job.instruments.length &&
                 !(job.mode===9 && job.preludeTargets && job.preludeTargets.length===1 &&
