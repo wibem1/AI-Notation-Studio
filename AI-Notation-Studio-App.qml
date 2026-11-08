@@ -311,8 +311,38 @@ MuseScore {
         try { var d = JSON.parse(compositionJson); return d.format === "AI-Notation-Maxi" || d.format === "AI-Notation-Mini" } catch (e) { return false }
     }
 
+    function repairRepeatedPianoIds(cs1) {
+        // The provider sometimes emits separate RH/LH P blocks with the same
+        // technical id. Only rename duplicate IDs when both blocks explicitly
+        // identify a piano and the current target expects multiple piano parts.
+        if (!compositionJob || !Array.isArray(compositionJob.instruments) ||
+            compositionJob.instruments.filter(function(i) { return /^(piano|klavier)$/i.test(String(i)) }).length < 2)
+            return cs1
+        var lines=String(cs1).split("\n"), seen={}, changed=false
+        for (var i=0; i<lines.length; i++) {
+            if (lines[i].slice(0,2)!=="P ") continue
+            var part
+            try { part=JSON.parse(lines[i].slice(2)) } catch(e) { continue }
+            var id=String(part.i||""), name=String(part.n||"")
+            if (!seen[id]) { seen[id]=true; continue }
+            if (!/^(piano|klavier)$/i.test(id) || !/piano|klavier/i.test(name)) continue
+            var next=2
+            while (seen[id+"_"+next] || lines.some(function(line) {
+                if (line.slice(0,2)!=="P ") return false
+                try { return JSON.parse(line.slice(2)).i===id+"_"+next } catch(e) { return false }
+            })) next++
+            part.i=id+"_"+next
+            seen[part.i]=true
+            lines[i]="P "+JSON.stringify(part)
+            changed=true
+        }
+        if (changed) compactWarnings=compactWarnings.concat(["Doppelte Klavier-Part-ID eindeutig umbenannt; Noten nicht verändert."])
+        return lines.join("\n")
+    }
+
     function acceptCompactText(text) {
-        var clean = String(text).trim().replace(/^```[^\n]*\n/, "").replace(/\n```$/, "")
+        var clean = String(text).trim().replace(/^\x60\x60\x60[^\n]*\n/, "").replace(/\n\x60\x60\x60$/, "")
+        if (clean.indexOf("CS1")===0) clean=repairRepeatedPianoIds(clean)
         var data = clean.indexOf("CS1") === 0 ? compact.score.decode(clean) : compact.score.decode(compact.score.encode(JSON.parse(clean)))
         var converted = compact.xml.convert(data)
         compactSourceText = compact.score.encode(data)
@@ -323,12 +353,18 @@ MuseScore {
         statusText = converted.measures + " Takte, " + converted.parts + " Instrumente. Bereit zum Öffnen in MuseScore." + (compactWarnings.length ? " Hinweise beachten." : "")
     }
 
+    function stripStudioMemoryFromXml(xml) {
+        // Do not embed our own saved state back into exported MusicXML. Legacy
+        // scores can contain megabytes of recursively nested, escaped snapshots.
+        return String(xml || "").replace(/<miscellaneous-field\b[^>]*\bname=["']AI-Notation-Studio-Memory-v1["'][^>]*>[\s\S]*?<\/miscellaneous-field>/g, "")
+    }
+
     function workflowXml() {
         if (!curScore) throw Error("Bitte die Ausgangspartitur öffnen.")
         var path=fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Guard.musicxml"))
         if (!writeScore(curScore,path,"musicxml")) throw Error("Original konnte nicht gelesen werden.")
         compactFile.source=path
-        return String(compactFile.read())
+        return stripStudioMemoryFromXml(String(compactFile.read()))
     }
     function workflowGuard(xml) {
         var doc=compact.context.parse(xml)
@@ -386,7 +422,7 @@ MuseScore {
         workflowCore.check("apply",{state:job.workflowState||"ready",source_guard:guard,current_guard:job.sourcePath ? workflowGuard(workflowXml()):"new"})
     }
     function archiveWorkflowAnalysis(text, original, bounds) {
-        workflowAnalysis={raw:text,answer:workflowCore.readable(text),sourceXml:original,sourceGuard:workflowGuard(original),selection:selectionJson,bounds:bounds,provider:providerName(),model:modelBox.text.trim()}
+        workflowAnalysis={raw:text,answer:workflowCore.readable(text),sourceXml:stripStudioMemoryFromXml(original),sourceGuard:workflowGuard(original),selection:selectionJson,bounds:bounds,provider:providerName(),model:modelBox.text.trim()}
         archiveComposition()
     }
     function reviseFromAnalysis() {
@@ -763,7 +799,7 @@ MuseScore {
             if (c.cost) sum += c.cost.usd
             else unknown = true
         }
-        return out.length ? out.join("\n") + "\nAuftrag gesamt: $" + sum.toFixed(5) + (unknown ? " + unbekannte Kosten" : "") + " (geschätzt, USD)" : "Auftrag: noch keine Kosten gemeldet."
+        return out.length ? out.join("\n") + "\nAuftrag gesamt: " + (unknown ? (sum ? "$" + sum.toFixed(5) + " + unbekannte Kosten" : "Kosten unbekannt") : "$" + sum.toFixed(5)) + " (geschätzt, USD)" : "Auftrag: noch keine Kosten gemeldet."
     }
 
     function writeVerifiedCompactFile(path, content, label) {
@@ -4417,12 +4453,21 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         restoringMemory = false
     }
 
+    function compactScoreMemorySnapshot(obj) {
+        if (!obj) return obj
+        var copy={}
+        Object.keys(obj).forEach(function(key) {
+            copy[key] = key==="sourceXml" ? stripStudioMemoryFromXml(obj[key]) : obj[key]
+        })
+        return copy
+    }
+
     function currentScoreMemoryObject() {
         return {
             schema: 2,
             pluginVersion: root.version,
             savedAt: new Date().toISOString(),
-            workflowAnalysis: workflowAnalysis,
+            workflowAnalysis: compactScoreMemorySnapshot(workflowAnalysis),
             notes: scoreMemoryNotes,
             instruction: instructionBox.text,
             modeIndex: modeBox.currentIndex,
@@ -4434,7 +4479,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             musicalDraft: musicalDraft,
             compositionJson: compositionJson,
             compactSourceText: compactSourceText,
-            compositionJob: compositionJob, compositionIdea: compositionIdea,
+            compositionJob: compactScoreMemorySnapshot(compositionJob), compositionIdea: compositionIdea,
             ideaReady: ideaReady, compositionCosts: compositionCosts
         }
     }
