@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Entwicklung 0.11.18-dev – zusammengeschobene CS1-Ereignisse (08.11.2026)
+
+- **Reale Diagnose:** Anwenderdatei `AI-Notation-Studio-Diagnose-1794161860441-151871.json`, Plugin 0.11.17, Gemini 4 Argon, Fortsetzen mit 3 Übergangstakten + 16 neuen Takten, 20.063 Tokens, `workflowState=invalid`, Fehler `Zeile 19: JSON.parse: Parse error`. In CS1-Zeile `16/1` fehlen Leerzeichen an sechs eindeutig erkennbaren Notengrenzen, beispielsweise `C5:s{"i":"v16_1"}E5:sA5:sC6:s`. Die Originalantwort wird im Auftrag `raw_response` gespeichert. Benutzerdatei und Musik wurden nicht auf GitHub hochgeladen.
+- **Korrektur im Branch `fix/cs1-adjacent-events-20261108`:** `repairAdjacentCompactEvents` ergänzt ausschließlich eindeutig fehlende Trennzeichen zwischen Noten in CS1-Takt-/Stimmenzeilen vor dem bestehenden Parser; unklare Fehler werden weiterhin abgelehnt. Die Funktion ist idempotent und lässt Tonhöhen, Dauern, JSON-Attribute, Header und Instrumente unverändert. Das ist bei `Gespeicherte KI-Antwort erneut prüfen` kostenfrei wirksam. Vorläufige App-Version `0.11.18-dev`.
+- **Prüfung:** Direkt ausgeführte V8-Prüfung mit eingebettetem CompactScore-Decoder: synthetische zusammengeklebte Taktzeile wird erfolgreich in 12 originale Notenereignisse dekodiert, `compact.score.inspect` liefert keine Fehler; normale Zeile bleibt unverändert. `tests/test_cs1_adjacent_events.cjs` angelegt. **Vollständiger Node-/MuseScore-Integrationstest, echte Diagnose-End-to-End-Verarbeitung und Release noch offen.** Keine kostenpflichtige KI-Anfrage.
+- **Nächster Schritt:** Reale Antwort lokal vollständig gegen die ursprüngliche Partitur validieren und Offline-Regressionen bzw. nativen Integrationstest für 0.11.18 ausführen; erst danach Freigabe.
+
+
 ## Live 0.11.17 – Fortsetzungen mit Tonhöhenreferenz und musikalischem Vertrag (08.11.2026)
 
 - **Quellstand:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.17.qml` und `versions/AI-Notation-Studio-App-0.11.17.qml` enthalten dieselbe Version 0.11.17. Die bisherigen Versionen bleiben unverändert.
