@@ -40,8 +40,8 @@ const reference = compact(JSON.stringify({bounds:{startTick:0,endTick:1920},elem
     {type:'Note',pitchMidi:60,pitchName:'C',tick:480,track:4,durationTicks:960},
     {type:'Rest',tick:1440,track:0,durationTicks:480}
 ]}));
-assert.match(reference, /A4\\(MIDI 69\\)\\/480/, 'Reference melody pitch was lost');
-assert.match(reference, /C4\\(MIDI 60\\)\\/960/, 'Reference accompaniment pitch was lost');
-assert.match(reference, /Rest\\/480/, 'Reference rest was lost');
+assert.match(reference, /A4\(MIDI 69\)\/480/, 'Reference melody pitch was lost');
+assert.match(reference, /C4\(MIDI 60\)\/960/, 'Reference accompaniment pitch was lost');
+assert.match(reference, /Rest\/480/, 'Reference rest was lost');
 
 console.log('Continuation key/tempo contract and reference pitch regression: PASS');
