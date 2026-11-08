@@ -5582,8 +5582,11 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             saveCurrentKey(); saveCurrentModel()
             busy = true
             statusText = "Notendarstellung wird geprüft …"
-            var format = 'Antworte ausschließlich als JSON: {"report":"Befund auf Deutsch",' +
-                '"changes":[{"id":0,"tpc":14,"reason":"musikalische Begründung"}]}.'
+            var format = 'Antworte ausschließlich als JSON: {"report":"Zusammenfassung auf Deutsch",' +
+                '"findings":[{"measure":1,"staff":1,"kind":"rhythm","problem":"konkreter Befund","suggestion":"konkreter Vorschlag"}],' +
+                '"changes":[{"id":0,"tpc":14,"reason":"musikalische Begründung"}]}. ' +
+                'Erlaubte kind-Werte: rhythm, rests, clef, chord, ornament, voice, accidental, other. ' +
+                'Findings sind nur Hinweise; ausführbare changes dürfen weiterhin ausschließlich tpc ändern.'
             var prompt = "Du prüfst die Lesbarkeit einer MuseScore-Auswahl. Bewahre alle Tonhöhen, " +
                 "Einsatzzeiten, Dauern und Stimmen. Prüfe enharmonische Schreibweise im harmonischen " +
                 "und melodischen Kontext, Stimmen/Pausen, Bindungen und rhythmische Gliederung. " +
@@ -5602,7 +5605,26 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 try {
                     var answer = JSON.parse(extractJsonBlock(text))
                     var changes = notationValidate(answer, snapshot)
-                    notationSnapshot = snapshot; notationChanges = changes; notationReport = answer.report
+                    notationSnapshot = snapshot; notationChanges = changes
+                    notationReport = String(answer.report || "")
+                    if (Array.isArray(answer.findings) && answer.findings.length) {
+                        var categories = {rhythm:"Rhythmik", rests:"Pausen", clef:"Schlüssel",
+                            chord:"Akkordverteilung", ornament:"Verzierungen", voice:"Stimmen",
+                            accidental:"Vorzeichen", other:"Sonstiges"}
+                        var findings = []
+                        for (var fi = 0; fi < Math.min(answer.findings.length, 60); fi++) {
+                            var entry = answer.findings[fi]
+                            if (!entry || typeof entry !== "object" || !categories[entry.kind] ||
+                                !Number.isInteger(entry.measure) || entry.measure < 1 ||
+                                !Number.isInteger(entry.staff) || entry.staff < 1 ||
+                                entry.staff > 64 || typeof entry.problem !== "string" ||
+                                typeof entry.suggestion !== "string") continue
+                            findings.push("Takt " + entry.measure + ", System " + entry.staff +
+                                " · " + categories[entry.kind] + ": " + entry.problem.slice(0, 500) +
+                                "\\nVorschlag (nicht automatisch ausgeführt): " + entry.suggestion.slice(0, 500))
+                        }
+                        if (findings.length) notationReport += "\\n\\nKonkrete Notationsbefunde:\\n" + findings.join("\\n\\n")
+                    }
                     var lines = []
                     for (var i = 0; i < changes.length; i++) {
                         var old = snapshot.notes[changes[i].id]
