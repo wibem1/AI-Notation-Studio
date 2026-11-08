@@ -6641,7 +6641,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
     function explicitAnalysisRequest(text) {
         // Prevent accidental paid composition when the user's text explicitly
         // requests analysis but the workflow selector still points to a generator.
-        return /^\\s*(?:bitte\\s+)?(?:analysier(?:e|en|t)?|untersuch(?:e|en)?|beurteil(?:e|en)?|bewert(?:e|en)?)(?:\\b|[!,:.?\\s])/i.test(String(text || ""))
+        return /^\s*(?:bitte\s+)?(?:analysier(?:e|en|t)?|untersuch(?:e|en)?|beurteil(?:e|en)?|bewert(?:e|en)?)(?:\b|[!,:.?\s])/i.test(String(text || ""))
     }
 
     function sendToAI() {
