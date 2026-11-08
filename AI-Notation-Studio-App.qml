@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.16"
+    version: "0.11.17-dev"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -600,6 +600,10 @@ MuseScore {
             if (!writeScore(curScore, path, "musicxml")) throw Error("Ausgangspartitur konnte nicht für den Kontext gesichert werden.")
             compactFile.source = path
             var source = String(compactFile.read())
+            if(mode===3){
+                var tempoTag=source.match(/<per-minute>\\s*([0-9]+(?:\\.[0-9]+)?)\\s*<\\/per-minute>/i)
+                if(tempoTag)job.sourceTempo=Number(tempoTag[1])
+            }
             if (mode === 1) {
                 // Resolve the existing target part before composing; the overlay path
                 // adds voices without adding a duplicate piano instrument.
@@ -660,22 +664,36 @@ MuseScore {
 
     function compactCompositionSelection(source) {
         var data
-        try { data = JSON.parse(source) } catch(e) { return String(source || "").slice(0, 12000) }
-        var b = data.bounds || {}, rows = data.elements || []
-        var out = ["Ticks: "+b.startTick+"-"+b.endTick, "Elemente: "+rows.length]
-        var previous = ""
-        for (var i=0; i<rows.length; i++) {
-            var e = rows[i], kind = String(e.type||"")
-            if (!/note|chord|rest|harmony|tempo|dynamic|key|time/i.test(kind)) continue
-            var tick = Number(e.tick||0), track = Number(e.track||0)
-            var item = tick+":"+track+":"+kind
-            if (e.pitch !== undefined) item+=":"+String(e.pitch)
-            if (e.pitches !== undefined) item+=":"+JSON.stringify(e.pitches)
-            if (e.durationTicks !== undefined) item+="/"+e.durationTicks
-            if (e.text !== undefined) item+=":"+String(e.text).slice(0,60)
-            if (item===previous) continue
-            out.push(item); previous=item
-            if (out.join("\n").length>60000) { out.push("[Kontext gekürzt; vollständige Partitur bleibt lokal gespeichert]"); break }
+        try { data=JSON.parse(source) } catch(e) { return String(source||"").slice(0,12000) }
+        var b=data.bounds||{}, rows=(data.elements||[]).filter(function(e){
+            return /^(note|chord|rest|harmony|tempo|dynamic|key|time)$/i.test(String(e.type||""))
+        })
+        // MuseScore exports `pitchMidi`, NOT `pitch`. Dropping it stripped the
+        // entire melody and harmony from continuation requests up to 0.11.16.
+        rows.sort(function(a,b){
+            return Number(a.tick||0)-Number(b.tick||0) || Number(a.track||0)-Number(b.track||0)
+        })
+        var out=["Ticks: "+b.startTick+"-"+b.endTick,"Musikalische Ereignisse: "+rows.length],
+            previous="",size=out.join("\n").length
+        for(var i=0;i<rows.length;i++){
+            var e=rows[i], kind=String(e.type||""),tick=Number(e.tick||0),
+                track=Number(e.track||0), item=tick+":"+track+":"+kind
+            if(e.pitchMidi!==undefined && e.pitchMidi!==null){
+                var midi=Number(e.pitchMidi)
+                if(isFinite(midi) && midi>=0 && midi<=127){
+                    var names=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+                    var label=String(e.pitchName||names[midi%12])
+                    item+=":"+label+(Math.floor(midi/12)-1)+"(MIDI "+midi+")"
+                }
+            } else if(e.pitch!==undefined)item+=":"+String(e.pitch)
+            if(e.pitches!==undefined)item+=":"+JSON.stringify(e.pitches)
+            if(e.durationTicks!==undefined)item+="/"+e.durationTicks
+            if(e.text!==undefined)item+=":"+String(e.text).slice(0,60)
+            if(item===previous)continue
+            if(size+item.length+1>90000){
+                out.push("[weitere Ereignisse gekürzt]");break
+            }
+            out.push(item);size+=item.length+1;previous=item
         }
         return out.join("\n")
     }
@@ -695,6 +713,13 @@ MuseScore {
         var task = action + "\nAUFTRAG:\n" + job.instruction + "\nZIELBESETZUNG (Reihenfolge verbindlich): " + job.instruments.join(", ") +
             "\nLÄNGE: " + job.measures + " Takte.\nARBEITSVORLIEBEN:\n" + job.preferences +
             "\nGestalte musikalisch begründete Phrasen, motivische Beziehungen, Harmonik, Rhythmus und Ausdruck. Für die Instrumente spielbar schreiben. Klavier mit rechter und linker Hand. Nutzerangaben haben Vorrang. Für CS1 englische Instrumentnamen wie piano, violin, cello, flute und clarinet verwenden; pro Instrument ein P-Block mit eindeutiger ID. Tonhöhen klingend angeben; instrumentale Transposition übernimmt das Plugin."
+        if(job.mode===3){
+            task+="\nFORTSETZUNG – MUSIKALISCHE BINDUNG: Die folgenden Noten sind die wirklichen Tonhöhen und Dauern des Originals. " +
+                "Entwickle Themen, Motive, Begleitung und Harmonik aus ihnen weiter, statt ein unabhängiges neues Stück zu komponieren. " +
+                "Bewahre Grundtonart, harmonische Sprache, Instrumentrollen und Ausgangstempo, sofern der Auftrag keine bewusste Änderung nennt. " +
+                "Die letzten vier Takte sind als Übergang besonders wichtig; erkenne eine vollständige Schlusskadenz und knüpfe daran organisch an."
+            if(job.sourceTempo)task+="\nORIGINALTEMPO: Viertel = "+job.sourceTempo+" BPM (nicht ohne ausdrücklichen Auftrag ändern)."
+        }
         if (job.mode !== 2 && job.mode !== 9) task += "\nREFERENZAUSWAHL (kompakt, ohne überflüssige UI-Metadaten):\n" + compactCompositionSelection(job.selection) +
             "\nTaktart am Beginn: " + job.sourceTime + ". Taktarten und tatsächliche Taktlängen der Ausgangspartitur: " + JSON.stringify(job.sourceMeters) + ". Die Taktlängen müssen damit übereinstimmen. Die Ergebnis-Takte werden ab 1 gezählt und ab Ausgangstakt " + job.startMeasure + " eingefügt."
         if (job.prefixQuarter > 0) task += "\nDie Auswahl beginnt " + job.prefixQuarter + " Viertel nach Taktanfang. In jeder Ergebnisstimme den ersten Takt mit genau dieser Dauer als Pausen beginnen; danach die Musik der Auswahl bearbeiten."
