@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.14"
+    version: "0.11.15-dev"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -6638,11 +6638,22 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         }
     }
 
+    function explicitAnalysisRequest(text) {
+        // Prevent accidental paid composition when the user's text explicitly
+        // requests analysis but the workflow selector still points to a generator.
+        return /^\\s*(?:bitte\\s+)?(?:analysier(?:e|en|t)?|untersuch(?:e|en)?|beurteil(?:e|en)?|bewert(?:e|en)?)(?:\\b|[!,:.?\\s])/i.test(String(text || ""))
+    }
+
     function sendToAI() {
         if (busy) return
         if (instructionBox.text.trim() === "") { statusText = "Bitte einen Auftrag eingeben."; return }
-        saveCurrentKey(); saveCurrentModel()
         var mode = modeBox.currentIndex
+        if (mode !== 0 && explicitAnalysisRequest(instructionBox.text)) {
+            statusText = "Auftrag und Modus widersprechen sich: Du verlangst eine Analyse, ausgewählt ist „" +
+                         modeBox.currentText + "“. Bitte den Modus „Analyse“ wählen. Kein KI-Aufruf, keine neuen Kosten."
+            return
+        }
+        saveCurrentKey(); saveCurrentModel()
         if (mode !== 2 && mode !== 9 && !readSelection()) return
         if (mode === 2 || mode === 9) selectionJson = ""
         if (mode === 0) {
