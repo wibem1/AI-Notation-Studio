@@ -5408,8 +5408,9 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             statusText = structureStatus + " Kein KI-Aufruf."
             return
         }
+        // notationCheck() owns the asynchronous status messages. Do not overwrite
+        // its "Prüfung läuft", success, or failure message after it returns.
         notationCheck()
-        statusText = "Notation verbessern: Strukturprüfung vorbereitet; KI prüft die Notenschreibweise. Änderungen werden erst nach Bestätigung übernommen."
     }
 
     function notationStructureApply() {
