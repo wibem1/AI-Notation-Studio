@@ -1,5 +1,15 @@
 # Projektstand – AI Notation Studio
 
+## Entwicklung – musikalischer Fortsetzungsvertrag (08.11.2026; noch kein Release)
+
+- **Branch:** `fix/continuation-reference-pitches-20261108`; live bleibt **0.11.16**. Für neue Fortsetzungen werden die MuseScore-Felder `pitchMidi`/`pitchName` im kompakten Referenztext berücksichtigt. Der Prompt fordert ausdrücklich Fortführung von Motiven, Harmonik, Besetzung und Ausgangstempo.
+- **Neue Sicherheitsprüfung:** `validateContinuationKey` kontrolliert vor der Übernahme die notierte Ausgangstonart aus MusicXML (`<fifths>`, optional `<mode>`) gegen die von der KI angegebene CS1-Grundtonart. Abweichende Tonart/Vorzeichen bzw. bekannter Dur-/Moll-Modus werden ohne ausdrücklichen Modulationsauftrag abgelehnt. Bei fehlender/uneindeutiger Quelltonart wird keine Tonartübereinstimmung behauptet. Ausdrücklich beauftragte Modulationen sind zulässig.
+- **Tempo:** `validateContinuationTempo` lehnt ein ohne Auftrag abweichendes Grundtempo (>1 BPM) ab. Beim Lesen der MusicXML-Metadaten wurden irrtümlich doppelt maskierte Regex-Escapezeichen für `<per-minute>` und `<key>` korrigiert.
+- **Prüfgrundlage:** Acht isolierte Fälle für Tonart/Tempo plus MusicXML-Regex-Extraktion direkt gegen den Codeausschnitt in einer V8-JavaScript-Ausführung bestanden; `tests/test_continuation_musical_contract.cjs` ist als reproduzierbare Regression im Branch hinterlegt. **Node-Testlauf, nativer MuseScore-Test, realistischer Fortsetzungsfall und Veröffentlichung noch ausstehend.** Keine Gemini-Aufrufe oder Build-Aktionen.
+- **Grenze:** Ein unveränderter Schlüssel allein beweist keine musikalische Motiv- oder Harmonieverwandtschaft. Keine algorithmische Motivbewertung als harte Abweisung; dies ist ein eigener, sorgfältig zu prüfender Entwicklungsschritt. Beim Ausgangsstück ohne eindeutige Tonart-Metadaten bleibt diese Sicherheitseigenschaft unbestätigt.
+- **Nächster Schritt:** Regression unter Node und echte MuseScore-Integration mit synthetischen Fällen ausführen; danach erst über neue App-Version und Freigabe entscheiden. Gespeicherte musikalisch unpassende KI-Antworten lassen sich durch erneutes Prüfen nicht umkomponieren.
+
+
 ## Live 0.11.16 – sichere Fortsetzung bei getrennten Klavierparts / Mac-Speichern-unter (08.11.2026)
 
 - **Fehler und Korrektur:** Bei `Fortsetzen` deklarierte der MusicXML-Konverter für Klavier grundsätzlich zwei Systeme, obwohl in der geöffneten Partitur Violine, Klavier rechts und Klavier links als drei eigenständige einzeilige Parts stehen. Daraus folgte `Anzahl der Notensysteme verändert`. Die Funktion `alignContinuationPianoStaves` entfernt beim Append ausschließlich das *unbenutzte* zweite Klaviersystem und bewahrt den Originalschlüssel. Noten werden nicht verändert; echte Mehrsystem- oder unklare Zeitachsen werden weiterhin abgelehnt.
