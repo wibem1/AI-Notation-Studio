@@ -60,7 +60,7 @@ MuseScore {
     requestFile.source=app.lastDiagnosticPath
     var exported=JSON.parse(requestFile.read())
     requestFile.source=savedPath
-    if(exported.pluginVersion!=="0.11.16-dev" || exported.diagnosticSchema!==2)
+    if(exported.pluginVersion!=="0.11.16" || exported.diagnosticSchema!==2)
       throw Error("Saved diagnostic JSON content invalid")
     var choice=find(app,"outputTargetSelector")
     if(!choice)throw Error("Output selector missing")
