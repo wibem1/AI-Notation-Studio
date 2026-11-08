@@ -1,5 +1,15 @@
 # Projektstand – AI Notation Studio
 
+## Entwicklung 0.11.20 – „Notation verbessern“ (08.11.2026; nicht veröffentlicht)
+
+- **Auftrag:** Auf eine Partituranalyse sollen sichere, überprüfbare Notationsverbesserungen folgen. Die Nutzerdiagnose aus Plugin 0.11.13 zeigt KI-Hinweise zu komplizierten Rhythmen, überzähligen Pausen, Schlüsselwechseln und zu weiten Akkorden, aber keinen automatischen Korrekturlauf.
+- **Branch:** `feat/notation-verbessern-20261108`, App-Einstieg `AI-Notation-Studio-App.qml` auf 0.11.20 erhöht; Live auf `main` bleibt 0.11.19.
+- **Implementiert (erster Teilschritt):** Neue Schaltfläche „Notation verbessern (Analyse starten)“. Vor einem möglicherweise kostenpflichtigen KI-Aufruf werden Takt-/Instrumentauswahl und erfassbare Noten geprüft. Danach wird die vorhandene, klangidentisch validierte Strukturkorrektur vorbereitet und die bestehende KI-Prüfung der enharmonischen Schreibweise gestartet. Beide Vorschlagsarten werden getrennt angezeigt und erst über ihre vorhandenen Übernahmebuttons angewandt. Automatische Notenveränderungen beim Analyse-Klick ausgeschlossen.
+- **Wichtige Grenze:** KI-Hinweise zu Verzierungen, Rhythmik, Akkordaufteilung, Pausen und Schlüsselwechseln werden **noch nicht** in ausführbare Korrekturpläne überführt. Keine Behauptung einer vollständigen Notationsoptimierung. Die vorhandene Strukturkorrektur benötigt die vollständige Taktauswahl genau eines Instruments. Der KI-Aufruf kann Kosten verursachen.
+- **Prüfstand:** Isolierte Quelltext-Assertions für Button, Aufrufreihenfolge, Preflight und fehlende automatische Übernahme bestanden (V8). Reproduzierbarer Test `tests/test_notation_improve_entry.cjs` im Branch; **Node-Ausführung, QML-Parsing und nativer MuseScore-Integrationstest offen**. Keine Live-Freigabe.
+- **Nächster Schritt:** Native Integration und Regression mit synthetischer Partitur und fehlerhaften bzw. leeren Auswahlen; erst danach versionierte App-Kopie und Veröffentlichung. Erweiterung um einen schema-validierten, taktbasierten Vorschlags-/Übernahmeplan für Rhythmik/Schlüssel/Pausen separat absichern.
+
+
 ## Live 0.11.19 – getrennte Klavierhände bei replaceTail (08.11.2026)
 
 - **Realer Bericht:** `AI-Notation-Studio-Diagnose-1794162946487-963319.json`, Plugin 0.11.18, Fortsetzung 3 Übergangstakte + 16 neue Takte, drei getrennte Parts (Violine, Klavier rechts, Klavier links). Formfehler der KI-Antwort ist in 0.11.18 behoben, jetzt blockiert `Error: Anzahl der Notensysteme verändert.`. Ursache: `workflowKind=replaceTail` (Takte 26–28 ersetzen und 16 Takte hinzufügen), während die bewährte Normalisierung nur für `append` aktiviert war.
