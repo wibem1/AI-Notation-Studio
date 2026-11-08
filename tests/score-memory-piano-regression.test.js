@@ -38,6 +38,12 @@ const original = '<score-partwise><identification><miscellaneous><miscellaneous-
 const cleaned = strip(original);
 assert(!cleaned.includes("nested") && cleaned.includes("<part-list/>"));
 assert.strictEqual(strip(cleaned), cleaned);
+const otherMetadata = '<miscellaneous-field name="copyright">Original</miscellaneous-field>';
+const twoMemories = original.replace("<part-list/>",otherMetadata +
+  '<miscellaneous-field name="AI-Notation-Studio-Memory-v1">legacy</miscellaneous-field><part-list/>');
+const restored = strip(twoMemories);
+assert.strictEqual(restored.indexOf("AI-Notation-Studio-Memory-v1"),-1);
+assert(restored.includes(otherMetadata), "Non-plugin metadata must remain intact");
 const fixSrc = section("    function repairSingleTrailingPianoOverrun(", "    function finishComposition(");
 const fix = vm.runInNewContext(fixSrc + "\nrepairSingleTrailingPianoOverrun");
 const wholeScore = ["CS1", 'S {"t":"Regression","m":"4/4"}'];
@@ -64,4 +70,9 @@ assert.strictEqual(compact.xml.convert(normalized).measures,28);
 const other = runtime.decode(repair(wholeScore.join("\n")));
 assert.strictEqual(fix({mode:3,workflowKind:"append"},other).length,0);
 assert.strictEqual(other.parts[2].measures[11].voices[0].events[3].duration,"half");
+const normalRight = runtime.decode(repair(wholeScore.join("\n").replace("Klavier (L.H.)","Cello")));
+assert.strictEqual(fix({mode:5,workflowKind:"replace"},normalRight).length,0);
+const measured = runtime.decode(repair(wholeScore.join("\n")));
+measured.parts[2].measures[11].voices[0].events[3].pitch="B1";
+assert.strictEqual(fix({mode:5,workflowKind:"replace"},measured).length,0, "Unexpected pitches must not be edited");
 console.log("Score-memory and piano-ID regression passed.");
