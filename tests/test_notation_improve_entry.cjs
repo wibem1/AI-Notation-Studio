@@ -20,4 +20,6 @@ assert.match(s, /Konkrete Notationsbefunde:/, 'Categorized findings displayed');
 assert.match(s, /nicht automatisch ausgeführt/, 'Non-executable findings clearly labeled');
 assert.match(s, /'"changes":\[\]\}/, 'KI schema must not suggest a fabricated sample change');
 assert.match(s, /changes muss \[\] sein/, 'No changes is explicit default');
+assert.match(s, /selection: \{startTick: selectionBounds\(\)\.startTick, endTick: selectionBounds\(\)\.endTick\}/, 'Selection bounds supplied to AI');
+assert.match(s, /erfinde keine Takt- oder Systemnummern/, 'No invented measure or staff positions');
 console.log('PASS: guarded notation improvement entry point (static checks only)');
