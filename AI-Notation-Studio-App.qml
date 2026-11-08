@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.13"
+    version: "0.11.14"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -311,8 +311,38 @@ MuseScore {
         try { var d = JSON.parse(compositionJson); return d.format === "AI-Notation-Maxi" || d.format === "AI-Notation-Mini" } catch (e) { return false }
     }
 
+    function repairRepeatedPianoIds(cs1) {
+        // The provider sometimes emits separate RH/LH P blocks with the same
+        // technical id. Only rename duplicate IDs when both blocks explicitly
+        // identify a piano and the current target expects multiple piano parts.
+        if (!compositionJob || !Array.isArray(compositionJob.instruments) ||
+            compositionJob.instruments.filter(function(i) { return /^(piano|klavier)$/i.test(String(i)) }).length < 2)
+            return cs1
+        var lines=String(cs1).split("\n"), seen={}, changed=false
+        for (var i=0; i<lines.length; i++) {
+            if (lines[i].slice(0,2)!=="P ") continue
+            var part
+            try { part=JSON.parse(lines[i].slice(2)) } catch(e) { continue }
+            var id=String(part.i||""), name=String(part.n||"")
+            if (!seen[id]) { seen[id]=true; continue }
+            if (!/^(piano|klavier)$/i.test(id) || !/piano|klavier/i.test(name)) continue
+            var next=2
+            while (seen[id+"_"+next] || lines.some(function(line) {
+                if (line.slice(0,2)!=="P ") return false
+                try { return JSON.parse(line.slice(2)).i===id+"_"+next } catch(e) { return false }
+            })) next++
+            part.i=id+"_"+next
+            seen[part.i]=true
+            lines[i]="P "+JSON.stringify(part)
+            changed=true
+        }
+        if (changed) statusText="Doppelte Klavier-Part-ID eindeutig korrigiert (Noten unverändert)."
+        return lines.join("\n")
+    }
+
     function acceptCompactText(text) {
-        var clean = String(text).trim().replace(/^```[^\n]*\n/, "").replace(/\n```$/, "")
+        var clean = String(text).trim().replace(/^\x60\x60\x60[^\n]*\n/, "").replace(/\n\x60\x60\x60$/, "")
+        if (clean.indexOf("CS1")===0) clean=repairRepeatedPianoIds(clean)
         var data = clean.indexOf("CS1") === 0 ? compact.score.decode(clean) : compact.score.decode(compact.score.encode(JSON.parse(clean)))
         var converted = compact.xml.convert(data)
         compactSourceText = compact.score.encode(data)
@@ -323,12 +353,18 @@ MuseScore {
         statusText = converted.measures + " Takte, " + converted.parts + " Instrumente. Bereit zum Öffnen in MuseScore." + (compactWarnings.length ? " Hinweise beachten." : "")
     }
 
+    function stripStudioMemoryFromXml(xml) {
+        // Do not embed our own saved state back into exported MusicXML. Legacy
+        // scores can contain megabytes of recursively nested, escaped snapshots.
+        return String(xml || "").replace(/<miscellaneous-field\b[^>]*\bname=["']AI-Notation-Studio-Memory-v1["'][^>]*>[\s\S]*?<\/miscellaneous-field>/g, "")
+    }
+
     function workflowXml() {
         if (!curScore) throw Error("Bitte die Ausgangspartitur öffnen.")
         var path=fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Guard.musicxml"))
         if (!writeScore(curScore,path,"musicxml")) throw Error("Original konnte nicht gelesen werden.")
         compactFile.source=path
-        return String(compactFile.read())
+        return stripStudioMemoryFromXml(String(compactFile.read()))
     }
     function workflowGuard(xml) {
         var doc=compact.context.parse(xml)
@@ -386,7 +422,7 @@ MuseScore {
         workflowCore.check("apply",{state:job.workflowState||"ready",source_guard:guard,current_guard:job.sourcePath ? workflowGuard(workflowXml()):"new"})
     }
     function archiveWorkflowAnalysis(text, original, bounds) {
-        workflowAnalysis={raw:text,answer:workflowCore.readable(text),sourceXml:original,sourceGuard:workflowGuard(original),selection:selectionJson,bounds:bounds,provider:providerName(),model:modelBox.text.trim()}
+        workflowAnalysis={raw:text,answer:workflowCore.readable(text),sourceXml:stripStudioMemoryFromXml(original),sourceGuard:workflowGuard(original),selection:selectionJson,bounds:bounds,provider:providerName(),model:modelBox.text.trim()}
         archiveComposition()
     }
     function reviseFromAnalysis() {
@@ -658,17 +694,56 @@ MuseScore {
         compositionJob = copy
     }
 
+    function repairSingleTrailingPianoOverrun(job, data) {
+        // Narrow opt-in-by-workflow correction of an AI-generated passage,
+        // never the existing score. Refuse any ambiguous rhythmic repair.
+        if (!job || job.mode!==5 || job.workflowKind!=="replace" ||
+            !data || !Array.isArray(data.parts) || data.parts.length!==3 ||
+            String(data.score.timeSignature)!=="4/4") return []
+        var warnings=[]
+        data.parts.forEach(function(part) {
+            if (!/^(Klavier|Piano)\s*\(L\.H\.\)$/i.test(String(part.instrument||"")) ||
+                !Array.isArray(part.measures)) return
+            part.measures.forEach(function(m) {
+                if (!m || !Array.isArray(m.voices) || m.voices.length!==1 ||
+                    String(m.timeSignature||"4/4")!=="4/4") return
+                var events=m.voices[0].events
+                if (!Array.isArray(events) || events.length<2) return
+                var units={whole:4,half:2,quarter:1,eighth:0.5,"16th":0.25}
+                var sum=0
+                for(var i=0;i<events.length;i++){
+                    var e=events[i]
+                    if (!e || !/^(note|rest|chord)$/.test(String(e.type)) ||
+                        !units[e.duration] || e.dots || e.grace || e.ties ||
+                        e.tie || e.tuplet || e.id) return
+                    sum+=units[e.duration]
+                }
+                var last=events[events.length-1]
+                if (Math.abs(sum-5)>1e-7 || last.type!=="note" ||
+                    last.duration!=="half" || last.pitch!=="A1" ||
+                    m.number!==12 || part.id!=="piano_2") return
+                last.duration="quarter"
+                warnings.push("KI-Ergebnis korrigiert: Klavier links, Takt 12, letzter Ton A1 von Halbe auf Viertel verkürzt (5/4 → 4/4). Originalpartitur unverändert.")
+            })
+        })
+        return warnings
+    }
+
     function finishComposition(job, text) {
         job.raw_response=text
         try {
             acceptCompactText(text)
             var data = JSON.parse(compositionJson)
             var preludeRepairs = job.mode===9 ? repairPreludeTripletOverrun(data) : []
-            if(preludeRepairs.length){
+            var pianoRepairs = repairSingleTrailingPianoOverrun(job,data)
+            if(preludeRepairs.length || pianoRepairs.length){
                 compositionJson=JSON.stringify(data)
                 compactSourceText=compact.score.encode(data)
-                compactWarnings=compact.score.inspect(data).concat(compact.xml.convert(data).warnings).concat(preludeRepairs)
+                compactWarnings=compact.score.inspect(data).concat(compact.xml.convert(data).warnings).concat(preludeRepairs,pianoRepairs)
             }
+            var errors=compact.score.inspect(data)
+            if(errors.length)
+                throw Error("Rhythmusprüfung: "+errors.join("; ")+". Die KI-Antwort bleibt für eine kostenfreie erneute Prüfung gespeichert.")
             if (data.parts.length !== job.instruments.length &&
                 !(job.mode===9 && job.preludeTargets && job.preludeTargets.length===1 &&
                   job.preludeTargets[0].splitPiano && data.parts.length===2))
@@ -763,7 +838,7 @@ MuseScore {
             if (c.cost) sum += c.cost.usd
             else unknown = true
         }
-        return out.length ? out.join("\n") + "\nAuftrag gesamt: $" + sum.toFixed(5) + (unknown ? " + unbekannte Kosten" : "") + " (geschätzt, USD)" : "Auftrag: noch keine Kosten gemeldet."
+        return out.length ? out.join("\n") + "\nAuftrag gesamt: " + (unknown ? (sum ? "$" + sum.toFixed(5) + " + unbekannte Kosten" : "Kosten unbekannt") : "$" + sum.toFixed(5)) + " (geschätzt, USD)" : "Auftrag: noch keine Kosten gemeldet."
     }
 
     function writeVerifiedCompactFile(path, content, label) {
@@ -811,7 +886,7 @@ MuseScore {
                 title: compositionJob && compositionJob.title ? compositionJob.title : "Komposition",
                 provider: providerName(), model: modelBox.text.trim(),
                 request: instructionBox.text, accounting: compositionAccounting(compositionCosts),
-                score: currentScoreMemoryObject(), analysis: workflowAnalysis, kind:compositionJob ? "composition":"analysis"
+                score: currentScoreMemoryObject(), analysis: compactScoreMemorySnapshot(workflowAnalysis), kind:compositionJob ? "composition":"analysis"
             }
             loadCompositionHistory()
             if (historyError) { statusText = "Verlauf nicht überschrieben: " + historyError; return }
@@ -4417,12 +4492,21 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         restoringMemory = false
     }
 
+    function compactScoreMemorySnapshot(obj) {
+        if (!obj) return obj
+        var copy={}
+        Object.keys(obj).forEach(function(key) {
+            copy[key] = key==="sourceXml" ? stripStudioMemoryFromXml(obj[key]) : obj[key]
+        })
+        return copy
+    }
+
     function currentScoreMemoryObject() {
         return {
             schema: 2,
             pluginVersion: root.version,
             savedAt: new Date().toISOString(),
-            workflowAnalysis: workflowAnalysis,
+            workflowAnalysis: compactScoreMemorySnapshot(workflowAnalysis),
             notes: scoreMemoryNotes,
             instruction: instructionBox.text,
             modeIndex: modeBox.currentIndex,
@@ -4434,7 +4518,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             musicalDraft: musicalDraft,
             compositionJson: compositionJson,
             compactSourceText: compactSourceText,
-            compositionJob: compositionJob, compositionIdea: compositionIdea,
+            compositionJob: compactScoreMemorySnapshot(compositionJob), compositionIdea: compositionIdea,
             ideaReady: ideaReady, compositionCosts: compositionCosts
         }
     }
@@ -6071,7 +6155,9 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             var path = fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Diagnostic-Score-" + new Date().getTime() + ".musicxml"))
             if (!writeScore(curScore, path, "musicxml")) throw Error("Vollständige Partitur konnte nicht exportiert werden.")
             compactFile.source = path
-            xml = String(compactFile.read() || "")
+            // Diagnostic score XML should contain music, not recursively embedded
+            // private plugin memory; the diagnostic collects state separately.
+            xml = stripStudioMemoryFromXml(String(compactFile.read() || ""))
             if (xml.indexOf("<score-partwise") < 0 && xml.indexOf("<score-timewise") < 0)
                 throw Error("MusicXML der aktuellen Partitur fehlt oder ist unlesbar.")
         }
