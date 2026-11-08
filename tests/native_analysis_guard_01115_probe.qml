@@ -26,7 +26,7 @@ MuseScore {
    var component=Qt.createComponent("AI-Notation-Studio-App.qml")
    if(component.status!==Component.Ready)throw Error("Component failed: "+component.errorString())
    app=component.createObject(root)
-   if(!app||String(app.version)!=="0.11.15-dev")throw Error("Wrong app version")
+   if(!app||String(app.version)!=="0.11.15")throw Error("Wrong app version")
    var mode=find(app,"compositionModeSelector"),instruction=find(app,"compositionInstructionBox")
    if(!mode||!instruction)throw Error("Missing live mode or instruction controls")
    instruction.text="Analysiere die Komposititon"
