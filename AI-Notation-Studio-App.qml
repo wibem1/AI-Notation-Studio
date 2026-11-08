@@ -7309,6 +7309,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
             TextArea {
                 id: instructionBox
+                objectName: "compositionInstructionBox"
                     color: "#ededed"
                     placeholderTextColor: "#aaaaaa"
                     background: Rectangle { color: "#2b2d31"; radius: 4 }
