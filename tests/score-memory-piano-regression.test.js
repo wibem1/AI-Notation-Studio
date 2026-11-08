@@ -8,7 +8,8 @@ function section(start, end) {
   return qml.slice(a, b);
 }
 const runtimeSrc = section("function createCompactRuntime()", "// END COMPACTSCORE RUNTIME");
-const runtime = vm.runInNewContext(runtimeSrc + "\ncreateCompactRuntime()").score;
+const compact = vm.runInNewContext(runtimeSrc + "\ncreateCompactRuntime()");
+const runtime = compact.score;
 const repairSrc = section("    function repairRepeatedPianoIds(", "    function acceptCompactText(");
 const repair = vm.runInNewContext(repairSrc + "\nrepairRepeatedPianoIds", {
   compositionJob: { instruments: ["violin", "piano", "piano"] },
@@ -24,6 +25,11 @@ assert.throws(() => runtime.decode(input), /Doppelte Part-ID/);
 const corrected = repair(input), data = runtime.decode(corrected);
 assert.deepStrictEqual(Array.from(data.parts, p => p.id), ["violin","piano","piano_2"]);
 assert(corrected.includes("1/1 C4:w") && corrected.includes("1/1 C3:w"));
+const converted = compact.xml.convert(data);
+assert.strictEqual(converted.parts, 3);
+const parsed = compact.context.parse(converted.xml);
+assert.strictEqual(parsed.children.filter(x => x && x.name === "part").length, 3);
+assert(converted.xml.includes("C4") === false, "MusicXML should use structured pitches");
 assert.strictEqual(repair(corrected), corrected, "Correction must be idempotent");
 assert.throws(() => runtime.decode(input.replace("Klavier (L.H.)", "Cello")), /Doppelte Part-ID/);
 const stripSrc = section("    function stripStudioMemoryFromXml(", "    function workflowXml(");
