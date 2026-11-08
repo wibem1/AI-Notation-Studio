@@ -80,6 +80,23 @@ MuseScore {
         app.notationStructure.signature(altered)!==app.notationStructure.signature(change.xml))
         throw Error("Native clef repair failed or changed musical signature: "+change.report)
       log("ANS_01121_CLEF_REPAIR PASS: redundant G clef removed; music unchanged")
+      // Standard 4/4 fixture with eight separate eighth notes and no beams.
+      // The production engine must add exactly four two-note groups, never
+      // changing the sounding pitches, onsets, durations or voices.
+      var halfNotes=['C','D','E','F','G','A','B','C'],noteXml=''
+      for(var bi=0;bi<halfNotes.length;bi++) noteXml+=
+        '<note><pitch><step>'+halfNotes[bi]+'</step><octave>4</octave></pitch>'+ 
+        '<duration>1</duration><type>eighth</type></note>'
+      var beamsXml='<score-partwise><part id="P1"><measure number="1">'+
+        '<attributes><divisions>2</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>'+noteXml+
+        '</measure></part></score-partwise>'
+      var beamResult=app.notationStructure.repairSafeVisual(beamsXml,
+        {partIndex:0,staffs:[1],startQuarter:0,endQuarter:4})
+      if(beamResult.changed!==4 ||
+        (beamResult.xml.match(/<beam number="1">/g)||[]).length!==8 ||
+        app.notationStructure.signature(beamResult.xml)!==app.notationStructure.signature(beamsXml))
+        throw Error('Native rhythmic repair failed: '+beamResult.report)
+      log("ANS_01121_BEAM_REPAIR PASS: four eighth-note groups repaired; music unchanged")
     }
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
