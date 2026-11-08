@@ -24,5 +24,6 @@ jobs:
         run: |
           node --check tests/test_continuation_musical_contract.cjs
           node tests/test_continuation_musical_contract.cjs
+          node tests/test_cs1_adjacent_events.cjs
       - name: Recheck one-staff piano append
         run: node tests/test_append_single_piano_staff.cjs
