@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Releasebereit 0.11.17 – Fortsetzungen mit Tonhöhenreferenz und musikalischem Vertrag (08.11.2026)
+
+- **Quellstand:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.17.qml` und `versions/AI-Notation-Studio-App-0.11.17.qml` enthalten dieselbe Version 0.11.17. Die bisherigen Versionen bleiben unverändert.
+- **Nachweis:** [Regression #42508438121](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42508438121) **SUCCESS** und [nativer MuseScore-4.7.6-Integrationstest #42508438091](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42508438091) **SUCCESS**. Der native Test prüft zusätzlich Ablehnung einer KI-Antwort in unzulässiger Grundtonart und danach korrekte 28→30-Takt-Übernahme mit unverändertem Original, drei Systemen und Diagnoseexport. Ohne KI-Providerkosten.
+- **Funktionsänderung:** Korrekte Weitergabe von `pitchMidi`/`pitchName`; Fortsetzungsprompt mit Motiv-, Harmonie- und Tempobindung; Ablehnung unbeauftragter Grundtonart-/Tempoabweichungen. Grenzen: motivische Qualität nicht automatisch beweisbar, Mac-Speichern-Dialog weiterhin nur simuliert.
+- **Veröffentlichung:** Release-Unterlagen `RELEASE-0.11.17.md` und README vorbereitet. Nach Merge nach `main` ist die Version über das vorhandene Updateverfahren erreichbar; keine separate Veröffentlichung über GitHub Releases erforderlich.
+- **Anwenderprüfung:** Erneut 16 Takte **neu komponieren** (alte gespeicherte Antwort nicht wiederverwenden), Ausgabe zunächst in neue Partitur. Tonart/Tempo/Motive und musikalische Qualität beurteilen; Diagnose nur bei Problemen. Kein kostenpflichtiger KI-Aufruf im Entwicklungsprozess.
+
+
 ## Entwicklung – musikalischer Fortsetzungsvertrag (08.11.2026; noch kein Release)
 
 - **Branch:** `fix/continuation-reference-pitches-20261108`; live bleibt **0.11.16**. Für neue Fortsetzungen werden die MuseScore-Felder `pitchMidi`/`pitchName` im kompakten Referenztext berücksichtigt. Der Prompt fordert ausdrücklich Fortführung von Motiven, Harmonik, Besetzung und Ausgangstempo.
