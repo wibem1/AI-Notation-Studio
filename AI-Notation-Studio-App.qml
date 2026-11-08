@@ -7567,7 +7567,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     spacing: 8
                     Button { objectName: "notationImproveButton"; text: "Notation verbessern (Analyse starten)"; enabled: !busy; onClicked: notationImprove() }
                     Button { objectName: "notationVisualCheckButton"; text: "Sichere Notationskorrekturen prüfen"; enabled: !busy; onClicked: notationVisualPrepare() }
-                    Button { objectName: "notationVisualOpenButton"; text: "Schlüssel korrigieren (Kopie)"; enabled: !busy && visualSnapshot !== null; onClicked: notationVisualOpen() }
+                    Button { objectName: "notationVisualOpenButton"; text: "Korrigierte Notation öffnen (Kopie)"; enabled: !busy && visualSnapshot !== null; onClicked: notationVisualOpen() }
                     Button { objectName: "notationStructureCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationStructurePrepare() }
                     Button { objectName: "notationStructureApplyButton"; text: "In der Partitur korrigieren"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureApply() }
                     Button { objectName: "notationStructureOpenButton"; text: "Korrigierte Partitur öffnen"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureOpen() }
