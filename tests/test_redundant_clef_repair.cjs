@@ -47,6 +47,8 @@ const styled=xml.replace('<measure number="2"><attributes><clef>',
 assert.equal(repair(styled).changed,0,'do not remove decorated clefs');
 const noFirst=xml.replace(clef('G',2),'');
 assert.equal(repair(noFirst).changed,0,'no assumed clef history');
+const courtesy=xml.replace('<measure number="2">','<measure number="2"><print new-system="yes"/>');
+assert.equal(repair(courtesy).changed,0,'preserve reprinted clef at a new system');
 // Rhythmic readability: adding missing beams must never alter duration/pitch.
 const eighth=(p)=>`<note><pitch><step>${p}</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type></note>`;
 function beamFixture(beats,kind,n){
@@ -68,6 +70,9 @@ assert.equal((compoundPlan.xml.match(/<beam number="1">/g)||[]).length,6);
 assert.equal(engine.signature(compound),engine.signature(compoundPlan.xml));
 const skipped=straight.replace('<type>eighth</type></note>', '<type>eighth</type><notations><slur type="start"/></notations></note>');
 assert.equal(engine.repairMissingBeams(skipped,{partIndex:0,staffs:[1],startQuarter:0,endQuarter:4}).changed,0,'do not touch special notation');
+const stemless=straight.replace('<type>eighth</type></note>', '<type>eighth</type><stem>none</stem></note>');
+assert.equal(engine.repairMissingBeams(stemless,{partIndex:0,staffs:[1],startQuarter:0,endQuarter:4}).changed,3,
+ 'never beam an intentionally stemless note');
 assert.equal(engine.repairMissingBeams(straight,{partIndex:0,staffs:[1],startQuarter:4,endQuarter:8}).changed,0,'no out-of-selection edit');
 const combined=engine.repairSafeVisual(straight,{partIndex:0,staffs:[1],startQuarter:0,endQuarter:4});
 assert.equal(combined.changed,4,'combined repair includes rhythmic beaming');
