@@ -1,0 +1,125 @@
+name: AI Notation Studio 0.11.16 append and Mac-style diagnostic
+on:
+  push:
+    branches:
+      - fix/append-staves-mac-diagnostic-20261108
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 12
+    env:
+      QT_QUICK_BACKEND: software
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline JS regression and synthetic score
+        run: |
+          node tests/test_append_single_piano_staff.cjs
+          node tests/generate_01114_native_fixture.cjs
+          node tests/generate_01116_append_request.cjs
+          test -s /tmp/ans-01116-base.musicxml
+          test -s /tmp/ans-01116-append-request.json
+      - name: Install MuseScore GUI dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xdotool scrot libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libnss3 libasound2t64
+      - name: Get official MuseScore Studio 4.7.6, verify checksum
+        run: |
+          set -euo pipefail
+          BASE=https://github.com/musescore/MuseScore/releases/download/v4.7.6
+          NAME=MuseScore-Studio-4.7.6.261022093-x86_64.AppImage
+          curl -fL --retry 1 --max-time 240 -o "$NAME" "$BASE/$NAME"
+          curl -fL --retry 1 --max-time 60 -o checksums.sha256.txt "$BASE/checksums.sha256.txt"
+          awk -v n="$NAME" '$2==n {print}' checksums.sha256.txt | sha256sum -c -
+          chmod +x "$NAME"
+          ./"$NAME" --appimage-extract >/dev/null
+      - name: Import fixture into native MuseScore format
+        env:
+          QT_QPA_PLATFORM: offscreen
+          MU_QT_QPA_PLATFORM: offscreen
+        run: |
+          timeout 90 ./squashfs-root/AppRun -o /tmp/ans-01116-base.mscz /tmp/ans-01116-base.musicxml
+          test -s /tmp/ans-01116-base.mscz
+      - name: Native GUI plugin invocation, retry and imported score verification
+        env:
+          QT_QPA_PLATFORM: xcb
+          MU_QT_QPA_PLATFORM: xcb
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/Documents/MuseScore4/Plugins"
+          cp tests/native_append_01116_probe.qml "$HOME/Documents/MuseScore4/Plugins/"
+          cp AI-Notation-Studio-App.qml "$HOME/Documents/MuseScore4/Plugins/"
+          mkdir -p "$HOME/.local/share/MuseScore/MuseScore4/extensions"
+          python - <<'PY'
+          import json,pathlib
+          p=pathlib.Path.home()/'.local/share/MuseScore/MuseScore4/extensions/config.json'
+          p.write_text(json.dumps([{'uri':'musescore://extensions/v1/native_append_01116_probe.qml','actions':[{'code':'main','exec_point':'manually'}]}]))
+          PY
+          cat > /tmp/ans-01116-driver.sh <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          ./squashfs-root/AppRun /tmp/ans-01116-base.mscz >/tmp/ans-01116-gui.log 2>&1 &
+          pid=$!
+          sleep 10
+          for i in 1 2 3;do timeout 3 xdotool mousemove 788 617 click 1 || true;sleep 1;done
+          timeout 3 xdotool mousemove 102 46 click 1 || true
+          sleep 2
+          timeout 3 xdotool mousemove 293 13 click 1 || true
+          sleep 1
+          timeout 3 xdotool mousemove 372 82 click 1 || true
+          sleep 12
+          scrot /tmp/ans-01116-main.png || true
+          if ! test -s /tmp/ans-01116-imported.musicxml; then
+            child=$(xdotool search --onlyvisible --name 'AI-Notation-Studio-Result-' | tail -n 1 || true)
+            if test -n "$child";then
+              xdotool windowmove "$child" 0 0 windowsize "$child" 1440 900 windowfocus --sync "$child" || true
+              sleep 1
+              xdotool mousemove 293 13 click 1 || true
+              sleep 1
+              xdotool mousemove 372 82 click 1 || true
+              sleep 3
+              scrot /tmp/ans-01116-imported-window.png || true
+            fi
+          fi
+          kill "$pid" 2>/dev/null || true
+          wait "$pid" 2>/dev/null || true
+          SH
+          chmod +x /tmp/ans-01116-driver.sh
+          timeout 65 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- /tmp/ans-01116-driver.sh || true
+          cat /tmp/ans-01116-result.txt || true
+          cat /tmp/ans-01116-imported-result.txt || true
+          grep -q 'ANS_01116 PASS:' /tmp/ans-01116-result.txt
+          grep -q 'ANS_01116_IMPORTED PASS:' /tmp/ans-01116-imported-result.txt
+          python - <<'PY'
+          from xml.etree import ElementTree as ET
+          def parts(path,count):
+              root=ET.parse(path).getroot()
+              result=root.findall('part')
+              assert len(result)==3
+              assert all(len(p.findall('measure'))==count for p in result),path
+              return result
+          before=parts('/tmp/ans-01116-before.musicxml',28)
+          after=parts('/tmp/ans-01116-after.musicxml',28)
+          imported=parts('/tmp/ans-01116-imported.musicxml',30)
+          assert ET.tostring(ET.parse('/tmp/ans-01116-before.musicxml').getroot())==ET.tostring(ET.parse('/tmp/ans-01116-after.musicxml').getroot())
+          # Last part retains its bass clef; the new music remains on one staff.
+          lh=imported[2]
+          first=lh.find('measure/attributes/clef/sign')
+          assert first is not None and first.text=='F', 'Original bass clef changed'
+          assert lh.findall('measure[29]/note/pitch'), 'Appended piano note missing'
+          print('NATIVE 0.11.16 PASS: original 28 bars unchanged; 30-bar 3-staff result including piano LH')
+          PY
+      - name: Upload failure diagnostics (no personal score)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ans-01116-native-smoke-logs
+          path: |
+            /tmp/ans-01116-*.txt
+            /tmp/ans-01116-*.log
+            /tmp/ans-01116-*.png
