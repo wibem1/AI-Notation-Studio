@@ -107,7 +107,23 @@ jobs:
           before=parts('/tmp/ans-01116-before.musicxml',28)
           after=parts('/tmp/ans-01116-after.musicxml',28)
           imported=parts('/tmp/ans-01116-imported.musicxml',30)
-          assert ET.tostring(ET.parse('/tmp/ans-01116-before.musicxml').getroot())==ET.tostring(ET.parse('/tmp/ans-01116-after.musicxml').getroot())
+          # Ignore MuseScore-generated layout/metadata; compare music events.
+          def signatures(score_parts):
+              out=[]
+              for part in score_parts:
+                  bars=[]
+                  for measure in part.findall('measure'):
+                      bars.append([(
+                          note.findtext('pitch/step','REST'),
+                          note.findtext('pitch/alter',''),
+                          note.findtext('pitch/octave',''),
+                          note.findtext('duration',''),
+                          note.findtext('voice',''),
+                          note.findtext('type','')
+                      ) for note in measure.findall('note')])
+                  out.append(bars)
+              return out
+          assert signatures(before)==signatures(after), 'Original notes/rests changed'
           # Last part retains its bass clef; the new music remains on one staff.
           lh=imported[2]
           first=lh.find('measure/attributes/clef/sign')
