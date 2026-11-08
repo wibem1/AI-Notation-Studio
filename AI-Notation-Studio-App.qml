@@ -702,7 +702,7 @@ MuseScore {
             String(data.score.timeSignature)!=="4/4") return []
         var warnings=[]
         data.parts.forEach(function(part) {
-            if (!/^(Klavier|Piano)\\s*\\(L\\.H\\.\\)$/i.test(String(part.instrument||"")) ||
+            if (!/^(Klavier|Piano)\s*\(L\.H\.\)$/i.test(String(part.instrument||"")) ||
                 !Array.isArray(part.measures)) return
             part.measures.forEach(function(m) {
                 if (!m || !Array.isArray(m.voices) || m.voices.length!==1 ||
