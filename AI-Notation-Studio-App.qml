@@ -5601,8 +5601,8 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 "Bei unklarem Kontext keine Änderung, sondern Hinweis. " +
                 "Die Notenpositionen sind absolute Ticks; erfinde keine Takt- oder Systemnummern. " +
                 "Wenn sich die genaue Taktnummer aus den Daten nicht sicher bestimmen lässt, " +
-                "nenne den Befund nur im allgemeinen report und nicht in findings.\\n" +
-                "Zusätzlicher Nutzerwunsch: " + instructionBox.text.trim() + "\\n" +
+                "nenne den Befund nur im allgemeinen report und nicht in findings.\n" +
+                "Zusätzlicher Nutzerwunsch: " + instructionBox.text.trim() + "\n" +
                 JSON.stringify({ score: {measures: curScore.nmeasures, staves: curScore.nstaves},
                     selection: {startTick: selectionBounds().startTick, endTick: selectionBounds().endTick},
                     notes: snapshot.notes, elements: snapshot.context })
