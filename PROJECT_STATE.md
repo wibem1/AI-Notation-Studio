@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Fortsetzung – Integration bestätigt und KI-Kontext verbessert (08.11.2026)
+
+- **Nachweis nach Versionssperren-Fix:** Regression „Notation improvement“ [#42529545113](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545113) **SUCCESS**, Fortsetzungsvertrag [#42529545108](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545108) **SUCCESS**, nativer MuseScore-4.7.6-Workflow [#42529545180](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545180) **SUCCESS**. Der native Workflow prüft den bereits vorhandenen Fortsetzungs-/Importweg, **nicht** die neue interaktive „Notation verbessern“-Schaltfläche selbst.
+- **Neuer Code im Entwicklungsbranch:** Notations-KI bekommt zusätzlich die tatsächliche Takt- und Systemanzahl sowie den Anfang und das Ende des markierten Bereichs in Ticks. Die Anweisung verbietet erfundene Takt- und Systemnummern; unsichere Lokalisierungen gehören in den Bericht, nicht in strukturierte `findings`. Commit `2d6fe10f`, Regressionserweiterung `57d23d2b`.
+- **Grenzen:** Die Ticks liefern noch keine sichere Takt-Nummer-Umrechnung bei Taktwechseln; darauf weist der Prompt ausdrücklich hin. Die oben genannten erfolgreichen Workflows liegen **vor** dieser jüngsten Kontextänderung, deren CI-Lauf noch nicht bestätigt wurde. Kein kostenpflichtiger KI-Aufruf und keine automatische Rhythmik-/Verzierungsänderung durchgeführt. Release 0.11.20 weiterhin gesperrt.
+- **Nächster Schritt:** Neue CI-Auswertung und gezielter nativer Interaktionstest für den Analyseknopf und ungültige Auswahl. Erst danach weitere automatische Notationsoperationen auf klangidentische, rückgängig machbare Einzelfälle begrenzen.
+
+
 ## Fortsetzung – nativen Testblocker identifiziert (08.11.2026)
 
 - **Echter GitHub-Actions-Befund:** [Run #42529396923](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529396923) endete **FAILURE**. Der Log zeigt ausdrücklich `ANS_01116 FAIL: Error: Unexpected staged app version: 0.11.20`. Die vorhergehenden Schritte für Offline-JavaScript, synthetische Partitur und MuseScore-Installation waren erfolgreich. **Eine Aussage über das Funktionieren der neuen Notationsverbesserung erlaubt dieser abgebrochene Test nicht.**
