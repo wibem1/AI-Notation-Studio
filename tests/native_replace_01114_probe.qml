@@ -63,9 +63,21 @@ MuseScore {
                 second:{provider:"Google",model:"offline-fixture"},
                 analysis:"Offline test",strategy:0}
             app.compositionJob=job
-            app.finishComposition(job,request.raw)
-            if(!app.compositionJob || app.compositionJob.workflowState!=="ready")
-                throw Error("Generated score rejected: "+app.statusText+" "+(app.compositionJob&&app.compositionJob.validation_error))
+            // First reject a different, genuinely unfixable overflow.
+            app.finishComposition(job,request.raw.replace("A1:h","B1:h"))
+            var errorLabel=find(app,"compositionValidationError")
+            var retry=find(app,"retryStoredCompositionButton")
+            if(!errorLabel||!retry||app.compositionJob.workflowState!=="invalid"||
+                !errorLabel.visible||!retry.visible)
+                throw Error("Error and cost-free retry are not visible")
+            // Replace only the saved reply. No provider call is made.
+            var failed=app.compositionJob
+            failed.raw_response=request.raw
+            app.refreshCompositionJob(failed)
+            retry.clicked()
+            if(!app.compositionJob || app.compositionJob.workflowState!=="ready"||
+                errorLabel.visible||retry.visible)
+                throw Error("Stored-response retry failed: "+app.statusText+" "+(app.compositionJob&&app.compositionJob.validation_error))
             if(!app.compactWarnings.join(" ").includes("Takt 12"))
                 throw Error("Targeted LH bar 12 correction was not reported")
             if(app.compact.score.inspect(JSON.parse(app.compositionJson)).length)
@@ -85,7 +97,7 @@ MuseScore {
             if(String(original.metaTag("AI-Notation-Studio-Source-CS1")||"")!==sourceTag)
                 throw Error("Original stamped with imported score metadata")
             save(original,"after")
-            log("ANS_01114 PASS: real GUI decode, 28-bar correction, source untouched, explicit new-score handoff; no API call")
+            log("ANS_01114 PASS: real GUI error→stored-answer retry→28-bar correction, source untouched, explicit new-score handoff; no API call")
         }catch(error){log("ANS_01114 FAIL: "+String(error))}
         finally{if(app)app.destroy();Qt.quit()}
     }
