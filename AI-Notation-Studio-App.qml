@@ -5614,7 +5614,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                         var findings = []
                         for (var fi = 0; fi < Math.min(answer.findings.length, 60); fi++) {
                             var entry = answer.findings[fi]
-                            if (!entry || typeof entry !== "object" || !categories[entry.kind] ||
+                            if (!entry || typeof entry !== "object" || !Object.prototype.hasOwnProperty.call(categories, entry.kind) ||
                                 (typeof entry.measure !== "number" || Math.floor(entry.measure) !== entry.measure) || entry.measure < 1 ||
                                 (typeof entry.staff !== "number" || Math.floor(entry.staff) !== entry.staff) || entry.staff < 1 ||
                                 entry.staff > 64 || (curScore && entry.staff > curScore.nstaves) ||
