@@ -6431,7 +6431,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             var receiptText=String(compactFile.read())
             var result
             if (Qt.platform.os === "osx" || Qt.platform.os === "macos") {
-                var lines=receiptText.replace(/\\r/g,"").split("\\n")
+                var lines=receiptText.replace(/\r/g,"").split("\n")
                 result={status:lines[0],source:diagnosticSourcePath,
                     target:lines[1]||"",bytes:Number(lines[2]||0),sha256:lines[3]||"",
                     message:lines[1]||"Mac-Speicherhelfer fehlgeschlagen"}
