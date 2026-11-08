@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Fortsetzung – sicherer KI-Plan und PR-Prüfung (08.11.2026)
+
+- **Konkrete Korrektur:** Der vom Modell geforderte JSON-Plan enthält standardmäßig `"changes":[]` statt einer erfundenen Beispielsänderung an Note 0. Die KI wird ausdrücklich angewiesen, nur belegte enharmonische Änderungen vorzuschlagen. Die bestehende Validierung bleibt unverändert strikt.
+- **Regression:** `tests/test_notation_improve_entry.cjs` prüft nun auch leeren KI-Standardplan und die zugehörige Anweisung. Änderung in Commit `556158eb`, Test-Commit `8427b795`.
+- **Integration:** Draft-PR [#13](https://github.com/wibem1/AI-Notation-Studio/pull/13) gegen `main` geöffnet, **nicht gemergt**. Der erste zugehörige native Workflow [#42529396923](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529396923) war beim Abruf **queued**, also noch kein Erfolgsnachweis. CI und reale MuseScore-Erprobung sind offen.
+- **Grenze:** Rhythmik, Ornamentik, Schlüssel und Akkordverteilung sind noch **keine ausführbaren automatischen KI-Korrekturen**. Die bisher vorhandene deterministische Strukturverbesserung und begründete Vorzeichenkorrektur können separat nach Vorschau ausgeführt werden. Live bleibt 0.11.19.
+- **Nächster Schritt:** PR-CI inklusive Node-Regressionen sowie nativen MuseScore-Test prüfen; Fehler gezielt beheben. Erst dann Freigabe und danach isolierte Entwicklung weiterer konkret ausführbarer Notationsoperationen.
+
+
 ## Fortsetzung – veraltete KI-Antworten absichern (08.11.2026)
 
 - **Implementiert:** Die asynchrone Antwort von „Notationsschreibweise prüfen (KI)“ wird vor JSON-Auswertung und vor jeder Übernahme gegen die ursprüngliche Partituridentität, Partiturlänge und Auswahl-Signatur geprüft. Bei einer inzwischen anderen Partitur oder Auswahl wird der Korrekturplan verworfen und eine verständliche Meldung angezeigt. Bereits gestartete KI-Aufrufe lassen sich dadurch nicht nachträglich kostenfrei machen.
