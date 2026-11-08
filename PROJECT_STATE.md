@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Entwicklung 0.11.19 – getrennte Klavierhände bei replaceTail (08.11.2026)
+
+- **Realer Bericht:** `AI-Notation-Studio-Diagnose-1794162946487-963319.json`, Plugin 0.11.18, Fortsetzung 3 Übergangstakte + 16 neue Takte, drei getrennte Parts (Violine, Klavier rechts, Klavier links). Formfehler der KI-Antwort ist in 0.11.18 behoben, jetzt blockiert `Error: Anzahl der Notensysteme verändert.`. Ursache: `workflowKind=replaceTail` (Takte 26–28 ersetzen und 16 Takte hinzufügen), während die bewährte Normalisierung nur für `append` aktiviert war.
+- **Implementiert:** `alignContinuationPianoStaves` lässt bei `replaceTail` dieselbe streng abgesicherte Entfernung eines *ungenutzten* zweiten Klaviersystems zu. Tatsächliche Noten auf System 2 oder andere Zeitachsen werden weiterhin abgelehnt. Originaldaten bleiben unverändert.
+- **Prüfgrundlage:** Erweiterte Node-Regression für `replaceTail`; [Regression #42511206616](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42511206616) **SUCCESS** und [nativer MuseScore-Test #42511206613](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42511206613) **SUCCESS** mit synthetischem `replaceTail` direkt im Plugin. **Finale 0.11.19-Prüfung und Veröffentlichung noch offen.** Kein Gemini-Aufruf, Benutzerdateien nicht auf GitHub.
+- **Bereitgestellt im Branch:** `fix/replace-tail-piano-staves-20261108`; `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.19.qml`, `versions/AI-Notation-Studio-App-0.11.19.qml`; Versionshinweis `RELEASE-0.11.19.md`.
+- **Nutzerprüfung nach Freigabe:** `Update prüfen → Update installieren → Gespeicherte KI-Antwort erneut prüfen (kostenfrei)`. Ausgabe zunächst als neue Partitur; bei erneuter Fehlermeldung dieselbe Diagnose erneut sichern. Die musikalische Qualität der gespeicherten 19 Takte bleibt separat zu beurteilen.
+
+
 ## Live 0.11.18 – Reparatur zusammengeschobener CS1-Noten (08.11.2026)
 
 - **Fehlerursache:** Gemini-Rohantwort mit `16/1 C5:s{"i":"v16_1"}E5:sA5:sC6:s` löst in 0.11.17 `Zeile 19: JSON.parse: Parse error` aus. Die originale Ausgabe der 3 Übergangs- und 16 neuen Takte wurde gespeichert; 20.063 Tokens bereits verbraucht.
