@@ -52,6 +52,16 @@ MuseScore {
       throw Error("Continuation failed: "+app.statusText+" "+app.compositionJob.validation_error)
     if(app.compactWarnings.join(" ").indexOf("unbenutztes zweites Klaviersystem")<0)
       throw Error("Expected piano-system correction warning")
+    // Linux exercises the identical non-Windows FileIO fallback used on Mac.
+    app.exportDiagnostic()
+    if(!app.lastDiagnosticPath || app.statusText.indexOf("Diagnose gespeichert")<0)
+      throw Error("Non-Windows diagnostic save failed: "+app.statusText)
+    var savedPath=requestFile.source
+    requestFile.source=app.lastDiagnosticPath
+    var exported=JSON.parse(requestFile.read())
+    requestFile.source=savedPath
+    if(exported.pluginVersion!=="0.11.16-dev" || exported.diagnosticSchema!==2)
+      throw Error("Saved diagnostic JSON content invalid")
     var choice=find(app,"outputTargetSelector")
     if(!choice)throw Error("Output selector missing")
     choice.currentIndex=1;choice.activated(1)
@@ -60,7 +70,7 @@ MuseScore {
     if(!receipt.handedOff&&receipt.score&&!original.is(receipt.score))save(receipt.score,"imported")
     if(original.nmeasures!==28||original.nstaves!==3)throw Error("Original changed")
     save(original,"after")
-    log("ANS_01116 PASS: native 28→30 continuation, correct piano-staff mapping, source unchanged, offline")
+    log("ANS_01116 PASS: native 28→30 continuation + non-Windows JSON save, source unchanged, offline")
   }catch(e){log("ANS_01116 FAIL: "+String(e))}
   finally{if(app)app.destroy();Qt.quit()}
  }
