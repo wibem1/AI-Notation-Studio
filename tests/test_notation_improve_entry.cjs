@@ -18,4 +18,6 @@ assert(!f.includes('notationStructureApply(') && !f.includes('notationApply('), 
 assert.match(s, /"findings":\[\{"measure":1,"staff":1,"kind":"rhythm"/, 'Structured measure-specific findings requested');
 assert.match(s, /Konkrete Notationsbefunde:/, 'Categorized findings displayed');
 assert.match(s, /nicht automatisch ausgeführt/, 'Non-executable findings clearly labeled');
+assert.match(s, /'"changes":\[\]\}/, 'KI schema must not suggest a fabricated sample change');
+assert.match(s, /changes muss \[\] sein/, 'No changes is explicit default');
 console.log('PASS: guarded notation improvement entry point (static checks only)');
