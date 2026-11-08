@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.18"
+    version: "0.11.19-dev"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -408,7 +408,7 @@ MuseScore {
         // Accept a one-staff piano-hand continuation even when the CS1 converter
         // produced an unused second staff. Do not transpose, delete or move notes.
         var warnings=[]
-        if (!job || job.mode!==3 || (job.workflowKind && job.workflowKind!=="append"))
+        if (!job || job.mode!==3 || (job.workflowKind && job.workflowKind!=="append" && job.workflowKind!=="replaceTail"))
             return {xml:addedXml,warnings:warnings}
         var base=compact.context.parse(baseXml),added=compact.context.parse(addedXml)
         function nodes(n,t) {return n.children.filter(function(x){return x&&typeof x!=="string"&&x.name===t})}
