@@ -5603,6 +5603,17 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 busy = false
                 if (!ok) { notationReport = String(text); statusText = "Notationsprüfung fehlgeschlagen."; return }
                 try {
+                    // An asynchronous reply must never become an actionable plan for
+                    // a different score or a changed selection.
+                    if (!curScore || !(curScore === snapshot.score || curScore.is(snapshot.score)) ||
+                        scoreEndTick(curScore) !== snapshot.endTick ||
+                        readSelectionForChat() !== snapshot.fingerprint) {
+                        notationSnapshot = null; notationChanges = []; notationPreview = ""
+                        notationReport = "Die Partitur oder Auswahl wurde während der KI-Analyse geändert. " +
+                            "Die Antwort wird nicht übernommen; bitte die Analyse erneut starten."
+                        statusText = "Notationsanalyse veraltet – keine Änderungen vorbereitet."
+                        return
+                    }
                     var answer = JSON.parse(extractJsonBlock(text))
                     var changes = notationValidate(answer, snapshot)
                     notationSnapshot = snapshot; notationChanges = changes
