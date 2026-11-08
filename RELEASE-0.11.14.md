@@ -18,7 +18,7 @@ Im bestehenden AI-Notation-Studio-Starter: **Update prüfen → Update installie
 - **Originaldiagnose lokal**, nicht in GitHub veröffentlicht: Gemini-CS1 mit 3 × 28 Takten; nach lokaler ID- und Takt-12-Korrektur 0 CompactScore-Rhythmusfehler; Zusammenführung mit der tatsächlichen bereinigten ursprünglichen MusicXML erfolgreich, 28 Takte / 3 Parts.
 - **Automatisierter V8-Test:** synthetischer 28-Takt-Workflow, korrekte IDs, Erhalt der Original-MusikXML und unabhängiger Score-Metadaten, Schutz vor nicht zulässiger Notenänderung.
 - **Echter MuseScore-Studio-4.7.6-Linux-GUI-Test:** [Run #42492853438](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42492853438) auf der Staging-Fassung: synthetischer 3-Part-Fall 28 Takte, tatsächlicher Plugin-Aufruf, Offline-KI-Antwort, gezielte Reparatur, separate neue Partitur und unverändertes Original. Die neue Score-Datei wurde im **neuen** MuseScore-Fenster geprüft.
-- Die finale, unveränderte Version 0.11.14 muss vor der Main-Veröffentlichung denselben Test bestehen.
+- **Finalversion 0.11.14 erfolgreich:** [Run #42493365875](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42493365875), vollständiger offizieller MuseScore-4.7.6-Test mit sichtbar fehlgeschlagener Antwort → kostenfreiem Klick auf den Retrybutton → gültigem Ergebnis → separatem importierten 28-Takt-/3-Systeme-Fenster; 28-Takt-Original musikalisch unverändert, keine KI-Anfrage. GitHub Actions: **SUCCESS**.
 
 ## Grenzen
 
