@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Freigabekandidat 0.11.20 – „Notation verbessern“ (08.11.2026)
+
+- **Stand:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.20.qml` und `versions/AI-Notation-Studio-App-0.11.20.qml` enthalten die geprüfte App-Fassung. `RELEASE-0.11.20.md` beschreibt Anwendungsumfang und Grenzen; Draft-PR #13 ist noch nicht gemergt.
+- **Implementiert:** Bereichsauswahl vollständiger Takte eines Instruments; Noten-/Staff-Erfassung über MuseScore-Cursor und Auswahlgrenzen, kombinierte deterministische Strukturprüfung plus KI-Analyse von enharmonischer Schreibung und taktbasierten Notationsbefunden. Keine automatische Änderung durch Analyse. Vorhandene separate Übernahmebuttons bleiben maßgeblich.
+- **Prüfung:** Regression [#42530186647](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530186647) **SUCCESS**, Fortsetzungsregression [#42530186659](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530186659) **SUCCESS**, nativer MuseScore-4.7.6-Test [#42530186643](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530186643) **SUCCESS**. Der native Test verifiziert ungültige Auswahl ohne Provideraufruf und eine echte selektierte Passage mit funktionierender Strukturprüfung und Notenerfassung. Keine echte KI-Antwort oder Klick-Übernahme end-to-end getestet.
+- **Grenzen:** Komplizierte Rhythmen, ausgeschriebene Verzierungen, Pausen, Schlüsselwechsel und Akkordverteilung werden nur diagnostiziert, nicht automatisch umgeschrieben; kein Anspruch auf vollständige Partiturbereinigung.
+- **Nächster Schritt:** PR #13 nach finaler Kontrolle zusammenführen, Updateweg prüfen; danach mit einer realen Partitur die Vorschläge und getrennte Übernahme testen, insbesondere macOS und Windows. Keine Versionssteigerung ohne neue überprüfte Funktion.
+
+
 ## Fortsetzung – Integration bestätigt und KI-Kontext verbessert (08.11.2026)
 
 - **Nachweis nach Versionssperren-Fix:** Regression „Notation improvement“ [#42529545113](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545113) **SUCCESS**, Fortsetzungsvertrag [#42529545108](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545108) **SUCCESS**, nativer MuseScore-4.7.6-Workflow [#42529545180](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545180) **SUCCESS**. Der native Workflow prüft den bereits vorhandenen Fortsetzungs-/Importweg, **nicht** die neue interaktive „Notation verbessern“-Schaltfläche selbst.
