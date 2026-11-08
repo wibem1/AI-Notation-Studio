@@ -5338,13 +5338,15 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         if (!curScore || !curScore.selection || !curScore.selection.isRange)
             throw Error("Bitte vollständige Takte eines Instruments als Bereich markieren.")
         if (!readSelection()) throw Error("Die Auswahl konnte nicht gelesen werden.")
-        var bounds = selectionBounds(), raw = curScore.selection.elements || [], staffs = []
-        for (var i = 0; i < raw.length; i++) {
-            var el = raw[i]
-            if (el.name !== "Note" && el.name !== "Chord" && el.name !== "Rest") continue
-            var track = elementTrack(el)
-            if (track >= 0 && staffs.indexOf(Math.floor(track / 4)) < 0) staffs.push(Math.floor(track / 4))
-        }
+        var bounds = selectionBounds(), selected = curScore.selection, staffs = []
+        // In MuseScore 4 a genuine range can have an empty .elements array.
+        // The authoritative staff interval is [startStaff, endStaff).
+        var startStaff = Number(selected.startStaff), endStaff = Number(selected.endStaff)
+        if (!isFinite(startStaff) || !isFinite(endStaff) ||
+            startStaff % 1 !== 0 || endStaff % 1 !== 0 ||
+            startStaff < 0 || endStaff <= startStaff || endStaff > curScore.nstaves)
+            throw Error("Die Notensystemgrenzen der Auswahl sind ungültig.")
+        for (var st = startStaff; st < endStaff; st++) staffs.push(st)
         var parts = curScore.parts || [], partIndex = -1
         for (var p = 0; p < parts.length; p++) {
             var firstStaff = parts[p].startTrack / 4, endStaff = parts[p].endTrack / 4
@@ -5531,6 +5533,33 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             else if (el.name === "Chord") {
                 var ns = el.notes || []
                 for (var j = 0; j < ns.length; j++) add(ns[j])
+            }
+        }
+        // Range selection.elements can be empty in MuseScore 4, even when
+        // all the notes are visible. Read them via the official score cursors.
+        if (curScore.selection.isRange) {
+            var range = rangeSelectionBounds(curScore.selection)
+            var firstStaff = Number(curScore.selection.startStaff)
+            var lastStaff = Number(curScore.selection.endStaff)
+            if (!range || !isFinite(firstStaff) || !isFinite(lastStaff) ||
+                firstStaff % 1 !== 0 || lastStaff % 1 !== 0 ||
+                firstStaff < 0 || lastStaff <= firstStaff || lastStaff > curScore.nstaves)
+                throw Error("Auswahlgrenzen für die Notenprüfung ungültig.")
+            for (var staffIdx = firstStaff; staffIdx < lastStaff; staffIdx++) {
+                for (var voice = 0; voice < 4; voice++) {
+                    var cursor = curScore.newCursor()
+                    cursor.staffIdx = staffIdx
+                    cursor.voice = voice
+                    cursor.rewind(0)
+                    while (cursor.segment && cursor.tick < range.endTick) {
+                        if (cursor.tick >= range.startTick && cursor.element &&
+                            cursor.element.name === "Chord") {
+                            var chordNotes = cursor.element.notes || []
+                            for (var ni = 0; ni < chordNotes.length; ni++) add(chordNotes[ni])
+                        }
+                        cursor.next()
+                    }
+                }
             }
         }
         if (!notes.length) throw Error("Die Auswahl enthält keine Noten.")
