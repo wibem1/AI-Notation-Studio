@@ -19,7 +19,7 @@ Auf **macOS** wird nun über `osascript` der native Dialog **„Diagnose speiche
 - `tests/test_append_single_piano_staff.cjs`: synthetische dreiteilige Partitur, Fortsetzung, Notenerhalt, Bassschlüssel, sichere Ablehnung bei realer Zweitsystem-Nutzung – PASS.
 - `tests/test_mac_diagnostic_save_dialog.cjs`: macOS-Aufruf, Dialoghelfer, Erfolg, Abbruch und Fehlerrückmeldung in QML-/JavaScript-Testumgebung – PASS. **Der echte macOS-Speicherdialog konnte hier noch nicht auf einem Mac geöffnet werden**; diese abschließende Anwenderprüfung bleibt erforderlich.
 - MuseScore Studio 4.7.6 unter Linux: [nativer Integrationstest #42502815232](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42502815232) **SUCCESS** mit synthetischem 28→30-Takt-Fall, drei einzelnen Notensystemen, kostenfreier Antwortverarbeitung, unveränderten Originalnoten und verifiziertem Nicht-Windows-JSON-Dateiexport. Der letzte Notenschlüssel wird mit dem tatsächlich vorhandenen Originalschlüssel verglichen.
-- Die finale Versionsnummer 0.11.16 wird vor Veröffentlichung erneut durch denselben nativen Test geprüft. Nutzerpartituren und KI-Zugangsdaten werden nicht nach GitHub hochgeladen.
+- **Finalversion 0.11.16 erneut nativ geprüft:** [GitHub Actions #42503266627](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42503266627) **SUCCESS**: tatsächlicher Plugin- und MuseScore-GUI-Weg, 28→30 Takte, drei Notensysteme, unveränderte Originalnoten, verifizierter Linux-Dateiexport. Nutzerpartituren und KI-Zugangsdaten wurden nicht nach GitHub hochgeladen.
 
 ## Bedienung
 
