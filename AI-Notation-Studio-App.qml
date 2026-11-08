@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.20"
+    version: "0.11.21"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -22,6 +22,8 @@ MuseScore {
     property var notationDirect: createNotationDirect(function(tick) { return root.fractionFromTicks(tick) })
     property var notationStructure: createNotationStructure(compact.context)
     property var structureSnapshot: null
+    property var visualSnapshot: null
+    property string visualReport: ""
     property string structureReport: ""
     property string structureStatus: ""
 
@@ -5200,7 +5202,129 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             if(signature(doc)!==before)throw Error('Die Klangprüfung ist fehlgeschlagen; die Änderung wird verworfen.');
             return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),changed:changed,operations:operations,report:reports.join('\n')||'Keine Passage mit mindestens drei klingenden Stimmen in vollständig markierten Takten erkannt.'}
         }
-        return {repair:repair,signature:function(xml){return signature(context.parse(xml))}}
+        // An intentionally narrow but executable visual repair: remove only
+        // redundant, unstyled G/F/C clefs. The full musical event signature is
+        // checked both here and before opening the resulting score copy.
+        function repairRedundantClefs(xml, selection) {
+            if (!selection || !selection.staffs || !selection.staffs.length ||
+                !(selection.endQuarter > selection.startQuarter))
+                throw Error('Bitte vollständige Takte eines Instruments markieren.');
+            var doc=context.parse(xml), before=signature(doc), changed=0, reports=[];
+            children(doc,'part').forEach(function(part,pi) {
+                var active={};
+                measureRows(part).forEach(function(row) {
+                    var full=row.start>=selection.startQuarter-1e-7 &&
+                        row.start+row.length/row.divisions<=selection.endQuarter+1e-7;
+                    var systemStart=children(row.node,'print').some(function(n) {
+                        return /\bnew-(?:system|page)=["']yes["']/.test(n.open);
+                    });
+                    children(row.node,'attributes').forEach(function(attributes) {
+                        var retained=[];
+                        attributes.children.forEach(function(item) {
+                            if (typeof item==='string' || item.name!=='clef') {
+                                retained.push(item); return;
+                            }
+                            var staffMatch=/\bnumber=["'](\d+)["']/.exec(item.open);
+                            var staff=staffMatch?Number(staffMatch[1]):1;
+                            var sign=text(item,'sign',''),line=Number(text(item,'line','0'));
+                            var octave=Number(text(item,'clef-octave-change','0'));
+                            var safe=/^<clef(?: number=["']\d+["'])?>$/.test(item.open) &&
+                                (sign==='G'||sign==='F'||sign==='C') &&
+                                line>=1&&line<=5&&octave>=-2&&octave<=2;
+                            var key=sign+':'+line+':'+octave;
+                            var duplicate=safe && active[staff]===key;
+                            if (safe) active[staff]=key;
+                            else delete active[staff]; // never infer across unsupported clefs
+                            if (duplicate && !systemStart && row.index>0 && full &&
+                                pi===selection.partIndex && selection.staffs.indexOf(staff)>=0) {
+                                changed++;
+                                reports.push('Takt '+row.number+', System '+staff+
+                                    ': überflüssiger, unveränderter '+sign+'-Schlüssel entfernt.');
+                            } else retained.push(item);
+                        });
+                        attributes.children=retained;
+                    });
+                    // Empty <attributes> elements have no meaning in the output.
+                    row.node.children=row.node.children.filter(function(n) {
+                        return typeof n==='string'||n.name!=='attributes'||
+                            n.children.some(function(c){return typeof c!=='string'});
+                    });
+                });
+            });
+            if (signature(doc)!==before)
+                throw Error('Klangprüfung fehlgeschlagen; keine Korrektur wird übernommen.');
+            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),
+                changed:changed,report:reports.join('\n')||
+                'Keine sicher überflüssigen Schlüsselwechsel in der Auswahl gefunden.'};
+        }
+        // Restore unambiguous missing eighth-note beams. Never change the
+        // onset/duration/voice of any event. Complex meters/tuplets/multiple
+        // voices or already beamed notes are intentionally left untouched.
+        function repairMissingBeams(xml,selection) {
+            if (!selection || !selection.staffs || !selection.staffs.length ||
+                !(selection.endQuarter>selection.startQuarter))
+                throw Error('Bitte vollständige Takte als Bereich auswählen.');
+            var doc=context.parse(xml), before=signature(doc),changed=0,reports=[];
+            children(doc,'part').forEach(function(part,pi) {
+                if (pi!==selection.partIndex) return;
+                var beats=4,beatType=4;
+                measureRows(part).forEach(function(row) {
+                    var a=first(row.node,'attributes'), t=a&&first(a,'time');
+                    if (t) {beats=Number(text(t,'beats',0));beatType=Number(text(t,'beat-type',0));}
+                    var groupSize=beatType===4 && beats>=2 && beats<=4 ? 2 :
+                        beatType===8 && (beats===6||beats===9||beats===12) ? 3 : 0;
+                    var full=row.start>=selection.startQuarter-1e-7 &&
+                        row.start+row.length/row.divisions<=selection.endQuarter+1e-7;
+                    if (!full||!groupSize||row.unsafe) return;
+                    var eighth=row.divisions/2,span=groupSize*eighth;
+                    if (!(eighth>0) || Math.abs(row.length/span-Math.round(row.length/span))>1e-7) return;
+                    selection.staffs.forEach(function(staff) {
+                        var events=row.events.filter(function(e){return e.staff===staff});
+                        var voices={};events.forEach(function(e){voices[e.voice]=true});
+                        if(Object.keys(voices).length!==1)return;
+                        for(var start=0;start+span<=row.length+1e-7;start+=span) {
+                            var group=[],valid=true;
+                            for(var idx=0;idx<groupSize;idx++) {
+                                var onset=start+idx*eighth;
+                                var matches=events.filter(function(e){return Math.abs(e.start-onset)<1e-7});
+                                if(matches.length!==1) {valid=false;break}
+                                var e=matches[0],n=e.node;
+                                if(e.pitch===null || Math.abs(e.duration-eighth)>1e-7 ||
+                                    text(n,'type','')!=='eighth' || first(n,'beam') ||
+                                    first(n,'dot') || first(n,'chord') || first(n,'grace') ||
+                                    first(n,'time-modification') || first(n,'notations') ||
+                                    text(n,'stem','')==='none') {valid=false;break}
+                                group.push(n);
+                            }
+                            if(!valid) continue;
+                            group.forEach(function(n,i) {
+                                n.children.push({name:'beam',open:'<beam number="1">',close:'</beam>',
+                                    children:[i===0?'begin':i===group.length-1?'end':'continue']});
+                            });
+                            changed++;
+                            reports.push('Takt '+row.number+', System '+staff+
+                                ': fehlende Balkung einer Gruppe von '+groupSize+' Achteln ergänzt.');
+                        }
+                    });
+                });
+            });
+            if(signature(doc)!==before)throw Error('Klangprüfung fehlgeschlagen; Änderungen verworfen.');
+            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),
+                changed:changed,report:reports.join('\n')||
+                    'Keine sicher fehlenden Achtelbalken in der Auswahl gefunden.'};
+        }
+        function repairSafeVisual(xml,selection) {
+            var a=repairRedundantClefs(xml,selection);
+            var b=repairMissingBeams(a.xml,selection);
+            if(signature(context.parse(xml))!==signature(context.parse(b.xml)))
+                throw Error('Klangprüfung der gesamten Notationskorrektur fehlgeschlagen.');
+            return {xml:b.xml,changed:a.changed+b.changed,
+                report:'Schlüssel: '+a.changed+' Korrekturen; Achtelbalken: '+b.changed+
+                    ' Gruppen.\n'+a.report+'\n'+b.report};
+        }
+        return {repair:repair,repairRedundantClefs:repairRedundantClefs,
+            repairMissingBeams:repairMissingBeams,repairSafeVisual:repairSafeVisual,
+            signature:function(xml){return signature(context.parse(xml))}}
     }
     
     
@@ -5396,6 +5520,45 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
     // Unified, non-destructive improvement workflow. The deterministic structural
     // repair is prepared first; the optional KI call checks enharmonic spellings.
     // Neither stage edits the score until the user chooses an apply action.
+    function notationVisualPrepare() {
+        if (busy) return
+        visualSnapshot=null; visualReport=""
+        try {
+            var selection=notationStructureSelection(), xml=notationStructureExport()
+            var result=notationStructure.repairSafeVisual(xml,selection)
+            visualReport=result.report
+            if (result.changed) {
+                visualSnapshot={score:curScore,sourceXml:xml,xml:result.xml,
+                    count:result.changed,selection:selection}
+                visualReport+='\n\nDie '+result.changed+' erkannten Notationskorrekturen können '+
+                    'jetzt in einer korrigierten Partiturkopie entfernt werden. Das Original bleibt erhalten.'
+            }
+            statusText='Notationskorrektur vorbereitet: '+result.changed+' sichere Änderungen.'
+        } catch (e) { visualReport='Notationsprüfung abgebrochen: '+String(e); statusText=visualReport }
+    }
+
+    function notationVisualOpen() {
+        if (busy||!visualSnapshot) return
+        var snapshot=visualSnapshot
+        try {
+            if (!curScore || !(curScore===snapshot.score||curScore.is(snapshot.score)) ||
+                notationStructureExport()!==snapshot.sourceXml)
+                throw Error('Die Partitur wurde seit der Prüfung verändert. Bitte erneut analysieren.')
+            if (notationStructure.signature(snapshot.xml)!==
+                notationStructure.signature(snapshot.sourceXml))
+                throw Error('Klangprüfung vor dem Öffnen fehlgeschlagen.')
+            var path=fileUrlToLocalPath(Qt.resolvedUrl('AI-Notation-Studio-Visual-'+
+                new Date().getTime()+'.musicxml'))
+            writeVerifiedCompactFile(path,snapshot.xml,'Korrigierte Notation')
+            if (!readScore(path,false))
+                throw Error('MuseScore konnte die korrigierte Partiturkopie nicht öffnen.')
+            visualSnapshot=null
+            statusText='Korrigierte Partiturkopie geöffnet ('+snapshot.count+
+                ' Notationskorrekturen ausgeführt). Original unverändert.'
+            visualReport+='\n\n'+statusText
+        } catch (e) {statusText='Notationskorrektur nicht übernommen: '+String(e);visualReport+='\n'+statusText}
+    }
+
     function notationImprove() {
         if (busy) return
         try {
@@ -5406,6 +5569,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             return
         }
         notationStructurePrepare()
+        notationVisualPrepare()
         if (structureStatus.indexOf("abgebrochen") >= 0) {
             statusText = structureStatus + " Kein KI-Aufruf."
             return
@@ -7406,11 +7570,24 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     Layout.fillWidth: true
                     spacing: 8
                     Button { objectName: "notationImproveButton"; text: "Notation verbessern (Analyse starten)"; enabled: !busy; onClicked: notationImprove() }
+                    Button { objectName: "notationVisualCheckButton"; text: "Sichere Notationskorrekturen prüfen"; enabled: !busy; onClicked: notationVisualPrepare() }
+                    Button { objectName: "notationVisualOpenButton"; text: "Korrigierte Notation öffnen (Kopie)"; enabled: !busy && visualSnapshot !== null; onClicked: notationVisualOpen() }
                     Button { objectName: "notationStructureCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationStructurePrepare() }
                     Button { objectName: "notationStructureApplyButton"; text: "In der Partitur korrigieren"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureApply() }
                     Button { objectName: "notationStructureOpenButton"; text: "Korrigierte Partitur öffnen"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureOpen() }
                     Button { objectName: "notationCheckButton"; text: "Vorzeichenschreibweise prüfen (KI)"; enabled: !busy; onClicked: notationCheck() }
                     Button { objectName: "notationApplyButton"; text: "Vorgeschlagene Schreibweisen übernehmen"; enabled: !busy && notationChanges.length > 0; onClicked: notationApply() }
+                }
+                TextArea {
+                    objectName: "notationVisualReportView"
+                    Layout.fillWidth: true
+                    visible: visualReport !== ""
+                    readOnly: true
+                    selectByMouse: true
+                    wrapMode: TextEdit.Wrap
+                    color: "#ededed"
+                    text: visualReport
+                    background: Rectangle { color: "#2b2d31"; radius: 4 }
                 }
                 TextArea {
                     objectName: "notationStructureStatusView"

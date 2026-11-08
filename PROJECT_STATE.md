@@ -1,5 +1,15 @@
 # Projektstand – AI Notation Studio
 
+## Freigabekandidat 0.11.21 – ausführbare Notationskorrekturen (08.11.2026)
+
+- **Neue Funktion:** `notationVisualPrepare` analysiert die ausgewählten vollständigen Takte eines Instruments kostenlos und erzeugt einen verifizierten MusicXML-Plan. `notationVisualOpen` öffnet die korrigierte Fassung erst nach Bestätigung als **neue Partitur**, ohne das Original zu verändern. Zwei Korrekturarten: sichere redundante G/F/C-Schlüssel und vollständige, regelmäßige Achtel-Balkengruppen in 2/4, 3/4, 4/4, 6/8, 9/8 und 12/8. Alle anderen Fälle werden übersprungen.
+- **Schutz:** Erkennbare Systemanfänge, absichtlich halslose Noten, Spezialnotation, vorhandene Balkung, mehrere gleichzeitige Stimmen sowie uneindeutige Gruppen werden nicht verändert. Vor der Übernahme wird die Original-Partitur auf Änderungen und die Klangsignatur des korrigierten MusicXML geprüft.
+- **Prüfstand:** Isolierter ausgeführter Test mit Original-QML-Engine `tests/test_redundant_clef_repair.cjs` bestanden (Klanggleichheit, Grenzen, Idempotenz, systembedingte Schlüssel, Balkengruppen 4/4 und 6/8, Sonderfälle). [Notation-Regression #42532109653](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42532109653) **SUCCESS**, [Fortsetzungsvertrag #42532109712](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42532109712) **SUCCESS**, [nativer MuseScore-4.7.6-Test #42532109789](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42532109789) **SUCCESS**, einschließlich konkret angewandter Schlüssel- und Balkenreparatur mit unveränderter Tonereignissignatur. Native Tests belegen die Korrekturengine, **nicht** das interaktive Öffnen des korrigierten Ergebnisses durch den Benutzer.
+- **Versionsdateien:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.21.qml` und `versions/AI-Notation-Studio-App-0.11.21.qml` auf demselben Blob-SHA `b9699cfdb3bc56c8e6c721bb1e74b03843ace0cd`. `RELEASE-0.11.21.md` dokumentiert Umfang und Grenzen.
+- **Unverändert offen:** Mehrdeutige Rhythmen, Stimmenpausen, Verzierungen, Akkordverteilung und grafische Kollisionen werden nicht automatisch korrigiert. Für komplexe Rhythmen gilt weiterhin die Erhaltung von Tonhöhen, Einsatzzeiten und tatsächlichen Dauern. Keine KI-Kosten für diese beiden Reparaturen.
+- **Nächster Schritt:** PR #14 nach finaler CI-Prüfung mergen und Updateweg bestätigen; anschließend mit einer realen Partitur die Ergebnis-Kopie prüfen. Weitere Reparaturarten separat entwerfen und testen.
+
+
 ## Live 0.11.20 – „Notation verbessern“ (08.11.2026)
 
 - **Veröffentlichung:** [Pull Request #13](https://github.com/wibem1/AI-Notation-Studio/pull/13) nach `main` gemergt; Merge-Commit `4ae81311b5565fb2373e0dc9ecc215dc543c082b`. `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.20.qml` und `versions/AI-Notation-Studio-App-0.11.20.qml` sind blob-identisch (`c35aa088fcb5ce34912dba6017ab574bd0515385`), frühere Versionsdateien bleiben unverändert. Update über den vorhandenen Updateweg.
