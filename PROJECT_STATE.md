@@ -1,5 +1,15 @@
 # Projektstand – AI Notation Studio
 
+## Staging 0.11.14-dev – Klavier-Part-ID und XML-Metadaten (08.11.2026)
+
+- **Reale Diagnose:** Nutzerfall 0.11.13, Überarbeitung einer 28-taktigen Violine/Klavier-Partitur. Eine gespeicherte CS1-Antwort enthält `P {"i":"piano","n":"Klavier (R.H.)"}` und `P {"i":"piano","n":"Klavier (L.H.)"}`. Fehler `Zeile 116: Doppelte Part-ID`; vorhandene Antwort bleibt für kostenfreien Retry erhalten.
+- **Staging-Code:** `AI-Notation-Studio-App.qml` auf Branch `fix/score-memory-piano-ids-20261108` (nicht live). Bei mehrfach erwarteten Klavierparts wird ausschließlich eine klar identifizierte doppelte Piano-ID in eine eindeutige technische ID umbenannt; Notenzeilen/Noten bleiben unberührt, andere Dubletten werden weiterhin abgelehnt.
+- **Speicherproblem:** Der Quell-MusikXML-Export enthält `AI-Notation-Studio-Memory-v1`, dessen Inhalt wiederum `sourceXml` enthält. Arbeitskopien und gespeicherte Analyse-/Job-Snapshots werden von dieser Metadaten-Kette befreit; neue Verlaufsanalysen ebenfalls. Vorhandene Partitur-Metadaten werden nicht automatisch gelöscht.
+- **Kosten:** Unbekannte Kosten werden in der auftragsbezogenen Summenzeile als unbekannt ausgewiesen, nicht als reine 0-Dollar-Summe. Exakte Providerabrechnung weiterhin nicht verfügbar.
+- **Prüfung:** Isolierte JavaScript-Funktionstests der konkreten Duplikat-Reparatur und XML-Bereinigung bestanden. Der tatsächlich eingebettete CompactScore-Decoder und -MusicXML-Konverter akzeptiert das korrigierte Drei-Part-Beispiel; drei Systeme bleiben erhalten. Regressionstest im Repository: `tests/score-memory-piano-regression.test.js` (noch kein CI-Lauf).
+- **Nicht belegt / keine Freigabe:** Vollständiger 28-Takt-Nutzerfall im echten MuseScore, kombinierter Replace-Workflow, Undo, Update/Installation und Rückwärtskompatibilität noch nicht nativ getestet. Keine neue Live-Version veröffentlicht. Nächster Schritt: gezielte native End-to-End-Regression mit gespeicherter Antwort, danach erst veröffentlichen.
+
+
 ## Live 0.11.13 – reale Vorspiel-Diagnose und Pfeiltasten behoben (07.11.2026)
 
 - **Realer Fehlerbefund 0.11.12:** Die Antwort war erzeugt, aber `workflowState=invalid`, `validation_error=Vorspiel: Notensystemzahl von Zielinstrument und Komposition stimmt nicht überein`. Drei Originalparts mit 1/2/1 Systemen; beide Piano-Parts ausgewählt. Antwort: ein leerer Piano-Part und ein kompletter zweihändiger Piano-Part; dieser lag fälschlich auf dem einzeiligen Ziel. Kein bloßes Problem des Übernahmebuttons.
