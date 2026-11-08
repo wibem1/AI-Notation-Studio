@@ -5615,15 +5615,15 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                         for (var fi = 0; fi < Math.min(answer.findings.length, 60); fi++) {
                             var entry = answer.findings[fi]
                             if (!entry || typeof entry !== "object" || !categories[entry.kind] ||
-                                !Number.isInteger(entry.measure) || entry.measure < 1 ||
-                                !Number.isInteger(entry.staff) || entry.staff < 1 ||
+                                (typeof entry.measure !== "number" || Math.floor(entry.measure) !== entry.measure) || entry.measure < 1 ||
+                                (typeof entry.staff !== "number" || Math.floor(entry.staff) !== entry.staff) || entry.staff < 1 ||
                                 entry.staff > 64 || typeof entry.problem !== "string" ||
                                 typeof entry.suggestion !== "string") continue
                             findings.push("Takt " + entry.measure + ", System " + entry.staff +
                                 " · " + categories[entry.kind] + ": " + entry.problem.slice(0, 500) +
-                                "\\nVorschlag (nicht automatisch ausgeführt): " + entry.suggestion.slice(0, 500))
+                                "\nVorschlag (nicht automatisch ausgeführt): " + entry.suggestion.slice(0, 500))
                         }
-                        if (findings.length) notationReport += "\\n\\nKonkrete Notationsbefunde:\\n" + findings.join("\\n\\n")
+                        if (findings.length) notationReport += "\n\nKonkrete Notationsbefunde:\n" + findings.join("\n\n")
                     }
                     var lines = []
                     for (var i = 0; i < changes.length; i++) {
