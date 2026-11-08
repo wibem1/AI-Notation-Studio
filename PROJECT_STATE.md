@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Fortsetzung – veraltete KI-Antworten absichern (08.11.2026)
+
+- **Implementiert:** Die asynchrone Antwort von „Notationsschreibweise prüfen (KI)“ wird vor JSON-Auswertung und vor jeder Übernahme gegen die ursprüngliche Partituridentität, Partiturlänge und Auswahl-Signatur geprüft. Bei einer inzwischen anderen Partitur oder Auswahl wird der Korrekturplan verworfen und eine verständliche Meldung angezeigt. Bereits gestartete KI-Aufrufe lassen sich dadurch nicht nachträglich kostenfrei machen.
+- **Prüfung:** Vier direkte JavaScript-Laufzeitgegenproben gegen den QML-Codeausschnitt bestanden: gleicher Score, andere Partitur, geänderte Auswahl und geänderte Partiturlänge. Reproduzierbarer Node-Test `tests/test_notation_stale_response.cjs` hinzugefügt und CI-Workflow zur Ausführung erweitert. **Ausgeführtes Node-CI-Ergebnis und nativer MuseScore-Test noch nicht nachgewiesen.**
+- **Commits:** `5173c7b2` (Schutzprüfung), `18a43803` (Regression), `45ca07f7` (CI). Live 0.11.19 bleibt unverändert; 0.11.20 ist noch nicht veröffentlicht.
+- **Nächster Schritt:** CI-Ergebnis und MuseScore-Integration für Analyse-/Auswahl-Wechsel nachweisen. Erst danach Erweiterung des ausführbaren Korrekturplans über die bereits sichere enharmonische Schreibweise hinaus.
+
+
 ## Fortsetzung – Validierung und CI (08.11.2026)
 
 - **Schutzkorrektur:** Strukturierte KI-Befunde mit Takt-/Systemnummer außerhalb der geöffneten Partitur werden nicht angezeigt. Kategorien werden per eigenem Objektattribut geprüft, sodass auch geerbte Namen wie `__proto__` keine gültigen Kategorien sind. Es erfolgen keine direkten Notenänderungen.
