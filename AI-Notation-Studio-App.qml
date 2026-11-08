@@ -425,7 +425,7 @@ MuseScore {
                 if(k===0){
                     attrs.children.push({name:"staves",open:"<staves>",close:"</staves>",children:["1"]})
                     // Retain the original staff's treble/bass clef exactly.
-                    attrs.children.push({name:"clef",open:"<clef number=\\"1\\">",close:"</clef>",children:
+                    attrs.children.push({name:"clef",open:'<clef number="1">' ,close:"</clef>",children:
                         nodes(sourceClef,"sign").concat(nodes(sourceClef,"line")).map(function(x){
                             return {name:x.name,open:x.open,close:x.close,children:x.children.slice()}
                         })})
