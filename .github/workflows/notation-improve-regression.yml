@@ -1,0 +1,38 @@
+name: Notation improvement regression
+
+on:
+  push:
+    branches:
+      - feat/notation-verbessern-20261108
+    paths:
+      - 'AI-Notation-Studio-App.qml'
+      - 'tests/test_notation_improve_entry.cjs'
+      - 'tests/test_notation_findings.cjs'
+      - 'tests/test_notation_stale_response.cjs'
+      - '.github/workflows/notation-improve-regression.yml'
+  pull_request:
+    paths:
+      - 'AI-Notation-Studio-App.qml'
+      - 'tests/test_notation_improve_entry.cjs'
+      - 'tests/test_notation_findings.cjs'
+      - 'tests/test_notation_stale_response.cjs'
+      - '.github/workflows/notation-improve-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notation-improve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check and execute isolated regression tests
+        run: |
+          node --check tests/test_notation_improve_entry.cjs
+          node --check tests/test_notation_findings.cjs
+          node --check tests/test_notation_stale_response.cjs
+          node tests/test_notation_improve_entry.cjs
+          node tests/test_notation_findings.cjs
+          node tests/test_notation_stale_response.cjs

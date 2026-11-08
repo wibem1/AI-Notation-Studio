@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.19"
+    version: "0.11.20"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -5338,13 +5338,15 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         if (!curScore || !curScore.selection || !curScore.selection.isRange)
             throw Error("Bitte vollständige Takte eines Instruments als Bereich markieren.")
         if (!readSelection()) throw Error("Die Auswahl konnte nicht gelesen werden.")
-        var bounds = selectionBounds(), raw = curScore.selection.elements || [], staffs = []
-        for (var i = 0; i < raw.length; i++) {
-            var el = raw[i]
-            if (el.name !== "Note" && el.name !== "Chord" && el.name !== "Rest") continue
-            var track = elementTrack(el)
-            if (track >= 0 && staffs.indexOf(Math.floor(track / 4)) < 0) staffs.push(Math.floor(track / 4))
-        }
+        var bounds = selectionBounds(), selected = curScore.selection, staffs = []
+        // In MuseScore 4 a genuine range can have an empty .elements array.
+        // The authoritative staff interval is [startStaff, endStaff).
+        var startStaff = Number(selected.startStaff), endStaff = Number(selected.endStaff)
+        if (!isFinite(startStaff) || !isFinite(endStaff) ||
+            startStaff % 1 !== 0 || endStaff % 1 !== 0 ||
+            startStaff < 0 || endStaff <= startStaff || endStaff > curScore.nstaves)
+            throw Error("Die Notensystemgrenzen der Auswahl sind ungültig.")
+        for (var st = startStaff; st < endStaff; st++) staffs.push(st)
         var parts = curScore.parts || [], partIndex = -1
         for (var p = 0; p < parts.length; p++) {
             var firstStaff = parts[p].startTrack / 4, endStaff = parts[p].endTrack / 4
@@ -5390,6 +5392,28 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
     }
 
 
+
+    // Unified, non-destructive improvement workflow. The deterministic structural
+    // repair is prepared first; the optional KI call checks enharmonic spellings.
+    // Neither stage edits the score until the user chooses an apply action.
+    function notationImprove() {
+        if (busy) return
+        try {
+            notationStructureSelection() // fail before any chargeable model request
+            notationCapture() // verify note-reference availability before AI call
+        } catch (e) {
+            statusText = "Notation verbessern: " + String(e) + " Kein KI-Aufruf."
+            return
+        }
+        notationStructurePrepare()
+        if (structureStatus.indexOf("abgebrochen") >= 0) {
+            statusText = structureStatus + " Kein KI-Aufruf."
+            return
+        }
+        // notationCheck() owns the asynchronous status messages. Do not overwrite
+        // its "Prüfung läuft", success, or failure message after it returns.
+        notationCheck()
+    }
 
     function notationStructureApply() {
         if (busy || !structureSnapshot) return
@@ -5511,6 +5535,33 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 for (var j = 0; j < ns.length; j++) add(ns[j])
             }
         }
+        // Range selection.elements can be empty in MuseScore 4, even when
+        // all the notes are visible. Read them via the official score cursors.
+        if (curScore.selection.isRange) {
+            var range = rangeSelectionBounds(curScore.selection)
+            var firstStaff = Number(curScore.selection.startStaff)
+            var lastStaff = Number(curScore.selection.endStaff)
+            if (!range || !isFinite(firstStaff) || !isFinite(lastStaff) ||
+                firstStaff % 1 !== 0 || lastStaff % 1 !== 0 ||
+                firstStaff < 0 || lastStaff <= firstStaff || lastStaff > curScore.nstaves)
+                throw Error("Auswahlgrenzen für die Notenprüfung ungültig.")
+            for (var staffIdx = firstStaff; staffIdx < lastStaff; staffIdx++) {
+                for (var voice = 0; voice < 4; voice++) {
+                    var cursor = curScore.newCursor()
+                    cursor.staffIdx = staffIdx
+                    cursor.voice = voice
+                    cursor.rewind(0)
+                    while (cursor.segment && cursor.tick < range.endTick) {
+                        if (cursor.tick >= range.startTick && cursor.element &&
+                            cursor.element.name === "Chord") {
+                            var chordNotes = cursor.element.notes || []
+                            for (var ni = 0; ni < chordNotes.length; ni++) add(chordNotes[ni])
+                        }
+                        cursor.next()
+                    }
+                }
+            }
+        }
         if (!notes.length) throw Error("Die Auswahl enthält keine Noten.")
         // Get the active signature at each selected note in its own staff/voice.
         for (var n = 0; n < notes.length; n++) {
@@ -5560,8 +5611,13 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             saveCurrentKey(); saveCurrentModel()
             busy = true
             statusText = "Notendarstellung wird geprüft …"
-            var format = 'Antworte ausschließlich als JSON: {"report":"Befund auf Deutsch",' +
-                '"changes":[{"id":0,"tpc":14,"reason":"musikalische Begründung"}]}.'
+            var format = 'Antworte ausschließlich als JSON: {"report":"Zusammenfassung auf Deutsch",' +
+                '"findings":[{"measure":1,"staff":1,"kind":"rhythm","problem":"konkreter Befund","suggestion":"konkreter Vorschlag"}],' +
+                '"changes":[]}. ' +
+                'Erlaubte kind-Werte: rhythm, rests, clef, chord, ornament, voice, accidental, other. ' +
+                'Findings sind nur Hinweise; ausführbare changes dürfen weiterhin ausschließlich tpc ändern. ' +
+                'WICHTIG: changes muss [] sein, wenn keine zweifelsfrei notwendige enharmonische Änderung vorliegt. ' +
+                'Keine Beispieländerungen übernehmen oder erfundene Notenreferenzen angeben.'
             var prompt = "Du prüfst die Lesbarkeit einer MuseScore-Auswahl. Bewahre alle Tonhöhen, " +
                 "Einsatzzeiten, Dauern und Stimmen. Prüfe enharmonische Schreibweise im harmonischen " +
                 "und melodischen Kontext, Stimmen/Pausen, Bindungen und rhythmische Gliederung. " +
@@ -5571,16 +5627,53 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 "Schreibweise bleibt erhalten. Im report beschreibst du strukturelle Probleme " +
                 "mit Taktpositionen, soweit belegbar; deren Korrektur ist hier nur ein Vorschlag. " +
                 "Die Daten enthalten kein Bild: behaupte keine sichtbaren Kollisionen. " +
-                "Bei unklarem Kontext keine Änderung, sondern Hinweis.\n" +
+                "Bei unklarem Kontext keine Änderung, sondern Hinweis. " +
+                "Die Notenpositionen sind absolute Ticks; erfinde keine Takt- oder Systemnummern. " +
+                "Wenn sich die genaue Taktnummer aus den Daten nicht sicher bestimmen lässt, " +
+                "nenne den Befund nur im allgemeinen report und nicht in findings.\n" +
                 "Zusätzlicher Nutzerwunsch: " + instructionBox.text.trim() + "\n" +
-                JSON.stringify({ notes: snapshot.notes, elements: snapshot.context })
+                JSON.stringify({ score: {measures: curScore.nmeasures, staves: curScore.nstaves},
+                    selection: {startTick: selectionBounds().startTick, endTick: selectionBounds().endTick},
+                    notes: snapshot.notes, elements: snapshot.context })
             callAI(prompt, function(ok, text) {
                 busy = false
                 if (!ok) { notationReport = String(text); statusText = "Notationsprüfung fehlgeschlagen."; return }
                 try {
+                    // An asynchronous reply must never become an actionable plan for
+                    // a different score or a changed selection.
+                    if (!curScore || !(curScore === snapshot.score || curScore.is(snapshot.score)) ||
+                        scoreEndTick(curScore) !== snapshot.endTick ||
+                        readSelectionForChat() !== snapshot.fingerprint) {
+                        notationSnapshot = null; notationChanges = []; notationPreview = ""
+                        notationReport = "Die Partitur oder Auswahl wurde während der KI-Analyse geändert. " +
+                            "Die Antwort wird nicht übernommen; bitte die Analyse erneut starten."
+                        statusText = "Notationsanalyse veraltet – keine Änderungen vorbereitet."
+                        return
+                    }
                     var answer = JSON.parse(extractJsonBlock(text))
                     var changes = notationValidate(answer, snapshot)
-                    notationSnapshot = snapshot; notationChanges = changes; notationReport = answer.report
+                    notationSnapshot = snapshot; notationChanges = changes
+                    notationReport = String(answer.report || "")
+                    if (Array.isArray(answer.findings) && answer.findings.length) {
+                        var categories = {rhythm:"Rhythmik", rests:"Pausen", clef:"Schlüssel",
+                            chord:"Akkordverteilung", ornament:"Verzierungen", voice:"Stimmen",
+                            accidental:"Vorzeichen", other:"Sonstiges"}
+                        var findings = []
+                        for (var fi = 0; fi < Math.min(answer.findings.length, 60); fi++) {
+                            var entry = answer.findings[fi]
+                            if (!entry || typeof entry !== "object" || !Object.prototype.hasOwnProperty.call(categories, entry.kind) ||
+                                (typeof entry.measure !== "number" || Math.floor(entry.measure) !== entry.measure) || entry.measure < 1 ||
+                                (typeof entry.staff !== "number" || Math.floor(entry.staff) !== entry.staff) || entry.staff < 1 ||
+                                entry.staff > 64 || (curScore && entry.staff > curScore.nstaves) ||
+                                (curScore && entry.measure > curScore.nmeasures) ||
+                                typeof entry.problem !== "string" ||
+                                typeof entry.suggestion !== "string") continue
+                            findings.push("Takt " + entry.measure + ", System " + entry.staff +
+                                " · " + categories[entry.kind] + ": " + entry.problem.slice(0, 500) +
+                                "\nVorschlag (nicht automatisch ausgeführt): " + entry.suggestion.slice(0, 500))
+                        }
+                        if (findings.length) notationReport += "\n\nKonkrete Notationsbefunde:\n" + findings.join("\n\n")
+                    }
                     var lines = []
                     for (var i = 0; i < changes.length; i++) {
                         var old = snapshot.notes[changes[i].id]
@@ -7307,11 +7400,12 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     color: "#c9c9c9"
-                    text: "Vollständige Takte eines Instruments markieren und „Notendarstellung prüfen“ wählen. Danach übernimmt „In der Partitur korrigieren“ die Änderungen direkt im geöffneten Notenfenster. Mit Rückgängig lässt sich der gesamte Schritt zurücknehmen. Die Strukturprüfung bündelt geeignete verschachtelte Stimmen zu zwei Stimmen und prüft Tonhöhen, Einsätze und klingende Dauern ohne KI-Kosten. Vorzeichen können zusätzlich mit der KI geprüft werden."
+                    text: "Vollständige Takte eines Instruments markieren. „Notation verbessern“ führt zuerst die lokale Strukturprüfung durch und ruft danach die KI für die Notenschreibweise auf (ggf. kostenpflichtig). Die KI kann weitere Rhythmus-, Pausen- und Schlüsselprobleme benennen, aber noch nicht automatisch korrigieren. Vorschläge erst prüfen, dann getrennt übernehmen. Alternativ „Notendarstellung prüfen“ ohne KI-Kosten wählen. Danach übernimmt „In der Partitur korrigieren“ die Änderungen direkt im geöffneten Notenfenster. Mit Rückgängig lässt sich der gesamte Schritt zurücknehmen. Die Strukturprüfung bündelt geeignete verschachtelte Stimmen zu zwei Stimmen und prüft Tonhöhen, Einsätze und klingende Dauern ohne KI-Kosten. Vorzeichen können zusätzlich mit der KI geprüft werden."
                 }
                 Flow {
                     Layout.fillWidth: true
                     spacing: 8
+                    Button { objectName: "notationImproveButton"; text: "Notation verbessern (Analyse starten)"; enabled: !busy; onClicked: notationImprove() }
                     Button { objectName: "notationStructureCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationStructurePrepare() }
                     Button { objectName: "notationStructureApplyButton"; text: "In der Partitur korrigieren"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureApply() }
                     Button { objectName: "notationStructureOpenButton"; text: "Korrigierte Partitur öffnen"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureOpen() }

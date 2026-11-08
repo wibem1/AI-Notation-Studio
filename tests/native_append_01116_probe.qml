@@ -38,7 +38,32 @@ MuseScore {
     var component=Qt.createComponent("AI-Notation-Studio-App.qml")
     if(component.status!==Component.Ready)throw Error(component.errorString())
     app=component.createObject(root)
-    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?|19(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
+    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?|19(?:-dev)?|20(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
+    if(String(app.version)==="0.11.20") {
+      // Exercise the new entry point in real MuseScore with no range selection.
+      // Invalid selections must not trigger a paid model request or change music.
+      if(original.selection && original.selection.isRange)
+        throw Error("Notation negative fixture unexpectedly has a range selection")
+      app.notationImprove()
+      if(String(app.statusText).indexOf("Kein KI-Aufruf")<0 || app.busy ||
+         app.notationChanges.length!==0 || app.structureSnapshot!==null)
+        throw Error("Unsafe notation-improve preflight: "+app.statusText)
+      save(original,"notation-preflight")
+      log("ANS_01120_NOTATION_PREFLIGHT PASS: invalid selection blocked, no AI call")
+      // Positive native selection test: deterministic stage must analyze a real
+      // one-instrument range without launching a provider or mutating the score.
+      original.selection.selectRange(0,1920,0,1)
+      if(!original.selection.isRange)throw Error("Cannot select native notation range")
+      var captured=app.notationCapture()
+      if(!captured || !captured.notes || captured.notes.length===0)
+        throw Error("Selected range contains no captured notes")
+      app.notationStructurePrepare()
+      if(String(app.structureStatus).indexOf("Strukturprüfung:")!==0 || app.busy)
+        throw Error("Notation structure analysis failed: "+app.structureStatus)
+      save(original,"notation-selection")
+      log("ANS_01120_NOTATION_STRUCTURE PASS: selected range analyzed without AI")
+      original.selection.clear()
+    }
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
       sourceXml:source,sourceGuard:app.workflowGuard(source),sourceTime:"4/4",
@@ -48,7 +73,7 @@ MuseScore {
       strategy:0,selection:"",preferences:"",instruction:"Setze für 2 Takte fort",
       sourceKey:{fifths:0,mode:"minor"},sourceTempo:132}
     app.compositionJob=job
-    if(/^0\.11\.19(?:-dev)?$/.test(String(app.version))){
+    if(/^0\.11\.(?:19|20)(?:-dev)?$/.test(String(app.version))){
       // Native verification of the actual workflow: last 3 bars replaced,
       // then 1 new bar appended, with violin + split piano parts.
       var tail={id:"tail-native",mode:3,modeName:"Fortsetzen",sourcePath:"stored",

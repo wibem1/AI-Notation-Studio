@@ -1,3 +1,13 @@
+# AI Notation Studio 0.11.20 – 08.11.2026
+
+**Neu: Notation verbessern (Analyse starten).** Vollständige Takte eines Instruments markieren; der neue Ablauf bereitet vorhandene sichere Strukturkorrekturen vor und lässt optional die KI enharmonische Schreibweisen sowie konkrete Notationsprobleme prüfen. Es werden **keine Änderungen beim Analyse-Klick ausgeführt**. Struktur- und Vorzeichenvorschläge können über die bisherigen Bestätigungsbuttons übernommen werden. Rhythmik, Verzierungen, Schlüsselwechsel, Pausen und Akkordverteilung werden derzeit nur als nicht-ausführbare Hinweise angezeigt.
+
+**Wichtig:** Die KI-Analyse kann Providerkosten verursachen. Die native MuseScore-4.7.6-Prüfung bestätigt Bereichsauswahl, Strukturprüfung ohne KI sowie unverändertes Original, nicht aber eine echte Providerantwort. [Nachweise und Grenzen](RELEASE-0.11.20.md).
+
+**Installation:** Im bestehenden Plugin **Update prüfen → Update installieren**, dann vollständige Takte eines Instruments markieren und **Notation verbessern (Analyse starten)** wählen. Den Bericht lesen und erst danach gewünschte Korrekturen bestätigen.
+
+## Frühere Versionen
+
 # AI Notation Studio 0.11.19 – 08.11.2026
 
 **Fortsetzen mit Übergangstakten:** Der Fehler `Anzahl der Notensysteme verändert` bei drei separaten Systemen (Violine, Klavier rechts und links) ist auch für die Kombination **letzte Takte ersetzen + neue Takte ergänzen** korrigiert. Die bisherige Schutzprüfung bleibt bestehen: Es werden ausschließlich nachweislich unbenutzte zusätzliche Systeme in der KI-Ausgabe entfernt.

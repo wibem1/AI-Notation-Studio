@@ -1,5 +1,74 @@
 # Projektstand – AI Notation Studio
 
+## Freigabekandidat 0.11.20 – „Notation verbessern“ (08.11.2026)
+
+- **Stand:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.20.qml` und `versions/AI-Notation-Studio-App-0.11.20.qml` enthalten die geprüfte App-Fassung. `RELEASE-0.11.20.md` beschreibt Anwendungsumfang und Grenzen; Draft-PR #13 ist noch nicht gemergt.
+- **Implementiert:** Bereichsauswahl vollständiger Takte eines Instruments; Noten-/Staff-Erfassung über MuseScore-Cursor und Auswahlgrenzen, kombinierte deterministische Strukturprüfung plus KI-Analyse von enharmonischer Schreibung und taktbasierten Notationsbefunden. Keine automatische Änderung durch Analyse. Vorhandene separate Übernahmebuttons bleiben maßgeblich.
+- **Prüfung:** Regression [#42530186647](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530186647) **SUCCESS**, Fortsetzungsregression [#42530186659](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530186659) **SUCCESS**, nativer MuseScore-4.7.6-Test [#42530186643](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530186643) **SUCCESS**. Der native Test verifiziert ungültige Auswahl ohne Provideraufruf und eine echte selektierte Passage mit funktionierender Strukturprüfung und Notenerfassung. Keine echte KI-Antwort oder Klick-Übernahme end-to-end getestet.
+- **Grenzen:** Komplizierte Rhythmen, ausgeschriebene Verzierungen, Pausen, Schlüsselwechsel und Akkordverteilung werden nur diagnostiziert, nicht automatisch umgeschrieben; kein Anspruch auf vollständige Partiturbereinigung.
+- **Nächster Schritt:** PR #13 nach finaler Kontrolle zusammenführen, Updateweg prüfen; danach mit einer realen Partitur die Vorschläge und getrennte Übernahme testen, insbesondere macOS und Windows. Keine Versionssteigerung ohne neue überprüfte Funktion.
+
+
+## Fortsetzung – Integration bestätigt und KI-Kontext verbessert (08.11.2026)
+
+- **Nachweis nach Versionssperren-Fix:** Regression „Notation improvement“ [#42529545113](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545113) **SUCCESS**, Fortsetzungsvertrag [#42529545108](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545108) **SUCCESS**, nativer MuseScore-4.7.6-Workflow [#42529545180](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529545180) **SUCCESS**. Der native Workflow prüft den bereits vorhandenen Fortsetzungs-/Importweg, **nicht** die neue interaktive „Notation verbessern“-Schaltfläche selbst.
+- **Neuer Code im Entwicklungsbranch:** Notations-KI bekommt zusätzlich die tatsächliche Takt- und Systemanzahl sowie den Anfang und das Ende des markierten Bereichs in Ticks. Die Anweisung verbietet erfundene Takt- und Systemnummern; unsichere Lokalisierungen gehören in den Bericht, nicht in strukturierte `findings`. Commit `2d6fe10f`, Regressionserweiterung `57d23d2b`.
+- **Grenzen:** Die Ticks liefern noch keine sichere Takt-Nummer-Umrechnung bei Taktwechseln; darauf weist der Prompt ausdrücklich hin. Die oben genannten erfolgreichen Workflows liegen **vor** dieser jüngsten Kontextänderung, deren CI-Lauf noch nicht bestätigt wurde. Kein kostenpflichtiger KI-Aufruf und keine automatische Rhythmik-/Verzierungsänderung durchgeführt. Release 0.11.20 weiterhin gesperrt.
+- **Nächster Schritt:** Neue CI-Auswertung und gezielter nativer Interaktionstest für den Analyseknopf und ungültige Auswahl. Erst danach weitere automatische Notationsoperationen auf klangidentische, rückgängig machbare Einzelfälle begrenzen.
+
+
+## Fortsetzung – nativen Testblocker identifiziert (08.11.2026)
+
+- **Echter GitHub-Actions-Befund:** [Run #42529396923](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529396923) endete **FAILURE**. Der Log zeigt ausdrücklich `ANS_01116 FAIL: Error: Unexpected staged app version: 0.11.20`. Die vorhergehenden Schritte für Offline-JavaScript, synthetische Partitur und MuseScore-Installation waren erfolgreich. **Eine Aussage über das Funktionieren der neuen Notationsverbesserung erlaubt dieser abgebrochene Test nicht.**
+- **Behoben im Branch:** `tests/native_append_01116_probe.qml` erkennt nun auch Version 0.11.20 und führt für sie den bereits bestehenden 0.11.19-`replaceTail`-Pfad aus. Commit `7ff754bb`. Damit ist ausschließlich der vorzeitige Versionsblocker korrigiert; ein erfolgreicher Wiederholungslauf ist noch nicht belegt.
+- **Weitere Änderung:** KI-JSON-Vorlage verwendet `"changes":[]` als Standard. Dies vermeidet eine beispielhafte erfundene Änderung an Note 0. Commit `556158eb`, Regression `8427b795`.
+- **Integration:** Draft-[PR #13](https://github.com/wibem1/AI-Notation-Studio/pull/13) bleibt offen und ungemergt. Nächster Schritt: vollständige Regression samt nativer MuseScore-Prüfung des aktualisierten Quellstands, danach erst Veröffentlichung und Entwicklung weiterer ausführbarer musikalischer Korrekturoperationen.
+
+
+## Fortsetzung – sicherer KI-Plan und PR-Prüfung (08.11.2026)
+
+- **Konkrete Korrektur:** Der vom Modell geforderte JSON-Plan enthält standardmäßig `"changes":[]` statt einer erfundenen Beispielsänderung an Note 0. Die KI wird ausdrücklich angewiesen, nur belegte enharmonische Änderungen vorzuschlagen. Die bestehende Validierung bleibt unverändert strikt.
+- **Regression:** `tests/test_notation_improve_entry.cjs` prüft nun auch leeren KI-Standardplan und die zugehörige Anweisung. Änderung in Commit `556158eb`, Test-Commit `8427b795`.
+- **Integration:** Draft-PR [#13](https://github.com/wibem1/AI-Notation-Studio/pull/13) gegen `main` geöffnet, **nicht gemergt**. Der erste zugehörige native Workflow [#42529396923](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529396923) war beim Abruf **queued**, also noch kein Erfolgsnachweis. CI und reale MuseScore-Erprobung sind offen.
+- **Grenze:** Rhythmik, Ornamentik, Schlüssel und Akkordverteilung sind noch **keine ausführbaren automatischen KI-Korrekturen**. Die bisher vorhandene deterministische Strukturverbesserung und begründete Vorzeichenkorrektur können separat nach Vorschau ausgeführt werden. Live bleibt 0.11.19.
+- **Nächster Schritt:** PR-CI inklusive Node-Regressionen sowie nativen MuseScore-Test prüfen; Fehler gezielt beheben. Erst dann Freigabe und danach isolierte Entwicklung weiterer konkret ausführbarer Notationsoperationen.
+
+
+## Fortsetzung – veraltete KI-Antworten absichern (08.11.2026)
+
+- **Implementiert:** Die asynchrone Antwort von „Notationsschreibweise prüfen (KI)“ wird vor JSON-Auswertung und vor jeder Übernahme gegen die ursprüngliche Partituridentität, Partiturlänge und Auswahl-Signatur geprüft. Bei einer inzwischen anderen Partitur oder Auswahl wird der Korrekturplan verworfen und eine verständliche Meldung angezeigt. Bereits gestartete KI-Aufrufe lassen sich dadurch nicht nachträglich kostenfrei machen.
+- **Prüfung:** Vier direkte JavaScript-Laufzeitgegenproben gegen den QML-Codeausschnitt bestanden: gleicher Score, andere Partitur, geänderte Auswahl und geänderte Partiturlänge. Reproduzierbarer Node-Test `tests/test_notation_stale_response.cjs` hinzugefügt und CI-Workflow zur Ausführung erweitert. **Ausgeführtes Node-CI-Ergebnis und nativer MuseScore-Test noch nicht nachgewiesen.**
+- **Commits:** `5173c7b2` (Schutzprüfung), `18a43803` (Regression), `45ca07f7` (CI). Live 0.11.19 bleibt unverändert; 0.11.20 ist noch nicht veröffentlicht.
+- **Nächster Schritt:** CI-Ergebnis und MuseScore-Integration für Analyse-/Auswahl-Wechsel nachweisen. Erst danach Erweiterung des ausführbaren Korrekturplans über die bereits sichere enharmonische Schreibweise hinaus.
+
+
+## Fortsetzung – Validierung und CI (08.11.2026)
+
+- **Schutzkorrektur:** Strukturierte KI-Befunde mit Takt-/Systemnummer außerhalb der geöffneten Partitur werden nicht angezeigt. Kategorien werden per eigenem Objektattribut geprüft, sodass auch geerbte Namen wie `__proto__` keine gültigen Kategorien sind. Es erfolgen keine direkten Notenänderungen.
+- **Regression:** `tests/test_notation_findings.cjs` wurde hinzugefügt. Der Test führt den realen JavaScript-Ausschnitt aus `AI-Notation-Studio-App.qml` isoliert aus und prüft gültige Befunde, ungültige Takte/Systeme/Kategorien, leere Antwort und Begrenzung langer Texte. Der bestehende Einstiegstest bleibt erhalten.
+- **Prüfstand:** Zwei unabhängige direkte V8-Laufzeitgegenproben (gültiger Befund und unterdrückter ungültiger Befund) gegen das von GitHub geladene QML-JavaScript bestanden. Der vollständige Node-Test läuft über den neu hinterlegten Workflow `.github/workflows/notation-improve-regression.yml` bei passenden Branch-Pushes; **CI-Ergebnis derzeit nicht verifiziert**. Keine native MuseScore-Integration und keine kostenpflichtigen KI-Aufrufe durchgeführt.
+- **Commits:** `8b6cc670` (Score-Grenzen), `bcfb8cfd` (Test), `b757e2e9` (Kategorien), `2493951b` (CI-Workflow). Live-Version bleibt 0.11.19; 0.11.20 ist ein Entwicklungsstand.
+- **Nächster Schritt:** CI-Ergebnis und nativen MuseScore-Test verifizieren, einschließlich Auswahlfehler und simulierter KI-Antwort; anschließend Freigabereife entscheiden. Für automatisch ausführbare Rhythmik-/Verzierungsänderungen ist ein gesonderter klangtreuer Korrekturplan erforderlich.
+
+
+### Fortsetzung am 08.11.2026 – strukturierte KI-Befunde (noch keine Freigabe)
+
+- **Code:** Der Workflow überschreibt den asynchronen Status der KI-Prüfung nicht mehr. Die KI wird zusätzlich um strukturierte Befunde mit Takt, System, Problemklasse und konkretem Verbesserungsvorschlag gebeten (Rhythmik, Pausen, Schlüssel, Akkordverteilung, Verzierungen, Stimmen, Vorzeichen, Sonstiges). Das Plugin zeigt bis zu 60 formal plausible Hinweise mit begrenzter Textlänge an und kennzeichnet sie als **nicht automatisch ausgeführt**. Automatisierbare Änderungen bleiben strikt auf die vorhandene, separat geprüfte enharmonische Schreibweise und Strukturkorrektur begrenzt.
+- **GitHub-Commits:** `ca760672` (Status), `47538b60` (Qt-kompatible Befundprüfung) und `78ec05e6` (Regressionserweiterung), jeweils im Entwicklungszweig. Vorhandene Freigabe 0.11.19 bleibt unangetastet.
+- **Prüfgrundlage:** Direkte Quelltext-Assertions gegen die abgerufene QML-Datei für Guard, Button, keine automatische Übernahme, Schema, Befundanzeige und Qt-kompatible Integer-Prüfung bestanden. Der Node-Test `tests/test_notation_improve_entry.cjs` ist aktualisiert, aber **noch nicht mit Node ausgeführt**. Es liegt **kein QML-Parse- oder nativer MuseScore-Integrationstest** dieser Änderung vor; deshalb keine Veröffentlichung.
+- **Nächster Schritt:** Reale Node-/QML-Tests und native MuseScore-Integration mit synthetischer Auswahl, leerer Auswahl und simulierter KI-JSON-Antwort; danach erst Entscheidung über versionierte Freigabe. Die eigentliche automatische Rhythmik-/Schlüsselkorrektur bleibt gesondert zu entwickeln und benötigt klangidentische Validierung.
+
+
+## Entwicklung 0.11.20 – „Notation verbessern“ (08.11.2026; nicht veröffentlicht)
+
+- **Auftrag:** Auf eine Partituranalyse sollen sichere, überprüfbare Notationsverbesserungen folgen. Die Nutzerdiagnose aus Plugin 0.11.13 zeigt KI-Hinweise zu komplizierten Rhythmen, überzähligen Pausen, Schlüsselwechseln und zu weiten Akkorden, aber keinen automatischen Korrekturlauf.
+- **Branch:** `feat/notation-verbessern-20261108`, App-Einstieg `AI-Notation-Studio-App.qml` auf 0.11.20 erhöht; Live auf `main` bleibt 0.11.19.
+- **Implementiert (erster Teilschritt):** Neue Schaltfläche „Notation verbessern (Analyse starten)“. Vor einem möglicherweise kostenpflichtigen KI-Aufruf werden Takt-/Instrumentauswahl und erfassbare Noten geprüft. Danach wird die vorhandene, klangidentisch validierte Strukturkorrektur vorbereitet und die bestehende KI-Prüfung der enharmonischen Schreibweise gestartet. Beide Vorschlagsarten werden getrennt angezeigt und erst über ihre vorhandenen Übernahmebuttons angewandt. Automatische Notenveränderungen beim Analyse-Klick ausgeschlossen.
+- **Wichtige Grenze:** KI-Hinweise zu Verzierungen, Rhythmik, Akkordaufteilung, Pausen und Schlüsselwechseln werden **noch nicht** in ausführbare Korrekturpläne überführt. Keine Behauptung einer vollständigen Notationsoptimierung. Die vorhandene Strukturkorrektur benötigt die vollständige Taktauswahl genau eines Instruments. Der KI-Aufruf kann Kosten verursachen.
+- **Prüfstand:** Isolierte Quelltext-Assertions für Button, Aufrufreihenfolge, Preflight und fehlende automatische Übernahme bestanden (V8). Reproduzierbarer Test `tests/test_notation_improve_entry.cjs` im Branch; **Node-Ausführung, QML-Parsing und nativer MuseScore-Integrationstest offen**. Keine Live-Freigabe.
+- **Nächster Schritt:** Native Integration und Regression mit synthetischer Partitur und fehlerhaften bzw. leeren Auswahlen; erst danach versionierte App-Kopie und Veröffentlichung. Erweiterung um einen schema-validierten, taktbasierten Vorschlags-/Übernahmeplan für Rhythmik/Schlüssel/Pausen separat absichern.
+
+
 ## Live 0.11.19 – getrennte Klavierhände bei replaceTail (08.11.2026)
 
 - **Realer Bericht:** `AI-Notation-Studio-Diagnose-1794162946487-963319.json`, Plugin 0.11.18, Fortsetzung 3 Übergangstakte + 16 neue Takte, drei getrennte Parts (Violine, Klavier rechts, Klavier links). Formfehler der KI-Antwort ist in 0.11.18 behoben, jetzt blockiert `Error: Anzahl der Notensysteme verändert.`. Ursache: `workflowKind=replaceTail` (Takte 26–28 ersetzen und 16 Takte hinzufügen), während die bewährte Normalisierung nur für `append` aktiviert war.
