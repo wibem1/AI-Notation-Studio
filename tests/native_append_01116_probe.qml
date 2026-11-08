@@ -38,7 +38,7 @@ MuseScore {
     var component=Qt.createComponent("AI-Notation-Studio-App.qml")
     if(component.status!==Component.Ready)throw Error(component.errorString())
     app=component.createObject(root)
-    if(!app||!/^0\\.11\\.(?:16|17-dev)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
+    if(!app||!/^0\.11\.(?:16|17-dev)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
       sourceXml:source,sourceGuard:app.workflowGuard(source),sourceTime:"4/4",
