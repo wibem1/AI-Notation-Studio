@@ -91,6 +91,7 @@ MuseScore {
     property var compositionHistory: []
     property string historyError: ""
     property bool diagnosticExportBusy: false
+    property string macDiagnosticHelperScript: "#!/bin/bash\nset -euo pipefail\nsource_file=\"$1\"\nreceipt=\"$2\"\nname=\"$(/usr/bin/basename \"$source_file\")\"\nerror_file=\"$receipt.error\"\nif destination=$(/usr/bin/osascript \\\n    -e 'on run argv' \\\n    -e 'return POSIX path of (choose file name with prompt \"AI Notation Studio: Diagnose speichern unter\" default name (item 1 of argv))' \\\n    -e 'end run' \"$name\" 2>\"$error_file\"); then\n    if [ -z \"$destination\" ]; then\n        printf 'error\\nKein Zielpfad ausgewählt.\\n' >\"$receipt\"\n        exit 0\n    fi\nelse\n    if /usr/bin/grep -Eqi '(-128|User canceled|Benutzer.*abgebrochen)' \"$error_file\"; then\n        printf 'cancelled\\n' >\"$receipt\"\n    else\n        printf 'error\\nAppleScript-Speicherdialog fehlgeschlagen.\\n' >\"$receipt\"\n    fi\n    exit 0\nfi\nif ! /bin/cp -f \"$source_file\" \"$destination\"; then\n    printf 'error\\nDiagnosedatei konnte nicht an das gewählte Ziel kopiert werden.\\n' >\"$receipt\"\n    exit 0\nfi\nif ! /usr/bin/cmp -s \"$source_file\" \"$destination\"; then\n    printf 'error\\nDie gespeicherte Diagnose weicht von der Originaldatei ab.\\n' >\"$receipt\"\n    exit 0\nfi\nbytes=\"$(/usr/bin/wc -c <\"$destination\" | /usr/bin/tr -d ' ')\"\nsha=\"$(/usr/bin/shasum -a 256 \"$destination\" | /usr/bin/awk '{print $1}')\"\nprintf 'saved\\n%s\\n%s\\n%s\\n' \"$destination\" \"$bytes\" \"$sha\" >\"$receipt\"\n"
     property string diagnosticSourcePath: ""
     property string diagnosticReceiptPath: ""
     property string diagnosticHelperScript: "param(\n    [Parameter(Mandatory=$true)][string]$Source,\n    [Parameter(Mandatory=$true)][string]$Receipt,\n    [string]$Destination = '',\n    [string]$InitialDirectory = ''\n)\n$ErrorActionPreference = 'Stop'\n$stagingPath = $null\nfunction Get-StreamHash([string]$Path) {\n    $stream = [IO.File]::OpenRead($Path)\n    $sha = [Security.Cryptography.SHA256]::Create()\n    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }\n    finally { $sha.Dispose(); $stream.Dispose() }\n}\nfunction Write-Receipt($Value) {\n    [IO.File]::WriteAllText($Receipt, (ConvertTo-Json -InputObject $Value -Compress), (New-Object Text.UTF8Encoding($false)))\n}\ntry {\n    $Source = [IO.Path]::GetFullPath($Source)\n    if (-not [IO.File]::Exists($Source)) { throw 'Die vorbereitete Diagnosedatei fehlt.' }\n    if (-not $Destination) {\n        Add-Type -AssemblyName System.Windows.Forms\n        $dialog = New-Object Windows.Forms.SaveFileDialog\n        try {\n            $dialog.Title = 'AI Notation Studio: Diagnose speichern unter'\n            $dialog.Filter = 'JSON-Diagnose (*.json)|*.json|Alle Dateien (*.*)|*.*'\n            $dialog.DefaultExt = 'json'\n            $dialog.AddExtension = $true\n            $dialog.OverwritePrompt = $true\n            $dialog.FileName = [IO.Path]::GetFileName($Source)\n            if ($InitialDirectory -and [IO.Directory]::Exists($InitialDirectory)) { $dialog.InitialDirectory = $InitialDirectory }\n            if ($dialog.ShowDialog() -ne [Windows.Forms.DialogResult]::OK) {\n                Write-Receipt @{status='cancelled'; source=$Source}\n                exit 0\n            }\n            $Destination = $dialog.FileName\n        } finally { $dialog.Dispose() }\n    }\n    $Destination = [IO.Path]::GetFullPath($Destination)\n    if ([string]::Equals($Source, $Destination, [StringComparison]::OrdinalIgnoreCase)) {\n        throw 'Die Zieldatei darf nicht die vorbereitete Quelldatei sein.'\n    }\n    $targetDirectory = [IO.Path]::GetDirectoryName($Destination)\n    if (-not [IO.Directory]::Exists($targetDirectory)) { throw 'Der Zielordner existiert nicht.' }\n    $stagingPath = [IO.Path]::Combine($targetDirectory, '.AI-Notation-Studio-' + [Guid]::NewGuid().ToString('N') + '.tmp')\n    $inputStream = [IO.File]::OpenRead($Source)\n    try {\n        $outputStream = [IO.File]::Open($stagingPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)\n        try { $inputStream.CopyTo($outputStream, 81920); $outputStream.Flush($true) }\n        finally { $outputStream.Dispose() }\n    } finally { $inputStream.Dispose() }\n    $hash = Get-StreamHash $Source\n    if ((Get-StreamHash $stagingPath) -ne $hash) { throw 'Die Nachkontrolle der kopierten Datei ist fehlgeschlagen.' }\n    if ([IO.File]::Exists($Destination)) { [IO.File]::Replace($stagingPath, $Destination, [NullString]::Value) }\n    else { [IO.File]::Move($stagingPath, $Destination) }\n    $stagingPath = $null\n    if ((Get-StreamHash $Destination) -ne $hash) { throw 'Die Nachkontrolle der Zieldatei ist fehlgeschlagen.' }\n    Write-Receipt @{status='saved'; source=$Source; target=$Destination; bytes=(Get-Item -LiteralPath $Destination).Length; sha256=$hash}\n    exit 0\n} catch {\n    Write-Receipt @{status='error'; source=$Source; message=$_.Exception.Message}\n    exit 1\n} finally {\n    if ($stagingPath -and [IO.File]::Exists($stagingPath)) { [IO.File]::Delete($stagingPath) }\n}\n"
@@ -6377,21 +6378,30 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
     function exportDiagnostic() {
         if (diagnosticExportBusy) return
-        if (Qt.platform.os !== "windows") {
-            // MuseScore's FileIO is usable on macOS, but the Windows-only
-            // PowerShell SaveFileDialog is not. Save and verify in the user's
-            // writable plugin folder as a no-helper, no-network fallback.
+        if (Qt.platform.os === "osx" || Qt.platform.os === "macos") {
             try {
-                diagnosticSourcePath = defaultDiagnosticPath()
-                var body=diagnosticText()
-                writeVerifiedCompactFile(diagnosticSourcePath, body, "Diagnose speichern")
-                lastDiagnosticPath=diagnosticSourcePath
-                statusText="Diagnose gespeichert: " + diagnosticSourcePath +
-                    ". Im Finder mit „Gehe zu Ordner“ den Plugin-Ordner öffnen; die JSON-Datei kann von dort weitergegeben werden."
-            } catch (e) {
-                statusText="Diagnose konnte nicht gespeichert werden: "+String(e)+
-                    ". Alternativ „Diagnose anzeigen“ verwenden und den Text kopieren."
+                diagnosticSourcePath=defaultDiagnosticPath()
+                diagnosticReceiptPath=diagnosticSourcePath+".result.txt"
+                writeVerifiedCompactFile(diagnosticSourcePath,diagnosticText(),"Diagnose vorbereiten")
+                var macHelper=fileUrlToLocalPath(Qt.resolvedUrl("AI-Notation-Studio-Mac-Export-"+root.version+".sh"))
+                writeVerifiedCompactFile(macHelper,macDiagnosticHelperScript,"Mac-Speicherhelfer")
+                diagnosticExportBusy=true
+                statusText="Zielordner und Dateiname im Fenster „Diagnose speichern unter“ wählen …"
+                diagnosticExportProcess.startWithArgs("/bin/bash",[macHelper,diagnosticSourcePath,diagnosticReceiptPath])
+            } catch(e) {
+                diagnosticExportBusy=false
+                statusText="Mac-Diagnoseexport fehlgeschlagen: "+String(e)
             }
+            return
+        }
+        if (Qt.platform.os !== "windows") {
+            // Other platforms retain the verified plugin-file fallback.
+            try {
+                diagnosticSourcePath=defaultDiagnosticPath()
+                writeVerifiedCompactFile(diagnosticSourcePath,diagnosticText(),"Diagnose speichern")
+                lastDiagnosticPath=diagnosticSourcePath
+                statusText="Diagnose gespeichert: "+diagnosticSourcePath
+            } catch(e){statusText="Diagnoseexport fehlgeschlagen: "+e}
             return
         }
         try {
@@ -6418,7 +6428,16 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         diagnosticExportBusy = false
         try {
             compactFile.source = diagnosticReceiptPath
-            var result = JSON.parse(String(compactFile.read()))
+            var receiptText=String(compactFile.read())
+            var result
+            if (Qt.platform.os === "osx" || Qt.platform.os === "macos") {
+                var lines=receiptText.replace(/\\r/g,"").split("\\n")
+                result={status:lines[0],source:diagnosticSourcePath,
+                    target:lines[1]||"",bytes:Number(lines[2]||0),sha256:lines[3]||"",
+                    message:lines[1]||"Mac-Speicherhelfer fehlgeschlagen"}
+            } else {
+                result=JSON.parse(receiptText)
+            }
             if (String(result.source || "").replace(/\\/g, "/") !== diagnosticSourcePath.replace(/\\/g, "/"))
                 throw Error("Rückmeldung gehört nicht zu diesem Export.")
             if (result.status === "saved" && result.target && result.bytes > 0 && /^[A-Fa-f0-9]{64}$/.test(result.sha256)) {
