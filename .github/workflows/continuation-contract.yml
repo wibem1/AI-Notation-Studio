@@ -1,0 +1,28 @@
+name: Continuation contract regression
+
+on:
+  push:
+    branches:
+      - fix/continuation-reference-pitches-20261108
+  pull_request:
+    paths:
+      - 'AI-Notation-Studio-App.qml'
+      - 'tests/test_continuation_musical_contract.cjs'
+      - 'tests/test_append_single_piano_staff.cjs'
+      - '.github/workflows/continuation-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  continuation-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check source and run musical contract regression
+        run: |
+          node --check tests/test_continuation_musical_contract.cjs
+          node tests/test_continuation_musical_contract.cjs
+      - name: Recheck one-staff piano append
+        run: node tests/test_append_single_piano_staff.cjs

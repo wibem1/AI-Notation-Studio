@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.16"
+    version: "0.11.17"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -600,6 +600,14 @@ MuseScore {
             if (!writeScore(curScore, path, "musicxml")) throw Error("Ausgangspartitur konnte nicht für den Kontext gesichert werden.")
             compactFile.source = path
             var source = String(compactFile.read())
+            if(mode===3){
+                // Read the notated key from the original MusicXML, not from
+                // inferred note statistics (which cannot establish a mode).
+                var keyTag=source.match(/<key(?:\s[^>]*)?>\s*<fifths>\s*(-?[0-7])\s*<\/fifths>(?:\s*<mode>\s*(major|minor)\s*<\/mode>)?/i)
+                if(keyTag)job.sourceKey={fifths:Number(keyTag[1]),mode:keyTag[2] ? keyTag[2].toLowerCase() : ""}
+                var tempoTag=source.match(/<per-minute>\s*([0-9]+(?:\.[0-9]+)?)\s*<\/per-minute>/i)
+                if(tempoTag)job.sourceTempo=Number(tempoTag[1])
+            }
             if (mode === 1) {
                 // Resolve the existing target part before composing; the overlay path
                 // adds voices without adding a duplicate piano instrument.
@@ -660,22 +668,36 @@ MuseScore {
 
     function compactCompositionSelection(source) {
         var data
-        try { data = JSON.parse(source) } catch(e) { return String(source || "").slice(0, 12000) }
-        var b = data.bounds || {}, rows = data.elements || []
-        var out = ["Ticks: "+b.startTick+"-"+b.endTick, "Elemente: "+rows.length]
-        var previous = ""
-        for (var i=0; i<rows.length; i++) {
-            var e = rows[i], kind = String(e.type||"")
-            if (!/note|chord|rest|harmony|tempo|dynamic|key|time/i.test(kind)) continue
-            var tick = Number(e.tick||0), track = Number(e.track||0)
-            var item = tick+":"+track+":"+kind
-            if (e.pitch !== undefined) item+=":"+String(e.pitch)
-            if (e.pitches !== undefined) item+=":"+JSON.stringify(e.pitches)
-            if (e.durationTicks !== undefined) item+="/"+e.durationTicks
-            if (e.text !== undefined) item+=":"+String(e.text).slice(0,60)
-            if (item===previous) continue
-            out.push(item); previous=item
-            if (out.join("\n").length>60000) { out.push("[Kontext gekürzt; vollständige Partitur bleibt lokal gespeichert]"); break }
+        try { data=JSON.parse(source) } catch(e) { return String(source||"").slice(0,12000) }
+        var b=data.bounds||{}, rows=(data.elements||[]).filter(function(e){
+            return /^(note|chord|rest|harmony|tempo|dynamic|key|time)$/i.test(String(e.type||""))
+        })
+        // MuseScore exports `pitchMidi`, NOT `pitch`. Dropping it stripped the
+        // entire melody and harmony from continuation requests up to 0.11.16.
+        rows.sort(function(a,b){
+            return Number(a.tick||0)-Number(b.tick||0) || Number(a.track||0)-Number(b.track||0)
+        })
+        var out=["Ticks: "+b.startTick+"-"+b.endTick,"Musikalische Ereignisse: "+rows.length],
+            previous="",size=out.join("\n").length
+        for(var i=0;i<rows.length;i++){
+            var e=rows[i], kind=String(e.type||""),tick=Number(e.tick||0),
+                track=Number(e.track||0), item=tick+":"+track+":"+kind
+            if(e.pitchMidi!==undefined && e.pitchMidi!==null){
+                var midi=Number(e.pitchMidi)
+                if(isFinite(midi) && midi>=0 && midi<=127){
+                    var names=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+                    var label=String(e.pitchName||names[midi%12])
+                    item+=":"+label+(Math.floor(midi/12)-1)+"(MIDI "+midi+")"
+                }
+            } else if(e.pitch!==undefined)item+=":"+String(e.pitch)
+            if(e.pitches!==undefined)item+=":"+JSON.stringify(e.pitches)
+            if(e.durationTicks!==undefined)item+="/"+e.durationTicks
+            if(e.text!==undefined)item+=":"+String(e.text).slice(0,60)
+            if(item===previous)continue
+            if(size+item.length+1>90000){
+                out.push("[weitere Ereignisse gekürzt]");break
+            }
+            out.push(item);size+=item.length+1;previous=item
         }
         return out.join("\n")
     }
@@ -695,6 +717,13 @@ MuseScore {
         var task = action + "\nAUFTRAG:\n" + job.instruction + "\nZIELBESETZUNG (Reihenfolge verbindlich): " + job.instruments.join(", ") +
             "\nLÄNGE: " + job.measures + " Takte.\nARBEITSVORLIEBEN:\n" + job.preferences +
             "\nGestalte musikalisch begründete Phrasen, motivische Beziehungen, Harmonik, Rhythmus und Ausdruck. Für die Instrumente spielbar schreiben. Klavier mit rechter und linker Hand. Nutzerangaben haben Vorrang. Für CS1 englische Instrumentnamen wie piano, violin, cello, flute und clarinet verwenden; pro Instrument ein P-Block mit eindeutiger ID. Tonhöhen klingend angeben; instrumentale Transposition übernimmt das Plugin."
+        if(job.mode===3){
+            task+="\nFORTSETZUNG – MUSIKALISCHE BINDUNG: Die folgenden Noten sind die wirklichen Tonhöhen und Dauern des Originals. " +
+                "Entwickle Themen, Motive, Begleitung und Harmonik aus ihnen weiter, statt ein unabhängiges neues Stück zu komponieren. " +
+                "Bewahre Grundtonart, harmonische Sprache, Instrumentrollen und Ausgangstempo, sofern der Auftrag keine bewusste Änderung nennt. " +
+                "Die letzten vier Takte sind als Übergang besonders wichtig; erkenne eine vollständige Schlusskadenz und knüpfe daran organisch an."
+            if(job.sourceTempo)task+="\nORIGINALTEMPO: Viertel = "+job.sourceTempo+" BPM (nicht ohne ausdrücklichen Auftrag ändern)."
+        }
         if (job.mode !== 2 && job.mode !== 9) task += "\nREFERENZAUSWAHL (kompakt, ohne überflüssige UI-Metadaten):\n" + compactCompositionSelection(job.selection) +
             "\nTaktart am Beginn: " + job.sourceTime + ". Taktarten und tatsächliche Taktlängen der Ausgangspartitur: " + JSON.stringify(job.sourceMeters) + ". Die Taktlängen müssen damit übereinstimmen. Die Ergebnis-Takte werden ab 1 gezählt und ab Ausgangstakt " + job.startMeasure + " eingefügt."
         if (job.prefixQuarter > 0) task += "\nDie Auswahl beginnt " + job.prefixQuarter + " Viertel nach Taktanfang. In jeder Ergebnisstimme den ersten Takt mit genau dieser Dauer als Pausen beginnen; danach die Musik der Auswahl bearbeiten."
@@ -797,6 +826,43 @@ MuseScore {
         return warnings
     }
 
+    function validateContinuationKey(job, data) {
+        if(!job || job.mode!==3 || !job.sourceKey || !data || !data.score)return
+        // An explicitly requested modulation must not be blocked.
+        if(/(?:tonart|modulier|modulation|transponier|transposition|key change|change key)/i.test(String(job.instruction||"")))return
+        var raw=String(data.score.key||"").replace(/♭/g,"b").replace(/♯/g,"#").trim()
+        var match=/^([A-Ga-g])([#b]?)(.*)$/.exec(raw)
+        if(!match)throw Error("Musikalische Fortsetzung abgelehnt: Die KI hat keine auswertbare Grundtonart angegeben.")
+        var modeText=match[3].trim()
+        var minor=/^(?:m|minor|moll)$/i.test(modeText)
+        if(modeText && !minor && !/^(?:major|dur)$/i.test(modeText))
+            throw Error("Musikalische Fortsetzung abgelehnt: Unbekannte Tonart "+raw)
+        var keys={C:0,G:1,D:2,A:3,E:4,B:5,"F#":6,"C#":7,F:-1,Bb:-2,Eb:-3,Ab:-4,Db:-5,Gb:-6,Cb:-7,
+            Am:0,Em:1,Bm:2,"F#m":3,"C#m":4,"G#m":5,"D#m":6,"A#m":7,Dm:-1,Gm:-2,Cm:-3,Fm:-4,Bbm:-5,Ebm:-6,Abm:-7}
+        var name=match[1].toUpperCase()+match[2]+(minor?"m":"")
+        if(keys[name]===undefined)throw Error("Musikalische Fortsetzung abgelehnt: Unbekannte Tonart "+raw)
+        if(keys[name]!==job.sourceKey.fifths || (job.sourceKey.mode && job.sourceKey.mode!==(minor?"minor":"major")))
+            throw Error("Musikalische Fortsetzung abgelehnt: Grundtonart der KI ("+raw+
+                ") stimmt nicht mit der Ausgangspartitur überein. Die gespeicherte Antwort wird nicht automatisch umkomponiert.")
+    }
+
+    function validateContinuationTempo(job, data) {
+        if(!job || job.mode!==3 || !job.sourceTempo || !data || !data.score)
+            return
+        // A continuation may vary expressive tempo locally. But a new global
+        // tempo is a change of identity unless the user expressly asked for it.
+        if(/(?:tempo|schneller|langsamer|beschleunig|verlangsam|ritard|accelerand)/i.test(String(job.instruction||"")))
+            return
+        var actual=Number(data.score.tempo && data.score.tempo.bpm)
+        var expected=Number(job.sourceTempo)
+        if(isFinite(actual) && actual>0 && isFinite(expected) && expected>0 &&
+            Math.abs(actual-expected)>1) {
+            throw Error("Musikalische Fortsetzung abgelehnt: Die KI änderte das Grundtempo von " +
+                expected+" auf "+actual+" BPM, ohne dass dies beauftragt wurde. " +
+                "Die Antwort bleibt gespeichert; eine erneute technische Prüfung komponiert sie nicht neu.")
+        }
+    }
+
     function finishComposition(job, text) {
         job.raw_response=text
         try {
@@ -812,6 +878,8 @@ MuseScore {
             var errors=compact.score.inspect(data)
             if(errors.length)
                 throw Error("Rhythmusprüfung: "+errors.join("; ")+". Die KI-Antwort bleibt für eine kostenfreie erneute Prüfung gespeichert.")
+            validateContinuationKey(job,data)
+            validateContinuationTempo(job,data)
             if (data.parts.length !== job.instruments.length &&
                 !(job.mode===9 && job.preludeTargets && job.preludeTargets.length===1 &&
                   job.preludeTargets[0].splitPiano && data.parts.length===2))

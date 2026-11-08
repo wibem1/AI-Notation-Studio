@@ -38,15 +38,27 @@ MuseScore {
     var component=Qt.createComponent("AI-Notation-Studio-App.qml")
     if(component.status!==Component.Ready)throw Error(component.errorString())
     app=component.createObject(root)
-    if(!app||String(app.version)!=="0.11.16")throw Error("Wrong staged version")
+    if(!app||!/^0\.11\.(?:16|17(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
       sourceXml:source,sourceGuard:app.workflowGuard(source),sourceTime:"4/4",
       workflowKind:"append",workflowState:"draft",measures:2,startMeasure:29,
       startQuarter:112,endQuarter:112,instruments:["violin","piano","piano"],
       first:{provider:"Google",model:"offline"},second:{provider:"Google",model:"offline"},
-      strategy:0,selection:"",preferences:"",instruction:"Setze für 2 Takte fort"}
+      strategy:0,selection:"",preferences:"",instruction:"Setze für 2 Takte fort",
+      sourceKey:{fifths:0,mode:"minor"},sourceTempo:132}
     app.compositionJob=job
+    if(/^0\.11\.17(?:-dev)?$/.test(String(app.version))){
+      // Native negative case: same 2-bar score but unrelated output key.
+      var wrong=request.raw.replace('"k":"a minor"','"k":"G major"')
+      if(wrong===request.raw)throw Error("Failed to construct wrong-key counterexample")
+      app.finishComposition(job,wrong)
+      if(app.compositionJob.workflowState!=="invalid" ||
+         String(app.compositionJob.validation_error).indexOf("Grundtonart")<0)
+        throw Error("Wrong-key continuation was not rejected")
+      job.workflowState="draft";job.validation_error=""
+      app.compositionJob=job
+    }
     app.finishComposition(job,request.raw)
     if(app.compositionJob.workflowState!=="ready")
       throw Error("Continuation failed: "+app.statusText+" "+app.compositionJob.validation_error)
@@ -60,7 +72,7 @@ MuseScore {
     requestFile.source=app.lastDiagnosticPath
     var exported=JSON.parse(requestFile.read())
     requestFile.source=savedPath
-    if(exported.pluginVersion!=="0.11.16" || exported.diagnosticSchema!==2)
+    if(exported.pluginVersion!==String(app.version) || exported.diagnosticSchema!==2)
       throw Error("Saved diagnostic JSON content invalid")
     var choice=find(app,"outputTargetSelector")
     if(!choice)throw Error("Output selector missing")
