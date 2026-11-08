@@ -38,8 +38,8 @@ MuseScore {
     var component=Qt.createComponent("AI-Notation-Studio-App.qml")
     if(component.status!==Component.Ready)throw Error(component.errorString())
     app=component.createObject(root)
-    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?|19(?:-dev)?|20(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
-    if(String(app.version)==="0.11.20") {
+    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?|19(?:-dev)?|20(?:-dev)?|21(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
+    if(String(app.version)==="0.11.20" || String(app.version)==="0.11.21") {
       // Exercise the new entry point in real MuseScore with no range selection.
       // Invalid selections must not trigger a paid model request or change music.
       if(original.selection && original.selection.isRange)
@@ -64,6 +64,23 @@ MuseScore {
       log("ANS_01120_NOTATION_STRUCTURE PASS: selected range analyzed without AI")
       original.selection.clear()
     }
+    if(String(app.version)==="0.11.21") {
+      // Inject a redundant treble clef into the second violin measure. Verify
+      // that the *actual production repair engine* removes it, without any
+      // changed sounding note or original score modification.
+      var xml=app.notationStructureExport()
+      var needle=/<measure number=["']2["'][^>]*>/
+      if(!needle.test(xml))throw Error("No second measure in MuseScore fixture")
+      var altered=xml.replace(needle, function(m){return m+
+        '<attributes><clef><sign>G</sign><line>2</line></clef></attributes>'})
+      if(altered===xml)throw Error("Failed to create redundant clef fixture")
+      var change=app.notationStructure.repairRedundantClefs(altered,
+        {partIndex:0,staffs:[1],startQuarter:4,endQuarter:8})
+      if(change.changed!==1 ||
+        app.notationStructure.signature(altered)!==app.notationStructure.signature(change.xml))
+        throw Error("Native clef repair failed or changed musical signature: "+change.report)
+      log("ANS_01121_CLEF_REPAIR PASS: redundant G clef removed; music unchanged")
+    }
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
       sourceXml:source,sourceGuard:app.workflowGuard(source),sourceTime:"4/4",
@@ -73,7 +90,7 @@ MuseScore {
       strategy:0,selection:"",preferences:"",instruction:"Setze für 2 Takte fort",
       sourceKey:{fifths:0,mode:"minor"},sourceTempo:132}
     app.compositionJob=job
-    if(/^0\.11\.(?:19|20)(?:-dev)?$/.test(String(app.version))){
+    if(/^0\.11\.(?:19|20|21)(?:-dev)?$/.test(String(app.version))){
       // Native verification of the actual workflow: last 3 bars replaced,
       // then 1 new bar appended, with violin + split piano parts.
       var tail={id:"tail-native",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
