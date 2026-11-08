@@ -5231,6 +5231,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                             var key=sign+':'+line+':'+octave;
                             var duplicate=safe && active[staff]===key;
                             if (safe) active[staff]=key;
+                            else delete active[staff]; // never infer across unsupported clefs
                             if (duplicate && row.index>0 && full &&
                                 pi===selection.partIndex && selection.staffs.indexOf(staff)>=0) {
                                 changed++;
