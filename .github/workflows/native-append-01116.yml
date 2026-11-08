@@ -20,6 +20,7 @@ jobs:
       - name: Offline JS regression and synthetic score
         run: |
           node tests/test_append_single_piano_staff.cjs
+          node tests/test_mac_diagnostic_save_dialog.cjs
           node tests/generate_01114_native_fixture.cjs
           node tests/generate_01116_append_request.cjs
           test -s /tmp/ans-01116-base.musicxml
