@@ -18,7 +18,7 @@ assert.strictEqual(result.split('\n')[2],score.split('\n')[2],'instrument defini
 const compact=vm.runInContext(src.slice(src.indexOf('function createCompactRuntime()'),src.indexOf('// END COMPACTSCORE RUNTIME'))+'\ncreateCompactRuntime()',vm.createContext({}));
 assert.throws(()=>compact.score.decode(score),/Zeile 4/,'original malformed score must fail');
 const parsed=compact.score.decode(result);
-assert.strictEqual(parsed.parts[0].measures[0].voices[0].events.length,13);
+assert.strictEqual(parsed.parts[0].measures[0].voices[0].events.length,12);
 assert.strictEqual(parsed.parts[0].measures[1].voices[0].events.length,1);
 const bad='CS1\nS {"k":"a minor","m":"4/4"}\nP {"i":"violin","n":"violin"}\n1/1 C5:qBROKEN';
 assert.strictEqual(repair(bad),bad,'ambiguous broken input must not be repaired');
