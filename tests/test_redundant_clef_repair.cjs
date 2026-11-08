@@ -12,7 +12,7 @@ function parse(xml){
    if(token.startsWith('<?')||token.startsWith('<!'))continue;
    if(token.startsWith('</')){assert(stack.length>1);stack.pop().close=token;continue;}
    if(token.startsWith('<')){
-      const name=/^<([-\\w]+)/.exec(token);
+      const name=/^<([-\w]+)/.exec(token);
       assert(name,'node name');
       const node={name:name[1],open:token,close:'',children:[]};
       stack[stack.length-1].children.push(node);
@@ -23,7 +23,7 @@ function parse(xml){
  return root.children.find(n=>n.name==='score-partwise');
 }
 const engine=new Function('context',source.slice(begin,end)+
-  '\\nreturn createNotationStructure(context);')({parse});
+  '\nreturn createNotationStructure(context);')({parse});
 const clef=(sign,line,attrs='')=>`<clef${attrs}><sign>${sign}</sign><line>${line}</line></clef>`;
 const note=(pitch)=>`<note><pitch><step>${pitch}</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>`;
 const bar=(n,attrs,pitch)=>`<measure number="${n}"><attributes>${attrs}</attributes>${note(pitch)}</measure>`;
