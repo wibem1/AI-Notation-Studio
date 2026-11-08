@@ -5215,6 +5215,9 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 measureRows(part).forEach(function(row) {
                     var full=row.start>=selection.startQuarter-1e-7 &&
                         row.start+row.length/row.divisions<=selection.endQuarter+1e-7;
+                    var systemStart=children(row.node,'print').some(function(n) {
+                        return /\bnew-(?:system|page)=["']yes["']/.test(n.open);
+                    });
                     children(row.node,'attributes').forEach(function(attributes) {
                         var retained=[];
                         attributes.children.forEach(function(item) {
@@ -5232,7 +5235,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                             var duplicate=safe && active[staff]===key;
                             if (safe) active[staff]=key;
                             else delete active[staff]; // never infer across unsupported clefs
-                            if (duplicate && row.index>0 && full &&
+                            if (duplicate && !systemStart && row.index>0 && full &&
                                 pi===selection.partIndex && selection.staffs.indexOf(staff)>=0) {
                                 changed++;
                                 reports.push('Takt '+row.number+', System '+staff+
@@ -5289,7 +5292,8 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                                 if(e.pitch===null || Math.abs(e.duration-eighth)>1e-7 ||
                                     text(n,'type','')!=='eighth' || first(n,'beam') ||
                                     first(n,'dot') || first(n,'chord') || first(n,'grace') ||
-                                    first(n,'time-modification') || first(n,'notations')) {valid=false;break}
+                                    first(n,'time-modification') || first(n,'notations') ||
+                                    text(n,'stem','')==='none') {valid=false;break}
                                 group.push(n);
                             }
                             if(!valid) continue;
