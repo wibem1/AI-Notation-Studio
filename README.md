@@ -1,3 +1,13 @@
+# AI Notation Studio 0.11.17 – 08.11.2026
+
+**Fortsetzungen musikalisch abgesichert:** Bei der Referenzübertragung werden die tatsächlichen Tonhöhen von MuseScore wieder berücksichtigt. Ohne ausdrücklichen Auftrag werden Änderungen an Grundtonart und Grundtempo abgelehnt. Die KI wird angehalten, Motive, Harmonik und Instrumentrollen des Originals fortzusetzen. Dies beweist noch keine vollständige motivische Qualität.
+
+**Installation:** Update prüfen → Update installieren. Die zuvor unpassende KI-Fortsetzung muss **neu komponiert** werden; „Gespeicherte KI-Antwort erneut prüfen“ ist keine Neukomposition. Für den ersten Test **Neue Partitur** verwenden.
+
+[Details, bestandene Node- und native MuseScore-Tests](RELEASE-0.11.17.md).
+
+## Frühere Versionen
+
 # AI Notation Studio 0.11.16 – 08.11.2026
 
 **Fortsetzen mit getrennter Klaviernotation:** Die Fehlermeldung `Anzahl der Notensysteme verändert` bei unbenutztem zusätzlichem Klaviersystem wird vermieden. Originalnoten bleiben erhalten. Bereits gespeicherte KI-Antworten lassen sich über **„Gespeicherte KI-Antwort erneut prüfen (kostenfrei)“** nochmals prüfen.
