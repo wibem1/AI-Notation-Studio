@@ -38,7 +38,7 @@ MuseScore {
     var component=Qt.createComponent("AI-Notation-Studio-App.qml")
     if(component.status!==Component.Ready)throw Error(component.errorString())
     app=component.createObject(root)
-    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
+    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?|19(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
       sourceXml:source,sourceGuard:app.workflowGuard(source),sourceTime:"4/4",
@@ -48,6 +48,29 @@ MuseScore {
       strategy:0,selection:"",preferences:"",instruction:"Setze für 2 Takte fort",
       sourceKey:{fifths:0,mode:"minor"},sourceTempo:132}
     app.compositionJob=job
+    if(/^0\.11\.19(?:-dev)?$/.test(String(app.version))){
+      // Native verification of the actual workflow: last 3 bars replaced,
+      // then 1 new bar appended, with violin + split piano parts.
+      var tail={id:"tail-native",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
+        sourceXml:source,sourceGuard:job.sourceGuard,sourceTime:"4/4",
+        workflowKind:"replaceTail",workflowState:"draft",measures:4,
+        startMeasure:26,startQuarter:100,endQuarter:112,
+        newMeasures:1,transitionBars:3,
+        instruments:["violin","piano","piano"],
+        instruction:"Setze die Komposition fort",sourceKey:{fifths:0,mode:"minor"},sourceTempo:132}
+      var tailRaw=['CS1','S {"t":"Continuation","k":"a minor","m":"4/4","b":{"v":132}}',
+        'P {"i":"violin","n":"violin"}','1/1 G5:w','2/1 A5:w','3/1 B5:w','4/1 A5:w',
+        'P {"i":"piano","n":"piano"}','1/1 C5:w','2/1 D5:w','3/1 E5:w','4/1 C5:w',
+        'P {"i":"piano_2","n":"piano"}','1/1 A2:w','2/1 E2:w','3/1 A2:w','4/1 A2:w'].join("\n")
+      app.compositionJob=tail
+      app.finishComposition(tail,tailRaw)
+      if(app.compositionJob.workflowState!=="ready")
+        throw Error("replaceTail continuation failed: "+app.compositionJob.validation_error)
+      if(app.compactWarnings.join(" ").indexOf("unbenutztes zweites Klaviersystem")<0)
+        throw Error("replaceTail split-piano alignment was not used")
+      job.workflowState="draft"
+      app.compositionJob=job
+    }
     if(/^0\.11\.(?:17(?:-dev)?|18-dev)$/.test(String(app.version))){
       // Native negative case: same 2-bar score but unrelated output key.
       var wrong=request.raw.replace('"k":"a minor"','"k":"G major"')

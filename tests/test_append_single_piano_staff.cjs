@@ -45,4 +45,25 @@ assert(p2staff>p2start,'piano note staff found');
 const withSecondStaff=generated.slice(0,p2staff)+'<staff>2</staff>'+
  generated.slice(p2staff+'<staff>1</staff>'.length);
 assert.throws(()=>normalize(base,withSecondStaff,job),/zweites Notensystem/);
+
+// Regression: replaceTail transitions overwrite the last bar and append new bars.
+// This was the real user workflow, not a simple append.
+const csTail=['CS1','S {"t":"ANS-TEST-ReplaceTail","m":"4/4"}',
+'P {"i":"violin","n":"violin"}','1/1 G4:w','2/1 A4:w',
+'P {"i":"piano","n":"piano"}','1/1 D5:w','2/1 E5:w',
+'P {"i":"piano_2","n":"piano"}','1/1 E2:w','2/1 A2:w'].join('\n');
+const generatedTail=compact.xml.convert(compact.score.decode(csTail)).xml;
+const tailJob={mode:3,workflowKind:'replaceTail'};
+const alignedTail=normalize(base,generatedTail,tailJob);
+assert.equal(alignedTail.warnings.length,2,'both split piano hands must be normalized');
+const resultTail=compact.context.combine(base,alignedTail.xml,{kind:'replaceTail',startQuarter:0,endQuarter:4});
+const tailParts=get(compact.context.parse(resultTail.xml),'part');
+assert.equal(tailParts.length,3);
+assert(tailParts.every(p=>get(p,'measure').length===2));
+assert(resultTail.xml.includes('<step>E</step><octave>2</octave>'),'LH transition note preserved');
+assert(resultTail.xml.includes('<step>A</step><octave>2</octave>'),'LH new note preserved');
+assert(resultTail.xml.includes('<sign>F</sign><line>4</line>'),'Original LH clef preserved');
+assert.equal(normalize(base,alignedTail.xml,tailJob).warnings.length,0,'replaceTail normalization idempotent');
+assert.throws(()=>normalize(base,withSecondStaff,tailJob),/zweites Notensystem/,
+    'replaceTail must refuse actual second-staff notes');
 console.log('Single-staff piano continuation: full 3-part append, note preservation, bass clef, safety rejection PASS');
