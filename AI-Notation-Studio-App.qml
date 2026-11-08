@@ -6385,9 +6385,6 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 diagnosticSourcePath = defaultDiagnosticPath()
                 var body=diagnosticText()
                 writeVerifiedCompactFile(diagnosticSourcePath, body, "Diagnose speichern")
-                compactFile.source=diagnosticSourcePath
-                if (String(compactFile.read()) !== body)
-                    throw Error("Die gespeicherte Diagnose stimmt nicht mit dem Original überein.")
                 lastDiagnosticPath=diagnosticSourcePath
                 statusText="Diagnose gespeichert: " + diagnosticSourcePath +
                     ". Im Finder mit „Gehe zu Ordner“ den Plugin-Ordner öffnen; die JSON-Datei kann von dort weitergegeben werden."
