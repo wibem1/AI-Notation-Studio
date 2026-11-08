@@ -50,8 +50,8 @@ MuseScore {
             var component=Qt.createComponent("AI-Notation-Studio-App.qml")
             if(component.status!==Component.Ready) throw Error("App component: "+component.errorString())
             app=component.createObject(root)
-            if(!app || String(app.version)!=="0.11.14-dev")
-                throw Error("Staging 0.11.14-dev did not load")
+            if(!app || String(app.version)!=="0.11.14")
+                throw Error("0.11.14 did not load")
             var request=JSON.parse(requestFile.read())
             var source=app.workflowXml()
             var job={id:"native-replace-test",mode:5,modeName:"Überarbeitung aus Analyse",
