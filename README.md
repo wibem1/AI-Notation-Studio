@@ -1,3 +1,13 @@
+# AI Notation Studio 0.11.19 – 08.11.2026
+
+**Fortsetzen mit Übergangstakten:** Der Fehler `Anzahl der Notensysteme verändert` bei drei separaten Systemen (Violine, Klavier rechts und links) ist auch für die Kombination **letzte Takte ersetzen + neue Takte ergänzen** korrigiert. Die bisherige Schutzprüfung bleibt bestehen: Es werden ausschließlich nachweislich unbenutzte zusätzliche Systeme in der KI-Ausgabe entfernt.
+
+**Ohne neue KI-Kosten:** **Update prüfen → Update installieren → Gespeicherte KI-Antwort erneut prüfen (kostenfrei)**, dann zunächst **Neue Partitur** wählen.
+
+[Behebung und Testnachweise](RELEASE-0.11.19.md).
+
+## Frühere Versionen
+
 # AI Notation Studio 0.11.18 – 08.11.2026
 
 **Fehlende Trennzeichen in Gemini-Noten:** Einzelne direkt aneinandergeklebte CS1-Noten werden vor der strengen Notationsprüfung getrennt. Das verändert keine Noten oder Notenlängen.
