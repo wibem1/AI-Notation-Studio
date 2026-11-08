@@ -127,7 +127,8 @@ jobs:
           # Last part retains its bass clef; the new music remains on one staff.
           lh=imported[2]
           first=lh.find('measure/attributes/clef/sign')
-          assert first is not None and first.text=='F', 'Original bass clef changed'
+          source_clef=before[2].find('measure/attributes/clef/sign')
+          assert first is not None and source_clef is not None and first.text==source_clef.text, 'Original piano LH clef changed'
           assert lh.findall('measure[29]/note/pitch'), 'Appended piano note missing'
           print('NATIVE 0.11.16 PASS: original 28 bars unchanged; 30-bar 3-staff result including piano LH')
           PY
