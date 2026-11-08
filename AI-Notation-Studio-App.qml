@@ -5617,7 +5617,9 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                             if (!entry || typeof entry !== "object" || !categories[entry.kind] ||
                                 (typeof entry.measure !== "number" || Math.floor(entry.measure) !== entry.measure) || entry.measure < 1 ||
                                 (typeof entry.staff !== "number" || Math.floor(entry.staff) !== entry.staff) || entry.staff < 1 ||
-                                entry.staff > 64 || typeof entry.problem !== "string" ||
+                                entry.staff > 64 || (curScore && entry.staff > curScore.nstaves) ||
+                                (curScore && entry.measure > curScore.nmeasures) ||
+                                typeof entry.problem !== "string" ||
                                 typeof entry.suggestion !== "string") continue
                             findings.push("Takt " + entry.measure + ", System " + entry.staff +
                                 " · " + categories[entry.kind] + ": " + entry.problem.slice(0, 500) +
