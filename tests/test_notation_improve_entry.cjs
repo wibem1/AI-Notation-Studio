@@ -15,4 +15,7 @@ assert(f.indexOf('notationStructurePrepare()') < f.indexOf('notationCheck()'));
 assert.match(f, /structureStatus\.indexOf\("abgebrochen"\)/);
 assert(!/notationCheck\(\)\s*\n\s*statusText\s*=/.test(f), 'Do not overwrite asynchronous AI progress or errors');
 assert(!f.includes('notationStructureApply(') && !f.includes('notationApply('), 'No automatic modification');
+assert.match(s, /"findings":\[\{"measure":1,"staff":1,"kind":"rhythm"/, 'Structured measure-specific findings requested');
+assert.match(s, /Konkrete Notationsbefunde:/, 'Categorized findings displayed');
+assert.match(s, /nicht automatisch ausgeführt/, 'Non-executable findings clearly labeled');
 console.log('PASS: guarded notation improvement entry point (static checks only)');
