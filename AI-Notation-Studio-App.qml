@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.17"
+    version: "0.11.18-dev"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -341,9 +341,25 @@ MuseScore {
         return lines.join("\n")
     }
 
+    function repairAdjacentCompactEvents(cs1) {
+        // Only unambiguously separated events in measure/voice lines.
+        // Do not change pitches, event duration, JSON metadata or arbitrary prose.
+        var lines=String(cs1).split("\n"), changed=0
+        var next="(?=(?:R|[A-G](?:bb|##|b|#)?-?\\d+|\\[[A-G][^\\]]+\\]):)"
+        var afterJson=new RegExp("(\\})"+next,"g")
+        var afterDuration=new RegExp("(:[whqestxzb]\\.{0,4})"+next,"g")
+        for(var i=0;i<lines.length;i++){
+            if(!/^\d+\/\d+\s+/.test(lines[i]))continue
+            var fixed=lines[i].replace(afterJson,"$1 ").replace(afterDuration,"$1 ")
+            if(fixed!==lines[i]){lines[i]=fixed;changed++}
+        }
+        if(changed)statusText="Fehlende Trennzeichen in "+changed+" CS1-Taktzeile(n) korrigiert; Noten unverändert."
+        return lines.join("\n")
+    }
+
     function acceptCompactText(text) {
         var clean = String(text).trim().replace(/^\x60\x60\x60[^\n]*\n/, "").replace(/\n\x60\x60\x60$/, "")
-        if (clean.indexOf("CS1")===0) clean=repairRepeatedPianoIds(clean)
+        if (clean.indexOf("CS1")===0) clean=repairAdjacentCompactEvents(repairRepeatedPianoIds(clean))
         var data = clean.indexOf("CS1") === 0 ? compact.score.decode(clean) : compact.score.decode(compact.score.encode(JSON.parse(clean)))
         var converted = compact.xml.convert(data)
         compactSourceText = compact.score.encode(data)
