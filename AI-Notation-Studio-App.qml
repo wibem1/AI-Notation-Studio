@@ -603,9 +603,9 @@ MuseScore {
             if(mode===3){
                 // Read the notated key from the original MusicXML, not from
                 // inferred note statistics (which cannot establish a mode).
-                var keyTag=source.match(/<key(?:\\s[^>]*)?>\\s*<fifths>\\s*(-?[0-7])\\s*<\\/fifths>(?:\\s*<mode>\\s*(major|minor)\\s*<\\/mode>)?/i)
+                var keyTag=source.match(/<key(?:\s[^>]*)?>\s*<fifths>\s*(-?[0-7])\s*<\/fifths>(?:\s*<mode>\s*(major|minor)\s*<\/mode>)?/i)
                 if(keyTag)job.sourceKey={fifths:Number(keyTag[1]),mode:keyTag[2] ? keyTag[2].toLowerCase() : ""}
-                var tempoTag=source.match(/<per-minute>\\s*([0-9]+(?:\\.[0-9]+)?)\\s*<\\/per-minute>/i)
+                var tempoTag=source.match(/<per-minute>\s*([0-9]+(?:\.[0-9]+)?)\s*<\/per-minute>/i)
                 if(tempoTag)job.sourceTempo=Number(tempoTag[1])
             }
             if (mode === 1) {
