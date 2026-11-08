@@ -47,4 +47,29 @@ const styled=xml.replace('<measure number="2"><attributes><clef>',
 assert.equal(repair(styled).changed,0,'do not remove decorated clefs');
 const noFirst=xml.replace(clef('G',2),'');
 assert.equal(repair(noFirst).changed,0,'no assumed clef history');
+// Rhythmic readability: adding missing beams must never alter duration/pitch.
+const eighth=(p)=>`<note><pitch><step>${p}</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type></note>`;
+function beamFixture(beats,kind,n){
+ return '<score-partwise><part id="P1"><measure number="1"><attributes>'+
+ '<divisions>2</divisions><time><beats>'+beats+'</beats><beat-type>'+kind+
+ '</beat-type></time></attributes>'+Array(n).fill(0).map((_,i)=>eighth('CDEFGABC'[i%8])).join('')+
+ '</measure></part></score-partwise>';
+}
+const straight=beamFixture(4,4,8);
+const straightPlan=engine.repairMissingBeams(straight,{partIndex:0,staffs:[1],startQuarter:0,endQuarter:4});
+assert.equal(straightPlan.changed,4,'four quarter-beat pairs');
+assert.equal((straightPlan.xml.match(/<beam number="1">/g)||[]).length,8);
+assert.equal(engine.signature(straight),engine.signature(straightPlan.xml));
+assert.equal(engine.repairMissingBeams(straightPlan.xml,{partIndex:0,staffs:[1],startQuarter:0,endQuarter:4}).changed,0,'idempotent beaming');
+const compound=beamFixture(6,8,6);
+const compoundPlan=engine.repairMissingBeams(compound,{partIndex:0,staffs:[1],startQuarter:0,endQuarter:3});
+assert.equal(compoundPlan.changed,2,'two groups of three eighths in 6/8');
+assert.equal((compoundPlan.xml.match(/<beam number="1">/g)||[]).length,6);
+assert.equal(engine.signature(compound),engine.signature(compoundPlan.xml));
+const skipped=straight.replace('<type>eighth</type></note>', '<type>eighth</type><notations><slur type="start"/></notations></note>');
+assert.equal(engine.repairMissingBeams(skipped,{partIndex:0,staffs:[1],startQuarter:0,endQuarter:4}).changed,0,'do not touch special notation');
+assert.equal(engine.repairMissingBeams(straight,{partIndex:0,staffs:[1],startQuarter:4,endQuarter:8}).changed,0,'no out-of-selection edit');
+const combined=engine.repairSafeVisual(straight,{partIndex:0,staffs:[1],startQuarter:0,endQuarter:4});
+assert.equal(combined.changed,4,'combined repair includes rhythmic beaming');
 console.log('PASS: redundant-clef correction, music identity, scope, style guard and idempotence');
+console.log('PASS: eighth-beam correction for 4/4 and 6/8; sound, selection and notation guards');
