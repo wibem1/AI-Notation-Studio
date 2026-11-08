@@ -1,3 +1,13 @@
+# AI Notation Studio 0.11.15 – 08.11.2026
+
+**Schutz gegen falsche KI-Aufrufe:** Ein ausdrücklich formulierter Analyseauftrag wie „Analysiere die Komposititon“ wird jetzt **nicht mehr als Kompositionsauftrag** an das Modell geschickt, wenn „Fortsetzen“ oder ein anderer Kompositionsmodus eingestellt ist. Statt eines kostenpflichtigen Aufrufs erscheint ein Hinweis, den Modus **„Auswahl analysieren“** auszuwählen.
+
+**Update prüfen → Update installieren.** Zum Analysieren: Taktbereich markieren, Modus „Auswahl analysieren“ wählen und den Analyseauftrag absenden.
+
+[Technischer Fehlernachweis und Tests](RELEASE-0.11.15.md).
+
+## Bisherige Versionshinweise
+
 # AI Notation Studio 0.11.14 – 08.11.2026
 
 **Überarbeitungen aus KI-Analyse wiederherstellen:** Doppelte Klavier-Part-IDs, der eindeutige Takt-12-Rhythmusfehler der gespeicherten Sonatenantwort sowie die rekursive Speicherung von MusicXML-Metadaten wurden korrigiert. Die gespeicherte KI-Antwort wird **kostenfrei erneut geprüft**, ohne einen neuen Modellaufruf auszulösen.
