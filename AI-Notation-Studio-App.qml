@@ -5221,11 +5221,11 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                             if (typeof item==='string' || item.name!=='clef') {
                                 retained.push(item); return;
                             }
-                            var staffMatch=/\\bnumber=["'](\\d+)["']/.exec(item.open);
+                            var staffMatch=/\bnumber=["'](\d+)["']/.exec(item.open);
                             var staff=staffMatch?Number(staffMatch[1]):1;
                             var sign=text(item,'sign',''),line=Number(text(item,'line','0'));
                             var octave=Number(text(item,'clef-octave-change','0'));
-                            var safe=/^<clef(?: number=["']\\d+["'])?>$/.test(item.open) &&
+                            var safe=/^<clef(?: number=["']\d+["'])?>$/.test(item.open) &&
                                 (sign==='G'||sign==='F'||sign==='C') &&
                                 line>=1&&line<=5&&octave>=-2&&octave<=2;
                             var key=sign+':'+line+':'+octave;
@@ -5249,8 +5249,8 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             });
             if (signature(doc)!==before)
                 throw Error('Klangprüfung fehlgeschlagen; keine Korrektur wird übernommen.');
-            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\\n'+serialize(doc),
-                changed:changed,report:reports.join('\\n')||
+            return {xml:'<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(doc),
+                changed:changed,report:reports.join('\n')||
                 'Keine sicher überflüssigen Schlüsselwechsel in der Auswahl gefunden.'};
         }
         return {repair:repair,repairRedundantClefs:repairRedundantClefs,
@@ -5460,7 +5460,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             if (result.changed) {
                 clefSnapshot={score:curScore,sourceXml:xml,xml:result.xml,
                     count:result.changed,selection:selection}
-                clefReport+='\\n\\nDie '+result.changed+' erkannten Schlüssel-Dubletten können '+
+                clefReport+='\n\nDie '+result.changed+' erkannten Schlüssel-Dubletten können '+
                     'jetzt in einer korrigierten Partiturkopie entfernt werden. Das Original bleibt erhalten.'
             }
             statusText='Schlüsselkorrektur vorbereitet: '+result.changed+' sichere Änderungen.'
@@ -5485,8 +5485,8 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             clefSnapshot=null
             statusText='Korrigierte Partiturkopie geöffnet ('+snapshot.count+
                 ' überflüssige Schlüssel entfernt). Original unverändert.'
-            clefReport+='\\n\\n'+statusText
-        } catch (e) {statusText='Schlüsselkorrektur nicht übernommen: '+String(e);clefReport+='\\n'+statusText}
+            clefReport+='\n\n'+statusText
+        } catch (e) {statusText='Schlüsselkorrektur nicht übernommen: '+String(e);clefReport+='\n'+statusText}
     }
 
     function notationImprove() {
