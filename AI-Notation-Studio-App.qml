@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.19"
+    version: "0.11.20"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -5391,6 +5391,27 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
 
 
 
+    // Unified, non-destructive improvement workflow. The deterministic structural
+    // repair is prepared first; the optional KI call checks enharmonic spellings.
+    // Neither stage edits the score until the user chooses an apply action.
+    function notationImprove() {
+        if (busy) return
+        try {
+            notationStructureSelection() // fail before any chargeable model request
+            notationCapture() // verify note-reference availability before AI call
+        } catch (e) {
+            statusText = "Notation verbessern: " + String(e) + " Kein KI-Aufruf."
+            return
+        }
+        notationStructurePrepare()
+        if (structureStatus.indexOf("abgebrochen") >= 0) {
+            statusText = structureStatus + " Kein KI-Aufruf."
+            return
+        }
+        notationCheck()
+        statusText = "Notation verbessern: Strukturprüfung vorbereitet; KI prüft die Notenschreibweise. Änderungen werden erst nach Bestätigung übernommen."
+    }
+
     function notationStructureApply() {
         if (busy || !structureSnapshot) return
         // Keep MuseScore's extension window alive; hiding a hosted dialog can
@@ -7307,11 +7328,12 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     color: "#c9c9c9"
-                    text: "Vollständige Takte eines Instruments markieren und „Notendarstellung prüfen“ wählen. Danach übernimmt „In der Partitur korrigieren“ die Änderungen direkt im geöffneten Notenfenster. Mit Rückgängig lässt sich der gesamte Schritt zurücknehmen. Die Strukturprüfung bündelt geeignete verschachtelte Stimmen zu zwei Stimmen und prüft Tonhöhen, Einsätze und klingende Dauern ohne KI-Kosten. Vorzeichen können zusätzlich mit der KI geprüft werden."
+                    text: "Vollständige Takte eines Instruments markieren. „Notation verbessern“ führt zuerst die lokale Strukturprüfung durch und ruft danach die KI für die Notenschreibweise auf (ggf. kostenpflichtig). Die KI kann weitere Rhythmus-, Pausen- und Schlüsselprobleme benennen, aber noch nicht automatisch korrigieren. Vorschläge erst prüfen, dann getrennt übernehmen. Alternativ „Notendarstellung prüfen“ ohne KI-Kosten wählen. Danach übernimmt „In der Partitur korrigieren“ die Änderungen direkt im geöffneten Notenfenster. Mit Rückgängig lässt sich der gesamte Schritt zurücknehmen. Die Strukturprüfung bündelt geeignete verschachtelte Stimmen zu zwei Stimmen und prüft Tonhöhen, Einsätze und klingende Dauern ohne KI-Kosten. Vorzeichen können zusätzlich mit der KI geprüft werden."
                 }
                 Flow {
                     Layout.fillWidth: true
                     spacing: 8
+                    Button { objectName: "notationImproveButton"; text: "Notation verbessern (Analyse starten)"; enabled: !busy; onClicked: notationImprove() }
                     Button { objectName: "notationStructureCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationStructurePrepare() }
                     Button { objectName: "notationStructureApplyButton"; text: "In der Partitur korrigieren"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureApply() }
                     Button { objectName: "notationStructureOpenButton"; text: "Korrigierte Partitur öffnen"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureOpen() }
