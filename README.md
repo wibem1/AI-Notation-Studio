@@ -1,3 +1,13 @@
+# AI Notation Studio 0.11.21 – 08.11.2026
+
+**Neu – erste echte automatische Notationskorrekturen:** Vollständige Takte eines Instruments markieren → **Sichere Notationskorrekturen prüfen**. Das Plugin kann jetzt redundante G-/F-/C-Schlüssel entfernen und fehlende regelmäßige Achtelbalken ergänzen (Zweiergruppen in einfachen und Dreiergruppen in zusammengesetzten Takten). Die ausführbaren Reparaturen benötigen **keine KI-Kosten** und ändern weder Tonhöhen noch klingende Dauern. Erst nach dem Prüfbericht öffnet **Korrigierte Notation öffnen (Kopie)** das Ergebnis als separate Partitur; das Original bleibt erhalten.
+
+**Weiterhin begrenzt:** Komplexe Rhythmusumschreibungen, überflüssige Pausen, Verzierungen und Akkordverteilungen sind keine automatischen Korrekturen. Eine echte KI-Analyse und die vorhandenen Stimme-/Vorzeichenkorrekturen sind getrennt verfügbar. [Funktionsumfang und Prüfnachweise](RELEASE-0.11.21.md).
+
+**Installation nach Freigabe:** Im bestehenden Plugin **Update prüfen → Update installieren**. Die neue Funktion befindet sich unter **Notendarstellung**.
+
+## Frühere Versionen
+
 # AI Notation Studio 0.11.20 – 08.11.2026
 
 **Neu: Notation verbessern (Analyse starten).** Vollständige Takte eines Instruments markieren; der neue Ablauf bereitet vorhandene sichere Strukturkorrekturen vor und lässt optional die KI enharmonische Schreibweisen sowie konkrete Notationsprobleme prüfen. Es werden **keine Änderungen beim Analyse-Klick ausgeführt**. Struktur- und Vorzeichenvorschläge können über die bisherigen Bestätigungsbuttons übernommen werden. Rhythmik, Verzierungen, Schlüsselwechsel, Pausen und Akkordverteilung werden derzeit nur als nicht-ausführbare Hinweise angezeigt.
