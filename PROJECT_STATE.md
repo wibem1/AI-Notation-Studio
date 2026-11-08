@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Live 0.11.20 – „Notation verbessern“ (08.11.2026)
+
+- **Veröffentlichung:** [Pull Request #13](https://github.com/wibem1/AI-Notation-Studio/pull/13) nach `main` gemergt; Merge-Commit `4ae81311b5565fb2373e0dc9ecc215dc543c082b`. `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.20.qml` und `versions/AI-Notation-Studio-App-0.11.20.qml` sind blob-identisch (`c35aa088fcb5ce34912dba6017ab574bd0515385`), frühere Versionsdateien bleiben unverändert. Update über den vorhandenen Updateweg.
+- **Bestätigte native Prüfungen:** MuseScore-Studio-4.7.6-Lauf [#42530380027](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530380027) **SUCCESS**, einschließlich ungültiger Auswahl ohne KI-Aufruf, gültiger ausgewählter Passage mit Notenerfassung und Strukturprüfung, unverändertem Original beim bestehenden Fortsetzungs-/Importpfad. Regression [#42530380127](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530380127) **SUCCESS**, Fortsetzungsregression [#42530380119](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42530380119) **SUCCESS**.
+- **Funktionsgrenze:** „Notation verbessern“ bereitet die bereits implementierte deterministische Strukturkorrektur vor und startet eine KI-Analyse mit gesondert validierten enharmonischen Änderungsvorschlägen. Taktbezogene KI-Hinweise zu Rhythmik, Pausen, Verzierungen, Schlüsselwechseln und Akkordverteilung bleiben **nicht automatisch ausführbar**. Ein echter KI-Provider-Durchlauf dieser neuen Funktion einschließlich Übernahme wurde nicht nachgewiesen; Anwenderprüfung erforderlich. Keine eigenmächtigen Änderungen beim Analyse-Klick.
+- **Nächster Schritt:** Mit einer echten Partitur einen kostenpflichtigen KI-Durchlauf und die Vorschau/Übernahme prüfen; anschließend nur falls beauftragt einen separaten sicheren Korrekturmechanismus für komplizierte Rhythmik und Verzierungen entwickeln. Fehlerdiagnosen und Nutzerbefund dokumentieren.
+
+
 ## Freigabekandidat 0.11.20 – „Notation verbessern“ (08.11.2026)
 
 - **Stand:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.20.qml` und `versions/AI-Notation-Studio-App-0.11.20.qml` enthalten die geprüfte App-Fassung. `RELEASE-0.11.20.md` beschreibt Anwendungsumfang und Grenzen; Draft-PR #13 ist noch nicht gemergt.
