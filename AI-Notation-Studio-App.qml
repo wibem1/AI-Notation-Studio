@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.17"
+    version: "0.11.18"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -341,9 +341,38 @@ MuseScore {
         return lines.join("\n")
     }
 
+    function repairAdjacentCompactEvents(cs1) {
+        // Insert separators only at clear event boundaries outside JSON strings.
+        // Do not modify notes, attributes, quoted text or unknown syntax.
+        var lines=String(cs1).split("\n"), changed=0
+        var eventStart=/^(?:R|[A-G](?:bb|##|b|#)?-?\d+|\[[A-G][^\]]+\]):[whqestxzb]/
+        for(var n=0;n<lines.length;n++){
+            var line=lines[n]
+            if(!/^\d+\/\d+\s+/.test(line))continue
+            var out="",depth=0,quoted=false,escaped=false
+            for(var i=0;i<line.length;i++){
+                var c=line.charAt(i)
+                if(!quoted && depth===0 && i>0 && eventStart.test(line.slice(i)) &&
+                    (out.charAt(out.length-1)==="}" || /:[whqestxzb]\.{0,4}$/.test(out)))
+                    out+=" "
+                out+=c
+                if(quoted){
+                    if(escaped)escaped=false
+                    else if(c==="\\")escaped=true
+                    else if(c==='"')quoted=false
+                } else if(c==='"')quoted=true
+                else if(c==="{" || c==="[")depth++
+                else if(c==="}" || c==="]")depth--
+            }
+            if(out!==line){lines[n]=out;changed++}
+        }
+        if(changed)statusText="Fehlende Trennzeichen in "+changed+" CS1-Taktzeile(n) korrigiert; Noten unverändert."
+        return lines.join("\n")
+    }
+
     function acceptCompactText(text) {
         var clean = String(text).trim().replace(/^\x60\x60\x60[^\n]*\n/, "").replace(/\n\x60\x60\x60$/, "")
-        if (clean.indexOf("CS1")===0) clean=repairRepeatedPianoIds(clean)
+        if (clean.indexOf("CS1")===0) clean=repairAdjacentCompactEvents(repairRepeatedPianoIds(clean))
         var data = clean.indexOf("CS1") === 0 ? compact.score.decode(clean) : compact.score.decode(compact.score.encode(JSON.parse(clean)))
         var converted = compact.xml.convert(data)
         compactSourceText = compact.score.encode(data)

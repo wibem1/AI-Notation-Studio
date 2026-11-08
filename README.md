@@ -1,3 +1,13 @@
+# AI Notation Studio 0.11.18 – 08.11.2026
+
+**Fehlende Trennzeichen in Gemini-Noten:** Einzelne direkt aneinandergeklebte CS1-Noten werden vor der strengen Notationsprüfung getrennt. Das verändert keine Noten oder Notenlängen.
+
+**Kostenlose Wiederherstellung:** **Update prüfen → Update installieren → Gespeicherte KI-Antwort erneut prüfen (kostenfrei)**. Das löst **keine neue Gemini-Komposition** aus. Anschließend zuerst **Neue Partitur** wählen. Wenn weitere Fehler in der gespeicherten Antwort vorliegen, zeigt das Plugin diese weiterhin an.
+
+[Details und Testnachweise](RELEASE-0.11.18.md).
+
+## Frühere Versionen
+
 # AI Notation Studio 0.11.17 – 08.11.2026
 
 **Fortsetzungen musikalisch abgesichert:** Bei der Referenzübertragung werden die tatsächlichen Tonhöhen von MuseScore wieder berücksichtigt. Ohne ausdrücklichen Auftrag werden Änderungen an Grundtonart und Grundtempo abgelehnt. Die KI wird angehalten, Motive, Harmonik und Instrumentrollen des Originals fortzusetzen. Dies beweist noch keine vollständige motivische Qualität.
