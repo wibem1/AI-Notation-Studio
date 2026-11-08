@@ -1,3 +1,13 @@
+# AI Notation Studio 0.11.14 – 08.11.2026
+
+**Überarbeitungen aus KI-Analyse wiederherstellen:** Doppelte Klavier-Part-IDs, der eindeutige Takt-12-Rhythmusfehler der gespeicherten Sonatenantwort sowie die rekursive Speicherung von MusicXML-Metadaten wurden korrigiert. Die gespeicherte KI-Antwort wird **kostenfrei erneut geprüft**, ohne einen neuen Modellaufruf auszulösen.
+
+**Update prüfen → Update installieren → Gespeicherte KI-Antwort erneut prüfen (kostenfrei)**. Für die gemeldete 28-Takt-Sonate **Neue Partitur** wählen und **Fertige Fassung übernehmen**. Der direkte Ersatz in der bereits geöffneten Partitur ist für diesen Workflow weiterhin nicht unterstützt. Die Korrektur der letzten Bassnote A1 in Takt 12 (Halbe → Viertel) wird angezeigt.
+
+[Details, bekannte Grenzen und reale MuseScore-Prüfung](RELEASE-0.11.14.md).
+
+## Bisherige Versionshinweise
+
 # AI Notation Studio 0.11.13 – 07.11.2026
 
 **Vorspiel-Korrektur:** Die gespeicherte KI-Antwort kann bei der gemeldeten Klaviersystem-Verwechslung jetzt ohne neue KI-Kosten wiederhergestellt werden. Fehler und Wiederholungs-Schaltfläche werden zuverlässig angezeigt. **Up/Down scrollt auch bei Fokus im schreibgeschützten Ergebnisfeld.**
