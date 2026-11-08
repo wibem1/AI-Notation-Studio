@@ -5584,9 +5584,11 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             statusText = "Notendarstellung wird geprüft …"
             var format = 'Antworte ausschließlich als JSON: {"report":"Zusammenfassung auf Deutsch",' +
                 '"findings":[{"measure":1,"staff":1,"kind":"rhythm","problem":"konkreter Befund","suggestion":"konkreter Vorschlag"}],' +
-                '"changes":[{"id":0,"tpc":14,"reason":"musikalische Begründung"}]}. ' +
+                '"changes":[]}. ' +
                 'Erlaubte kind-Werte: rhythm, rests, clef, chord, ornament, voice, accidental, other. ' +
-                'Findings sind nur Hinweise; ausführbare changes dürfen weiterhin ausschließlich tpc ändern.'
+                'Findings sind nur Hinweise; ausführbare changes dürfen weiterhin ausschließlich tpc ändern. ' +
+                'WICHTIG: changes muss [] sein, wenn keine zweifelsfrei notwendige enharmonische Änderung vorliegt. ' +
+                'Keine Beispieländerungen übernehmen oder erfundene Notenreferenzen angeben.'
             var prompt = "Du prüfst die Lesbarkeit einer MuseScore-Auswahl. Bewahre alle Tonhöhen, " +
                 "Einsatzzeiten, Dauern und Stimmen. Prüfe enharmonische Schreibweise im harmonischen " +
                 "und melodischen Kontext, Stimmen/Pausen, Bindungen und rhythmische Gliederung. " +
