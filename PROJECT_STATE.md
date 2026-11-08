@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+### Fortsetzung am 08.11.2026 – strukturierte KI-Befunde (noch keine Freigabe)
+
+- **Code:** Der Workflow überschreibt den asynchronen Status der KI-Prüfung nicht mehr. Die KI wird zusätzlich um strukturierte Befunde mit Takt, System, Problemklasse und konkretem Verbesserungsvorschlag gebeten (Rhythmik, Pausen, Schlüssel, Akkordverteilung, Verzierungen, Stimmen, Vorzeichen, Sonstiges). Das Plugin zeigt bis zu 60 formal plausible Hinweise mit begrenzter Textlänge an und kennzeichnet sie als **nicht automatisch ausgeführt**. Automatisierbare Änderungen bleiben strikt auf die vorhandene, separat geprüfte enharmonische Schreibweise und Strukturkorrektur begrenzt.
+- **GitHub-Commits:** `ca760672` (Status), `47538b60` (Qt-kompatible Befundprüfung) und `78ec05e6` (Regressionserweiterung), jeweils im Entwicklungszweig. Vorhandene Freigabe 0.11.19 bleibt unangetastet.
+- **Prüfgrundlage:** Direkte Quelltext-Assertions gegen die abgerufene QML-Datei für Guard, Button, keine automatische Übernahme, Schema, Befundanzeige und Qt-kompatible Integer-Prüfung bestanden. Der Node-Test `tests/test_notation_improve_entry.cjs` ist aktualisiert, aber **noch nicht mit Node ausgeführt**. Es liegt **kein QML-Parse- oder nativer MuseScore-Integrationstest** dieser Änderung vor; deshalb keine Veröffentlichung.
+- **Nächster Schritt:** Reale Node-/QML-Tests und native MuseScore-Integration mit synthetischer Auswahl, leerer Auswahl und simulierter KI-JSON-Antwort; danach erst Entscheidung über versionierte Freigabe. Die eigentliche automatische Rhythmik-/Schlüsselkorrektur bleibt gesondert zu entwickeln und benötigt klangidentische Validierung.
+
+
 ## Entwicklung 0.11.20 – „Notation verbessern“ (08.11.2026; nicht veröffentlicht)
 
 - **Auftrag:** Auf eine Partituranalyse sollen sichere, überprüfbare Notationsverbesserungen folgen. Die Nutzerdiagnose aus Plugin 0.11.13 zeigt KI-Hinweise zu komplizierten Rhythmen, überzähligen Pausen, Schlüsselwechseln und zu weiten Akkorden, aber keinen automatischen Korrekturlauf.
