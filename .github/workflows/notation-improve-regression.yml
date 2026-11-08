@@ -9,6 +9,7 @@ on:
       - 'tests/test_notation_improve_entry.cjs'
       - 'tests/test_notation_findings.cjs'
       - 'tests/test_notation_stale_response.cjs'
+      - 'tests/test_redundant_clef_repair.cjs'
       - '.github/workflows/notation-improve-regression.yml'
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - 'tests/test_notation_improve_entry.cjs'
       - 'tests/test_notation_findings.cjs'
       - 'tests/test_notation_stale_response.cjs'
+      - 'tests/test_redundant_clef_repair.cjs'
       - '.github/workflows/notation-improve-regression.yml'
   workflow_dispatch:
 
@@ -33,6 +35,8 @@ jobs:
           node --check tests/test_notation_improve_entry.cjs
           node --check tests/test_notation_findings.cjs
           node --check tests/test_notation_stale_response.cjs
+          node --check tests/test_redundant_clef_repair.cjs
           node tests/test_notation_improve_entry.cjs
           node tests/test_notation_findings.cjs
           node tests/test_notation_stale_response.cjs
+          node tests/test_redundant_clef_repair.cjs
