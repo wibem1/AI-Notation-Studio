@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.13"
+    version: "0.11.14-dev"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -336,7 +336,7 @@ MuseScore {
             lines[i]="P "+JSON.stringify(part)
             changed=true
         }
-        if (changed) compactWarnings=compactWarnings.concat(["Doppelte Klavier-Part-ID eindeutig umbenannt; Noten nicht verändert."])
+        if (changed) statusText="Doppelte Klavier-Part-ID eindeutig korrigiert (Noten unverändert)."
         return lines.join("\n")
     }
 
@@ -847,7 +847,7 @@ MuseScore {
                 title: compositionJob && compositionJob.title ? compositionJob.title : "Komposition",
                 provider: providerName(), model: modelBox.text.trim(),
                 request: instructionBox.text, accounting: compositionAccounting(compositionCosts),
-                score: currentScoreMemoryObject(), analysis: workflowAnalysis, kind:compositionJob ? "composition":"analysis"
+                score: currentScoreMemoryObject(), analysis: compactScoreMemorySnapshot(workflowAnalysis), kind:compositionJob ? "composition":"analysis"
             }
             loadCompositionHistory()
             if (historyError) { statusText = "Verlauf nicht überschrieben: " + historyError; return }
