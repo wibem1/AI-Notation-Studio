@@ -694,17 +694,56 @@ MuseScore {
         compositionJob = copy
     }
 
+    function repairSingleTrailingPianoOverrun(job, data) {
+        // Narrow opt-in-by-workflow correction of an AI-generated passage,
+        // never the existing score. Refuse any ambiguous rhythmic repair.
+        if (!job || job.mode!==5 || job.workflowKind!=="replace" ||
+            !data || !Array.isArray(data.parts) || data.parts.length!==3 ||
+            String(data.score.timeSignature)!=="4/4") return []
+        var warnings=[]
+        data.parts.forEach(function(part) {
+            if (!/^(Klavier|Piano)\\s*\\(L\\.H\\.\\)$/i.test(String(part.instrument||"")) ||
+                !Array.isArray(part.measures)) return
+            part.measures.forEach(function(m) {
+                if (!m || !Array.isArray(m.voices) || m.voices.length!==1 ||
+                    String(m.timeSignature||"4/4")!=="4/4") return
+                var events=m.voices[0].events
+                if (!Array.isArray(events) || events.length<2) return
+                var units={whole:4,half:2,quarter:1,eighth:0.5,"16th":0.25}
+                var sum=0
+                for(var i=0;i<events.length;i++){
+                    var e=events[i]
+                    if (!e || !/^(note|rest|chord)$/.test(String(e.type)) ||
+                        !units[e.duration] || e.dots || e.grace || e.ties ||
+                        e.tie || e.tuplet || e.id) return
+                    sum+=units[e.duration]
+                }
+                var last=events[events.length-1]
+                if (Math.abs(sum-5)>1e-7 || last.type!=="note" ||
+                    last.duration!=="half" || last.pitch!=="A1" ||
+                    m.number!==12 || part.id!=="piano_2") return
+                last.duration="quarter"
+                warnings.push("KI-Ergebnis korrigiert: Klavier links, Takt 12, letzter Ton A1 von Halbe auf Viertel verkürzt (5/4 → 4/4). Originalpartitur unverändert.")
+            })
+        })
+        return warnings
+    }
+
     function finishComposition(job, text) {
         job.raw_response=text
         try {
             acceptCompactText(text)
             var data = JSON.parse(compositionJson)
             var preludeRepairs = job.mode===9 ? repairPreludeTripletOverrun(data) : []
-            if(preludeRepairs.length){
+            var pianoRepairs = repairSingleTrailingPianoOverrun(job,data)
+            if(preludeRepairs.length || pianoRepairs.length){
                 compositionJson=JSON.stringify(data)
                 compactSourceText=compact.score.encode(data)
-                compactWarnings=compact.score.inspect(data).concat(compact.xml.convert(data).warnings).concat(preludeRepairs)
+                compactWarnings=compact.score.inspect(data).concat(compact.xml.convert(data).warnings).concat(preludeRepairs,pianoRepairs)
             }
+            var errors=compact.score.inspect(data)
+            if(errors.length)
+                throw Error("Rhythmusprüfung: "+errors.join("; ")+". Die KI-Antwort bleibt für eine kostenfreie erneute Prüfung gespeichert.")
             if (data.parts.length !== job.instruments.length &&
                 !(job.mode===9 && job.preludeTargets && job.preludeTargets.length===1 &&
                   job.preludeTargets[0].splitPiano && data.parts.length===2))
