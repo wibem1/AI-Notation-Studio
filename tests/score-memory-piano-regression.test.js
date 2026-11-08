@@ -70,7 +70,7 @@ assert.strictEqual(compact.xml.convert(normalized).measures,28);
 const other = runtime.decode(repair(wholeScore.join("\n")));
 assert.strictEqual(fix({mode:3,workflowKind:"append"},other).length,0);
 assert.strictEqual(other.parts[2].measures[11].voices[0].events[3].duration,"half");
-const normalRight = runtime.decode(repair(wholeScore.join("\n").replace("Klavier (L.H.)","Cello")));
+const normalRight = runtime.decode(wholeScore.join("\n").replace('{"i":"piano","n":"Klavier (L.H.)"}','{"i":"cello","n":"Cello"}'));
 assert.strictEqual(fix({mode:5,workflowKind:"replace"},normalRight).length,0);
 const measured = runtime.decode(repair(wholeScore.join("\n")));
 measured.parts[2].measures[11].voices[0].events[3].pitch="B1";
