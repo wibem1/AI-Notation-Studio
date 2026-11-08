@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Fortsetzung – Validierung und CI (08.11.2026)
+
+- **Schutzkorrektur:** Strukturierte KI-Befunde mit Takt-/Systemnummer außerhalb der geöffneten Partitur werden nicht angezeigt. Kategorien werden per eigenem Objektattribut geprüft, sodass auch geerbte Namen wie `__proto__` keine gültigen Kategorien sind. Es erfolgen keine direkten Notenänderungen.
+- **Regression:** `tests/test_notation_findings.cjs` wurde hinzugefügt. Der Test führt den realen JavaScript-Ausschnitt aus `AI-Notation-Studio-App.qml` isoliert aus und prüft gültige Befunde, ungültige Takte/Systeme/Kategorien, leere Antwort und Begrenzung langer Texte. Der bestehende Einstiegstest bleibt erhalten.
+- **Prüfstand:** Zwei unabhängige direkte V8-Laufzeitgegenproben (gültiger Befund und unterdrückter ungültiger Befund) gegen das von GitHub geladene QML-JavaScript bestanden. Der vollständige Node-Test läuft über den neu hinterlegten Workflow `.github/workflows/notation-improve-regression.yml` bei passenden Branch-Pushes; **CI-Ergebnis derzeit nicht verifiziert**. Keine native MuseScore-Integration und keine kostenpflichtigen KI-Aufrufe durchgeführt.
+- **Commits:** `8b6cc670` (Score-Grenzen), `bcfb8cfd` (Test), `b757e2e9` (Kategorien), `2493951b` (CI-Workflow). Live-Version bleibt 0.11.19; 0.11.20 ist ein Entwicklungsstand.
+- **Nächster Schritt:** CI-Ergebnis und nativen MuseScore-Test verifizieren, einschließlich Auswahlfehler und simulierter KI-Antwort; anschließend Freigabereife entscheiden. Für automatisch ausführbare Rhythmik-/Verzierungsänderungen ist ein gesonderter klangtreuer Korrekturplan erforderlich.
+
+
 ### Fortsetzung am 08.11.2026 – strukturierte KI-Befunde (noch keine Freigabe)
 
 - **Code:** Der Workflow überschreibt den asynchronen Status der KI-Prüfung nicht mehr. Die KI wird zusätzlich um strukturierte Befunde mit Takt, System, Problemklasse und konkretem Verbesserungsvorschlag gebeten (Rhythmik, Pausen, Schlüssel, Akkordverteilung, Verzierungen, Stimmen, Vorzeichen, Sonstiges). Das Plugin zeigt bis zu 60 formal plausible Hinweise mit begrenzter Textlänge an und kennzeichnet sie als **nicht automatisch ausgeführt**. Automatisierbare Änderungen bleiben strikt auf die vorhandene, separat geprüfte enharmonische Schreibweise und Strukturkorrektur begrenzt.
