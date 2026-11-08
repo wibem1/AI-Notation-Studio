@@ -54,6 +54,9 @@ MuseScore {
       // one-instrument range without launching a provider or mutating the score.
       original.selection.selectRange(0,1920,0,1)
       if(!original.selection.isRange)throw Error("Cannot select native notation range")
+      var captured=app.notationCapture()
+      if(!captured || !captured.notes || captured.notes.length===0)
+        throw Error("Selected range contains no captured notes")
       app.notationStructurePrepare()
       if(String(app.structureStatus).indexOf("Strukturprüfung:")!==0 || app.busy)
         throw Error("Notation structure analysis failed: "+app.structureStatus)
