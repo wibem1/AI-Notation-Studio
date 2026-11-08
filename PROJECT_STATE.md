@@ -1,11 +1,11 @@
 # Projektstand – AI Notation Studio
 
-## Releasebereit 0.11.18 – Reparatur zusammengeschobener CS1-Noten (08.11.2026)
+## Live 0.11.18 – Reparatur zusammengeschobener CS1-Noten (08.11.2026)
 
 - **Fehlerursache:** Gemini-Rohantwort mit `16/1 C5:s{"i":"v16_1"}E5:sA5:sC6:s` löst in 0.11.17 `Zeile 19: JSON.parse: Parse error` aus. Die originale Ausgabe der 3 Übergangs- und 16 neuen Takte wurde gespeichert; 20.063 Tokens bereits verbraucht.
 - **Korrektur:** Idempotente Trennzeichenergänzung an eindeutig erkannten Notengrenzen in Taktzeilen außerhalb von JSON-Strings, vor der normalen strengen CompactScore-Prüfung. Keine Tonhöhe/Dauer geändert, kein API-Aufruf. Bei unklaren Fehlern weiterhin Ablehnung.
 - **Tests:** [Finaler Node-Regressionstest #42510242724](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42510242724) **SUCCESS**; [nativer MuseScore-4.7.6-Integrationstest #42510242531](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42510242531) **SUCCESS**, einschließlich synthetisch zusammengeklebter Noten und normalem Fortsetzungspfad. Testdatei `tests/test_cs1_adjacent_events.cjs` prüft außerdem JSON-Strings und Idempotenz.
-- **Dateien:** `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.18.qml` und `versions/AI-Notation-Studio-App-0.11.18.qml` identischer Quellstand. `RELEASE-0.11.18.md` und README aktualisiert. Nach Merge in `main` über den etablierten Updateweg auslieferbar.
+- **Veröffentlicht:** [Pull Request #11](https://github.com/wibem1/AI-Notation-Studio/pull/11) nach `main` gemergt, Commit `d19bc6841ecaf8a1898d1e03e64084bf77f4aa48`. `AI-Notation-Studio-App.qml`, `AI-Notation-Studio-App-0.11.18.qml` und `versions/AI-Notation-Studio-App-0.11.18.qml` sind blob-identisch. `RELEASE-0.11.18.md` und README aktualisiert; die App ist über den etablierten Updateweg erhältlich.
 - **Praxisschritt:** `Update prüfen → Update installieren → Gespeicherte KI-Antwort erneut prüfen (kostenfrei)`. Anschließend zunächst `Neue Partitur`, Ergebnis und musikalischen Zusammenhang beurteilen. Ein weiterer Fehler in der vorhandenen Antwort ist möglich und wird nicht stillschweigend korrigiert.
 
 
