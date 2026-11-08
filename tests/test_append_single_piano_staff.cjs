@@ -39,6 +39,10 @@ assert(merged.xml.includes('<sign>F</sign><line>4</line>'),'Original bass clef p
 assert.equal(normalize(base,result.xml,job).warnings.length,0,'idempotent');
 assert.equal(normalize(base,generated,{mode:5,workflowKind:'replace'}).xml,generated,'unrelated workflows unaffected');
 // Any actual second-staff notes are a hard rejection with no changes.
-const withSecondStaff=generated.replace('<staff>1</staff>','<staff>2</staff>');
+const p2start=generated.indexOf('<part id="P2">');
+const p2staff=generated.indexOf('<staff>1</staff>',p2start);
+assert(p2staff>p2start,'piano note staff found');
+const withSecondStaff=generated.slice(0,p2staff)+'<staff>2</staff>'+
+ generated.slice(p2staff+'<staff>1</staff>'.length);
 assert.throws(()=>normalize(base,withSecondStaff,job),/zweites Notensystem/);
 console.log('Single-staff piano continuation: full 3-part append, note preservation, bass clef, safety rejection PASS');
