@@ -38,4 +38,30 @@ const original = '<score-partwise><identification><miscellaneous><miscellaneous-
 const cleaned = strip(original);
 assert(!cleaned.includes("nested") && cleaned.includes("<part-list/>"));
 assert.strictEqual(strip(cleaned), cleaned);
+const fixSrc = section("    function repairSingleTrailingPianoOverrun(", "    function finishComposition(");
+const fix = vm.runInNewContext(fixSrc + "\\nrepairSingleTrailingPianoOverrun");
+const wholeScore = ["CS1", 'S {"t":"Regression","m":"4/4"}'];
+for (const [id, instrument] of [
+  ["violin", "Violine"], ["piano", "Klavier (R.H.)"], ["piano", "Klavier (L.H.)"]
+]) {
+  wholeScore.push("P " + JSON.stringify({i:id,n:instrument}));
+  for (let bar=1;bar<=28;bar++) {
+    if (instrument === "Klavier (L.H.)" && bar === 12)
+      wholeScore.push("12/1 E2:q E3:q A2:q A1:h");
+    else wholeScore.push(bar + "/1 R:w");
+  }
+}
+const normalized = runtime.decode(repair(wholeScore.join("\\n")));
+assert.deepStrictEqual(Array.from(runtime.inspect(normalized)), [
+  "piano_2 Takt 12 Stimme 1: 5 statt 4 Viertel (Auftakt/verkürzten Takt prüfen)."
+]);
+const repaired = fix({mode:5,workflowKind:"replace"},normalized);
+assert.strictEqual(repaired.length,1);
+assert.deepStrictEqual(Array.from(runtime.inspect(normalized)),[]);
+assert.strictEqual(normalized.parts[2].measures[11].voices[0].events[3].duration,"quarter");
+assert.strictEqual(fix({mode:5,workflowKind:"replace"},normalized).length,0);
+assert.strictEqual(compact.xml.convert(normalized).measures,28);
+const other = runtime.decode(repair(wholeScore.join("\\n")));
+assert.strictEqual(fix({mode:3,workflowKind:"append"},other).length,0);
+assert.strictEqual(other.parts[2].measures[11].voices[0].events[3].duration,"half");
 console.log("Score-memory and piano-ID regression passed.");
