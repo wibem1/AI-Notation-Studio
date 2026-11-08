@@ -67,6 +67,17 @@ assert.deepStrictEqual(Array.from(runtime.inspect(normalized)),[]);
 assert.strictEqual(normalized.parts[2].measures[11].voices[0].events[3].duration,"quarter");
 assert.strictEqual(fix({mode:5,workflowKind:"replace"},normalized).length,0);
 assert.strictEqual(compact.xml.convert(normalized).measures,28);
+const replacementXml = compact.xml.convert(normalized).xml;
+const baseScore = runtime.decode(wholeScore.join("\n")
+  .replaceAll('{"i":"piano","n":"Klavier (L.H.)"}','{"i":"piano_2","n":"Klavier (L.H.)"}')
+  .replace("12/1 E2:q E3:q A2:q A1:h","12/1 R:w"));
+const originalBaseXml = compact.xml.convert(baseScore).xml;
+const merged = compact.context.combine(originalBaseXml, replacementXml,
+  {kind:"replace",startQuarter:0,endQuarter:112});
+assert.strictEqual(compact.context.inspect(merged.xml,0).meters.length,28);
+assert.strictEqual(compact.context.parse(merged.xml).children.filter(x => x && x.name === "part").length,3);
+assert.strictEqual(originalBaseXml,compact.xml.convert(baseScore).xml,
+  "The combination must not mutate the original MusicXML");
 const other = runtime.decode(repair(wholeScore.join("\n")));
 assert.strictEqual(fix({mode:3,workflowKind:"append"},other).length,0);
 assert.strictEqual(other.parts[2].measures[11].voices[0].events[3].duration,"half");
