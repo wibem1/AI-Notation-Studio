@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Fortsetzung – nativen Testblocker identifiziert (08.11.2026)
+
+- **Echter GitHub-Actions-Befund:** [Run #42529396923](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42529396923) endete **FAILURE**. Der Log zeigt ausdrücklich `ANS_01116 FAIL: Error: Unexpected staged app version: 0.11.20`. Die vorhergehenden Schritte für Offline-JavaScript, synthetische Partitur und MuseScore-Installation waren erfolgreich. **Eine Aussage über das Funktionieren der neuen Notationsverbesserung erlaubt dieser abgebrochene Test nicht.**
+- **Behoben im Branch:** `tests/native_append_01116_probe.qml` erkennt nun auch Version 0.11.20 und führt für sie den bereits bestehenden 0.11.19-`replaceTail`-Pfad aus. Commit `7ff754bb`. Damit ist ausschließlich der vorzeitige Versionsblocker korrigiert; ein erfolgreicher Wiederholungslauf ist noch nicht belegt.
+- **Weitere Änderung:** KI-JSON-Vorlage verwendet `"changes":[]` als Standard. Dies vermeidet eine beispielhafte erfundene Änderung an Note 0. Commit `556158eb`, Regression `8427b795`.
+- **Integration:** Draft-[PR #13](https://github.com/wibem1/AI-Notation-Studio/pull/13) bleibt offen und ungemergt. Nächster Schritt: vollständige Regression samt nativer MuseScore-Prüfung des aktualisierten Quellstands, danach erst Veröffentlichung und Entwicklung weiterer ausführbarer musikalischer Korrekturoperationen.
+
+
 ## Fortsetzung – sicherer KI-Plan und PR-Prüfung (08.11.2026)
 
 - **Konkrete Korrektur:** Der vom Modell geforderte JSON-Plan enthält standardmäßig `"changes":[]` statt einer erfundenen Beispielsänderung an Note 0. Die KI wird ausdrücklich angewiesen, nur belegte enharmonische Änderungen vorzuschlagen. Die bestehende Validierung bleibt unverändert strikt.
