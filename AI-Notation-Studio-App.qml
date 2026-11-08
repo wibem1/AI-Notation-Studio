@@ -822,6 +822,23 @@ MuseScore {
         return warnings
     }
 
+    function validateContinuationTempo(job, data) {
+        if(!job || job.mode!==3 || !job.sourceTempo || !data || !data.score)
+            return
+        // A continuation may vary expressive tempo locally. But a new global
+        // tempo is a change of identity unless the user expressly asked for it.
+        if(/(?:tempo|schneller|langsamer|beschleunig|verlangsam|ritard|accelerand)/i.test(String(job.instruction||"")))
+            return
+        var actual=Number(data.score.tempo && data.score.tempo.bpm)
+        var expected=Number(job.sourceTempo)
+        if(isFinite(actual) && actual>0 && isFinite(expected) && expected>0 &&
+            Math.abs(actual-expected)>1) {
+            throw Error("Musikalische Fortsetzung abgelehnt: Die KI änderte das Grundtempo von " +
+                expected+" auf "+actual+" BPM, ohne dass dies beauftragt wurde. " +
+                "Die Antwort bleibt gespeichert; eine erneute technische Prüfung komponiert sie nicht neu.")
+        }
+    }
+
     function finishComposition(job, text) {
         job.raw_response=text
         try {
@@ -837,6 +854,7 @@ MuseScore {
             var errors=compact.score.inspect(data)
             if(errors.length)
                 throw Error("Rhythmusprüfung: "+errors.join("; ")+". Die KI-Antwort bleibt für eine kostenfreie erneute Prüfung gespeichert.")
+            validateContinuationTempo(job,data)
             if (data.parts.length !== job.instruments.length &&
                 !(job.mode===9 && job.preludeTargets && job.preludeTargets.length===1 &&
                   job.preludeTargets[0].splitPiano && data.parts.length===2))
