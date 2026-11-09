@@ -96,6 +96,9 @@ jobs:
           cat /tmp/ans-01116-imported-result.txt || true
           grep -q 'ANS_01116 PASS:' /tmp/ans-01116-result.txt
           grep -q 'ANS_01116_IMPORTED PASS:' /tmp/ans-01116-imported-result.txt
+          if grep -q 'version: "0.11.22-dev"' AI-Notation-Studio-App.qml; then
+            grep -q 'ANS_01122_AI_OPEN PASS:' /tmp/ans-01116-imported-result.txt
+          fi
           python - <<'PY'
           from xml.etree import ElementTree as ET
           def parts(path,count):

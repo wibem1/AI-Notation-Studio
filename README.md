@@ -1,3 +1,13 @@
+# AI Notation Studio 0.11.22 – 09.11.2026
+
+**Neu: KI verbessert die tatsächliche Notation.** Der Hauptknopf **„Notation verbessern (KI, API-Kosten)“** lässt die KI 1–12 vollständige Takte eines Instruments als MusicXML **neu notieren**, statt nur Fehler zu beschreiben. Das Plugin überprüft klingende Tonhöhen, Einsätze, Dauern und geschützte Ausdruckszeichen; das Ergebnis kann mit **„KI-Korrektur als Partiturkopie öffnen“** separat in MuseScore geprüft werden. Das Original bleibt unverändert.
+
+**Praxistest / experimentell:** Der neue KI-Antwort- und Kopie-Öffnungsweg wurde in MuseScore 4.7.6 mit **simulierter Modellantwort** erfolgreich getestet. Eine echte KI-Providerantwort und die musikalische Qualität der Neu-Notation sind noch nicht geprüft; insbesondere bei komplexen Stimmen und Verzierungen die Kopie sorgfältig kontrollieren. Der KI-Aufruf kann Kosten verursachen. [Details, Tests und Grenzen](RELEASE-0.11.22.md).
+
+**Installation:** Im Plugin **Update prüfen → Update installieren** wählen. Zunächst mit 2–4 Takten eines Instruments ausprobieren.
+
+## Frühere Versionen
+
 # AI Notation Studio 0.11.21 – 08.11.2026
 
 **Neu – erste echte automatische Notationskorrekturen:** Vollständige Takte eines Instruments markieren → **Sichere Notationskorrekturen prüfen**. Das Plugin kann jetzt redundante G-/F-/C-Schlüssel entfernen und fehlende regelmäßige Achtelbalken ergänzen (Zweiergruppen in einfachen und Dreiergruppen in zusammengesetzten Takten). Die ausführbaren Reparaturen benötigen **keine KI-Kosten** und ändern weder Tonhöhen noch klingende Dauern. Erst nach dem Prüfbericht öffnet **Korrigierte Notation öffnen (Kopie)** das Ergebnis als separate Partitur; das Original bleibt erhalten.

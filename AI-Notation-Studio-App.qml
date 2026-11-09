@@ -10,7 +10,7 @@ MuseScore {
     id: root
     menuPath: ""
     description: "Interne live ladbare App-Komponente von AI Notation Studio"
-    version: "0.11.21"
+    version: "0.11.22"
     requiresScore: true
     pluginType: "dialog"
     title: "AI Notation Studio – interne App (nicht starten)"
@@ -22,6 +22,8 @@ MuseScore {
     property var notationDirect: createNotationDirect(function(tick) { return root.fractionFromTicks(tick) })
     property var notationStructure: createNotationStructure(compact.context)
     property var structureSnapshot: null
+    property var aiRewriteSnapshot: null
+    property string aiRewriteReport: ""
     property var visualSnapshot: null
     property string visualReport: ""
     property string structureReport: ""
@@ -5322,8 +5324,146 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 report:'Schlüssel: '+a.changed+' Korrekturen; Achtelbalken: '+b.changed+
                     ' Gruppen.\n'+a.report+'\n'+b.report};
         }
+        function rewriteTargets(xml,selection) {
+            var doc=context.parse(xml),parts=children(doc,'part'),part=parts[selection.partIndex];
+            if(!part)throw Error('Ausgewähltes Instrument fehlt im MusicXML.');
+            return measureRows(part).filter(function(row){
+                return row.start>=selection.startQuarter-1e-7 &&
+                    row.start+row.length/row.divisions<=selection.endQuarter+1e-7;
+            }).map(function(row){return {index:row.index,number:row.number};});
+        }
+        function rewriteContext(xml,selection) {
+            var doc=context.parse(xml),parts=children(doc,'part'),part=parts[selection.partIndex];
+            if(!part)throw Error('Instrument in MusicXML nicht gefunden.');
+            var rows=measureRows(part), targets=rewriteTargets(xml,selection);
+            if(!targets.length || targets.length>12)
+                throw Error('Bitte 1 bis 12 vollständig markierte Takte auswählen.');
+            var beginning=rows[targets[0].index],ending=rows[targets[targets.length-1].index];
+            if(Math.abs(beginning.start-selection.startQuarter)>1e-7 ||
+               Math.abs(ending.start+ending.length/ending.divisions-selection.endQuarter)>1e-7)
+                throw Error('Bitte nur vollständige Takte markieren; die Auswahl liegt auf Taktgrenzen.');
+            var staffCount=1, activeAttributes=null;
+            rows.forEach(function(row) {
+                var attrs=first(row.node,'attributes');
+                if(attrs) {
+                    if(row.index<=targets[0].index) activeAttributes=attrs;
+                    staffCount=Math.max(staffCount,Number(text(attrs,'staves',1))||1);
+                }
+                row.events.forEach(function(e){staffCount=Math.max(staffCount,e.staff)});
+            });
+            if(selection.staffs.length!==staffCount)
+                throw Error('Vor dem KI-Aufruf alle Systeme des Instruments markieren.');
+            for(var si=1;si<=staffCount;si++)
+                if(selection.staffs.indexOf(si)<0)
+                    throw Error('Die KI-Auswahl enthält nicht alle Systeme des Instruments.');
+            var from=Math.max(0,targets[0].index-1),
+                to=Math.min(rows.length,targets[targets.length-1].index+2);
+            var excerpts=rows.slice(from,to).map(function(row) {
+                return {index:row.index,number:row.number,xml:serialize(row.node)};
+            });
+            return {targets:targets,context:excerpts,staffs:staffCount,
+                openingAttributes:activeAttributes?serialize(activeAttributes):''};
+        }
+        // The AI returns a complete MusicXML <measure> for each requested index.
+        // Only the selected measure nodes are transplanted into a CLONE of the
+        // original score. Score metadata and every other part remain untouched.
+        function prepareRewrite(xml,selection,proposals) {
+            if (!selection || selection.partIndex<0 || !selection.staffs ||
+                !(selection.endQuarter>selection.startQuarter) ||
+                !Array.isArray(proposals) || !proposals.length || proposals.length>12)
+                throw Error('Ungültige oder leere KI-Korrekturfassung.');
+            var original=context.parse(xml), revised=clone(original);
+            var parts=children(revised,'part'),part=parts[selection.partIndex];
+            if (!part)throw Error('Instrument in MusicXML nicht gefunden.');
+            var rows=measureRows(part), nodes=children(part,'measure');
+            var staffCount=1;
+            rows.forEach(function(row){
+                var attrs=first(row.node,'attributes');
+                if(attrs)staffCount=Math.max(staffCount,Number(text(attrs,'staves',1))||1);
+                row.events.forEach(function(e){staffCount=Math.max(staffCount,e.staff)});
+            });
+            if(selection.staffs.length!==staffCount)
+                throw Error('KI-Neunotation benötigt alle Systeme des ausgewählten Instruments.');
+            for(var si=1;si<=staffCount;si++)
+                if(selection.staffs.indexOf(si)<0)
+                    throw Error('Die Systemauswahl ist unvollständig.');
+            var eligible=[];
+            rows.forEach(function(row){
+                if(row.start>=selection.startQuarter-1e-7 &&
+                   row.start+row.length/row.divisions<=selection.endQuarter+1e-7)
+                    eligible.push(row.index);
+            });
+            if(!eligible.length || eligible.length>12 || proposals.length!==eligible.length)
+                throw Error('Die KI muss genau die vollständig markierten Takte zurückgeben (maximal 12).');
+            var starting=rows[eligible[0]],finishing=rows[eligible[eligible.length-1]];
+            if(Math.abs(starting.start-selection.startQuarter)>1e-7 ||
+               Math.abs(finishing.start+finishing.length/finishing.divisions-selection.endQuarter)>1e-7)
+                throw Error('Die KI darf nur vollständige Takte bearbeiten.');
+            var used={};
+            for(var i=0;i<proposals.length;i++) {
+                var item=proposals[i];
+                if(!item || typeof item.index!=='number' || item.index%1!==0 ||
+                    eligible.indexOf(item.index)<0 || used[item.index] ||
+                    typeof item.xml!=='string' || item.xml.length>16000 ||
+                    !/^<measure\b/.test(item.xml.trim()) ||
+                    !/<\/measure>\s*$/.test(item.xml.trim()) ||
+                    /<!DOCTYPE|<!ENTITY|<\?xml/i.test(item.xml))
+                    throw Error('Ungültige KI-Taktangabe oder MusicXML-Struktur.');
+                used[item.index]=true;
+                var wrapped='<score-partwise><part id="AI">'+item.xml.trim()+
+                    '</part></score-partwise>';
+                var parsed=context.parse(wrapped), pp=children(parsed,'part');
+                var mm=pp.length===1?children(pp[0],'measure'):[];
+                if(mm.length!==1)throw Error('KI hat keinen einzelnen gültigen Takt geliefert.');
+                var old=nodes[item.index],replacement=mm[0];
+                var oldNumber=(/\bnumber=["']([^"']+)["']/.exec(old.open)||[])[1];
+                var newNumber=(/\bnumber=["']([^"']+)["']/.exec(replacement.open)||[])[1];
+                if(oldNumber!==newNumber)
+                    throw Error('Die KI hat eine andere Taktnummer geliefert.');
+                // Preserve phrasing and expression markings: sounding-event
+                // equality alone is insufficient for a musical score.
+                function protectedMarks(measure) {
+                    var keep=[];
+                    children(measure).forEach(function(element) {
+                        if(['direction','harmony','figured-bass','barline','sound','print'].indexOf(element.name)>=0)
+                            keep.push(serialize(element).replace(/\s+/g,''));
+                        if(element.name==='note') {
+                            ['lyric','grace','notations'].forEach(function(tag) {
+                                children(element,tag).forEach(function(mark) {
+                                    if(tag==='notations')children(mark).forEach(function(x) {
+                                        if(x.name!=='tied')keep.push(tag+':'+serialize(x).replace(/\s+/g,''));
+                                    });
+                                    else keep.push(tag+':'+serialize(mark).replace(/\s+/g,''));
+                                });
+                            });
+                        }
+                        if(element.name==='attributes') {
+                            ['divisions','key','time','transpose'].forEach(function(tag) {
+                                children(element,tag).forEach(function(mark){
+                                    keep.push(tag+':'+serialize(mark).replace(/\s+/g,''));
+                                });
+                            });
+                        }
+                    });
+                    return keep.sort().join('|');
+                }
+                if(protectedMarks(old)!==protectedMarks(replacement))
+                    throw Error('KI hat musikalische Ausdruckszeichen, Taktart oder Tonart verändert.');
+                var position=part.children.indexOf(old);
+                if(position<0)throw Error('Taktposition verloren.');
+                part.children[position]=replacement;
+            }
+            if(signature(revised)!==signature(original))
+                throw Error('Musik geändert: Tonhöhen, Einsätze oder klingende Dauern stimmen nicht überein.');
+            var result='<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(revised);
+            return {xml:result,changed:eligible.length,report:'KI hat '+eligible.length+
+                ' vollständig markierte Takte neu notiert. Klangsignatur unverändert. ' +
+                'Bitte das Notenbild in der Partiturkopie kontrollieren.'};
+        }
         return {repair:repair,repairRedundantClefs:repairRedundantClefs,
             repairMissingBeams:repairMissingBeams,repairSafeVisual:repairSafeVisual,
+            prepareRewrite:prepareRewrite,rewriteTargets:rewriteTargets,
+            rewriteContext:rewriteContext,
             signature:function(xml){return signature(context.parse(xml))}}
     }
     
@@ -5557,6 +5697,96 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 ' Notationskorrekturen ausgeführt). Original unverändert.'
             visualReport+='\n\n'+statusText
         } catch (e) {statusText='Notationskorrektur nicht übernommen: '+String(e);visualReport+='\n'+statusText}
+    }
+
+    // Shared by the actual provider callback and offline/native simulated replies.
+    // Do not bypass this guard when testing a KI-generated score.
+    function notationAiRewriteAccept(snapshot,response) {
+        try {
+            if (!curScore || !(curScore===snapshot.score||curScore.is(snapshot.score)) ||
+                readSelectionForChat()!==snapshot.fingerprint ||
+                notationStructureExport()!==snapshot.sourceXml)
+                throw Error('Originalpartitur oder Auswahl während des KI-Aufrufs verändert.')
+            var answer=JSON.parse(extractJsonBlock(response))
+            if (!answer || !Array.isArray(answer.measures))
+                throw Error('KI hat keine vollständige MusicXML-Korrekturfassung geliefert.')
+            var corrected=notationStructure.prepareRewrite(snapshot.sourceXml,
+                snapshot.selection,answer.measures)
+            aiRewriteSnapshot={score:snapshot.score,sourceXml:snapshot.sourceXml,
+                xml:corrected.xml,fingerprint:snapshot.fingerprint,count:corrected.changed}
+            aiRewriteReport=corrected.report+'\n\nKI-Bericht: '+
+                String(answer.report||'').slice(0,4000)+
+                '\n\nDie Korrekturfassung ist erst eine Vorschau. '+
+                'Öffne sie als eigene Partitur und prüfe die musikalische Lesbarkeit.'
+            statusText='Korrigierte KI-Partitur geprüft – '+corrected.changed+
+                ' Takte zur Vorschau bereit.'
+            return true
+        }catch(e){aiRewriteSnapshot=null;aiRewriteReport='KI-Ergebnis verworfen: '+String(e);
+            statusText='KI-Korrektur nicht übernommen.';return false}
+    }
+
+    function notationAiRewriteStart() {
+        if (busy) return
+        aiRewriteSnapshot=null; aiRewriteReport=""
+        try {
+            var selection=notationStructureSelection()
+            var source=notationStructureExport()
+            var context=notationStructure.rewriteContext(source,selection)
+            var targets=context.targets
+            if (JSON.stringify(context).length>36000)
+                throw Error('Die ausgewählte Passage ist für den KI-Aufruf zu groß (maximal 36.000 Zeichen).')
+            var snapshot={score:curScore,sourceXml:source,selection:selection,
+                fingerprint:readSelectionForChat(),targets:targets}
+            var instruction='Antworte ausschließlich als JSON: '+
+                '{"report":"kurzer Bericht auf Deutsch","measures":[]}. '+
+                'Alle angeforderten Takte genau einmal, mit 0-basiertem index und '+
+                'vollständigem MusicXML-Takt als xml-String. Keine Markdown-Codeblöcke.'
+            var prompt='Du bist ein professioneller Notensetzer. Notiere die folgenden '+
+                'ausgewählten MusicXML-Takte musikalisch sinnvoll neu. Korrigiere '+
+                'unnötige Stimmenpausen, schlecht gegliederte Rhythmen, ungünstige '+
+                'Stimmenverteilung und Schlüssel; bewahre alle Tonhöhen, Einsätze, '+
+                'klingenden Dauern, Bindungen, Dynamik, Verzierungen und Ausdruck. '+
+                'Gib ausschließlich die vollständigen korrigierten <measure>-Elemente '+
+                'der angegebenen 0-basierten Taktindizes zurück; behalte number-Attribute '+
+                'bei. Erfinde keine weiteren Takte, Stimmen oder Noten. '+
+                'Unsichere Korrekturen unterlassen. Bei Bedarf die Notation unverändert '+
+                'zurückgeben. Weitere Anweisung: '+instructionBox.text.trim()+'\n'+
+                JSON.stringify({targets:targets,partIndex:selection.partIndex,
+                    selectedStaffs:selection.staffs,referenceMusicXML:context.context,
+                    activeAttributes:context.openingAttributes})
+            saveCurrentKey();saveCurrentModel()
+            busy=true
+            statusText='KI erstellt eine korrigierte MusicXML-Fassung …'
+            callAI(prompt,function(ok,response) {
+                busy=false
+                if (!ok) {aiRewriteReport='KI-Korrektur fehlgeschlagen: '+String(response);
+                    statusText='KI-Korrektur fehlgeschlagen.';return}
+                notationAiRewriteAccept(snapshot,response)
+            },'KI-Notation neu schreiben',instruction)
+        } catch(e) {aiRewriteReport='KI-Korrektur nicht gestartet: '+String(e);
+            statusText=aiRewriteReport+' Kein KI-Aufruf.'}
+    }
+
+    function notationAiRewriteOpen() {
+        if (busy||!aiRewriteSnapshot)return
+        var snapshot=aiRewriteSnapshot
+        try {
+            if(!curScore || !(curScore===snapshot.score||curScore.is(snapshot.score)) ||
+                readSelectionForChat()!==snapshot.fingerprint ||
+                notationStructureExport()!==snapshot.sourceXml)
+                throw Error('Die Ausgangspartitur oder die Auswahl wurde verändert.')
+            if(notationStructure.signature(snapshot.xml)!==
+                notationStructure.signature(snapshot.sourceXml))
+                throw Error('Klangprüfung vor dem Öffnen fehlgeschlagen.')
+            var path=fileUrlToLocalPath(Qt.resolvedUrl('AI-Notation-Studio-AI-Rewrite-'+
+                new Date().getTime()+'.musicxml'))
+            writeVerifiedCompactFile(path,snapshot.xml,'KI-korrigierte Partitur')
+            if(!readScore(path,false))throw Error('MuseScore konnte die KI-Partiturkopie nicht öffnen.')
+            aiRewriteSnapshot=null
+            statusText='KI-korrigierte Partiturkopie geöffnet. Das Original bleibt unverändert.'
+            aiRewriteReport+='\n\n'+statusText
+        }catch(e){statusText='KI-Partitur nicht geöffnet: '+String(e);
+            aiRewriteReport+='\n'+statusText}
     }
 
     function notationImprove() {
@@ -7569,7 +7799,8 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 Flow {
                     Layout.fillWidth: true
                     spacing: 8
-                    Button { objectName: "notationImproveButton"; text: "Notation verbessern (Analyse starten)"; enabled: !busy; onClicked: notationImprove() }
+                    Button { objectName: "notationImproveButton"; text: "Notation verbessern (KI, API-Kosten)"; enabled: !busy; onClicked: notationAiRewriteStart() }
+                    Button { objectName: "notationAiRewriteOpenButton"; text: "KI-Korrektur als Partiturkopie öffnen"; enabled: !busy && aiRewriteSnapshot !== null; onClicked: notationAiRewriteOpen() }
                     Button { objectName: "notationVisualCheckButton"; text: "Sichere Notationskorrekturen prüfen"; enabled: !busy; onClicked: notationVisualPrepare() }
                     Button { objectName: "notationVisualOpenButton"; text: "Korrigierte Notation öffnen (Kopie)"; enabled: !busy && visualSnapshot !== null; onClicked: notationVisualOpen() }
                     Button { objectName: "notationStructureCheckButton"; text: "Notendarstellung prüfen"; enabled: !busy; onClicked: notationStructurePrepare() }
@@ -7577,6 +7808,17 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     Button { objectName: "notationStructureOpenButton"; text: "Korrigierte Partitur öffnen"; enabled: !busy && structureSnapshot !== null; onClicked: notationStructureOpen() }
                     Button { objectName: "notationCheckButton"; text: "Vorzeichenschreibweise prüfen (KI)"; enabled: !busy; onClicked: notationCheck() }
                     Button { objectName: "notationApplyButton"; text: "Vorgeschlagene Schreibweisen übernehmen"; enabled: !busy && notationChanges.length > 0; onClicked: notationApply() }
+                }
+                TextArea {
+                    objectName: "notationAiRewriteReportView"
+                    Layout.fillWidth: true
+                    visible: aiRewriteReport !== ""
+                    readOnly: true
+                    selectByMouse: true
+                    wrapMode: TextEdit.Wrap
+                    color: "#ededed"
+                    text: aiRewriteReport
+                    background: Rectangle { color: "#2b2d31"; radius: 4 }
                 }
                 TextArea {
                     objectName: "notationVisualReportView"
