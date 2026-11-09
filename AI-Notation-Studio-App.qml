@@ -7792,7 +7792,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 Flow {
                     Layout.fillWidth: true
                     spacing: 8
-                    Button { objectName: "notationImproveButton"; text: "Notation verbessern (KI-Neunotation)"; enabled: !busy; onClicked: notationAiRewriteStart() }
+                    Button { objectName: "notationImproveButton"; text: "Notation verbessern (KI, API-Kosten)"; enabled: !busy; onClicked: notationAiRewriteStart() }
                     Button { objectName: "notationAiRewriteOpenButton"; text: "KI-Korrektur als Partiturkopie öffnen"; enabled: !busy && aiRewriteSnapshot !== null; onClicked: notationAiRewriteOpen() }
                     Button { objectName: "notationVisualCheckButton"; text: "Sichere Notationskorrekturen prüfen"; enabled: !busy; onClicked: notationVisualPrepare() }
                     Button { objectName: "notationVisualOpenButton"; text: "Korrigierte Notation öffnen (Kopie)"; enabled: !busy && visualSnapshot !== null; onClicked: notationVisualOpen() }
