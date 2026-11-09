@@ -36,7 +36,7 @@ MuseScore {
       var component=Qt.createComponent("AI-Notation-Studio-App.qml")
       if(component.status!==Component.Ready)throw Error(component.errorString())
       app=component.createObject(root)
-    if(String(app.version)==="0.11.22-dev") {
+    if((String(app.version)==="0.11.22-dev" || String(app.version)==="0.11.22")) {
       // End-to-end test of the actual "open corrected copy" plugin action.
       // No provider call: use a deterministic identity rewrite of the selected
       // first measure, then exercise all file write/read and GUI handoff code.
@@ -136,7 +136,7 @@ MuseScore {
         throw Error('Native rhythmic repair failed: '+beamResult.report)
       log("ANS_01121_BEAM_REPAIR PASS: four eighth-note groups repaired; music unchanged")
     }
-    if(String(app.version)==="0.11.22-dev") {
+    if((String(app.version)==="0.11.22-dev" || String(app.version)==="0.11.22")) {
       // Native MuseScore integration: round-trip a selected MusicXML measure
       // through the real AI rewrite validator; no provider is contacted.
       original.selection.selectRange(0,1920,0,1)
