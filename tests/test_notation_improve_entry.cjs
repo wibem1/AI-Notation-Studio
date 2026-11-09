@@ -7,7 +7,7 @@ const start = s.indexOf('function notationImprove()');
 const end = s.indexOf('function notationStructureApply()', start);
 assert(start > 0 && end > start, 'Improvement entry point exists');
 const f = s.slice(start, end);
-assert.match(s, /objectName: "notationImproveButton"; text: "Notation verbessern \(KI-Neunotation\)"/);
+assert.match(s, /objectName: "notationImproveButton"; text: "Notation verbessern \(KI, API-Kosten\)"/);
 assert.match(s, /onClicked: notationAiRewriteStart\(\)/);
 assert(f.indexOf('notationStructureSelection()') < f.indexOf('notationCheck()'));
 assert(f.indexOf('notationCapture()') < f.indexOf('notationCheck()'));
