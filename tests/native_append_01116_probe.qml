@@ -31,6 +31,38 @@ MuseScore {
       output.source="/tmp/ans-01116-imported-result.txt"
       save(original,"imported")
       log("ANS_01116_IMPORTED PASS: new MuseScore score has 30 bars, 3 staves")
+      // After the legacy 30-bar result is verified, exercise the independent
+      // AI copy-opening route so it cannot interrupt that earlier handoff.
+      var component=Qt.createComponent("AI-Notation-Studio-App.qml")
+      if(component.status!==Component.Ready)throw Error(component.errorString())
+      app=component.createObject(root)
+    if(String(app.version)==="0.11.22-dev") {
+      // End-to-end test of the actual "open corrected copy" plugin action.
+      // No provider call: use a deterministic identity rewrite of the selected
+      // first measure, then exercise all file write/read and GUI handoff code.
+      original.selection.selectRange(0,1920,0,1)
+      if(!original.selection.isRange)throw Error("Cannot reselect AI rewrite fixture")
+      var choice=app.notationStructureSelection()
+      var beforeOpen=app.notationStructureExport()
+      var sourceContext=app.notationStructure.rewriteContext(beforeOpen,choice)
+      if(sourceContext.targets.length!==1)throw Error("Incorrect rewrite fixture target")
+      var item=null
+      for(var x=0;x<sourceContext.context.length;x++)
+        if(sourceContext.context[x].index===sourceContext.targets[0].index)
+          item=sourceContext.context[x]
+      if(!item)throw Error("Missing first measure in native rewrite context")
+      var prepared=app.notationStructure.prepareRewrite(beforeOpen,choice,
+        [{index:item.index,xml:item.xml}])
+      app.aiRewriteSnapshot={score:original,sourceXml:beforeOpen,
+        xml:prepared.xml,fingerprint:app.readSelectionForChat(),count:prepared.changed}
+      app.notationAiRewriteOpen()
+      if(app.aiRewriteSnapshot!==null ||
+         String(app.statusText).indexOf("KI-korrigierte Partiturkopie geöffnet")!==0)
+        throw Error("AI rewritten copy was not opened: "+app.statusText)
+      if(original.nmeasures!==30 || original.nstaves!==3)
+        throw Error("AI corrected copy modified the original score")
+      log("ANS_01122_AI_OPEN PASS: corrected MusicXML copy opened; original score preserved")
+    }
       Qt.quit();return
     }
     if(original.nmeasures!==28)throw Error("Expected original 28-bar fixture")
@@ -200,33 +232,7 @@ MuseScore {
     if(original.nmeasures!==28||original.nstaves!==3)throw Error("Original changed")
     save(original,"after")
     log("ANS_01116 PASS: native 28→30 continuation + non-Windows JSON save, source unchanged, offline")
-    if(String(app.version)==="0.11.22-dev") {
-      // End-to-end test of the actual "open corrected copy" plugin action.
-      // No provider call: use a deterministic identity rewrite of the selected
-      // first measure, then exercise all file write/read and GUI handoff code.
-      original.selection.selectRange(0,1920,0,1)
-      if(!original.selection.isRange)throw Error("Cannot reselect AI rewrite fixture")
-      var choice=app.notationStructureSelection()
-      var beforeOpen=app.notationStructureExport()
-      var sourceContext=app.notationStructure.rewriteContext(beforeOpen,choice)
-      if(sourceContext.targets.length!==1)throw Error("Incorrect rewrite fixture target")
-      var item=null
-      for(var x=0;x<sourceContext.context.length;x++)
-        if(sourceContext.context[x].index===sourceContext.targets[0].index)
-          item=sourceContext.context[x]
-      if(!item)throw Error("Missing first measure in native rewrite context")
-      var prepared=app.notationStructure.prepareRewrite(beforeOpen,choice,
-        [{index:item.index,xml:item.xml}])
-      app.aiRewriteSnapshot={score:original,sourceXml:beforeOpen,
-        xml:prepared.xml,fingerprint:app.readSelectionForChat(),count:prepared.changed}
-      app.notationAiRewriteOpen()
-      if(app.aiRewriteSnapshot!==null ||
-         String(app.statusText).indexOf("KI-korrigierte Partiturkopie geöffnet")!==0)
-        throw Error("AI rewritten copy was not opened: "+app.statusText)
-      if(original.nmeasures!==28 || original.nstaves!==3)
-        throw Error("AI corrected copy modified the original score")
-      log("ANS_01122_AI_OPEN PASS: corrected MusicXML copy opened; original score preserved")
-    }
+
   }catch(e){log("ANS_01116 FAIL: "+String(e))}
   finally{if(app)app.destroy();Qt.quit()}
  }
