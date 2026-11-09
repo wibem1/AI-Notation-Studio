@@ -51,10 +51,16 @@ MuseScore {
         if(sourceContext.context[x].index===sourceContext.targets[0].index)
           item=sourceContext.context[x]
       if(!item)throw Error("Missing first measure in native rewrite context")
-      var prepared=app.notationStructure.prepareRewrite(beforeOpen,choice,
-        [{index:item.index,xml:item.xml}])
-      app.aiRewriteSnapshot={score:original,sourceXml:beforeOpen,
-        xml:prepared.xml,fingerprint:app.readSelectionForChat(),count:prepared.changed}
+      var pending={score:original,sourceXml:beforeOpen,selection:choice,
+        fingerprint:app.readSelectionForChat(),targets:sourceContext.targets}
+      var wrongReply=JSON.stringify({report:"Ungültige KI-Antwort",
+        measures:[{index:999,xml:item.xml}]})
+      if(app.notationAiRewriteAccept(pending,wrongReply)||app.aiRewriteSnapshot!==null)
+        throw Error("Invalid simulated KI response was accepted")
+      var goodReply=JSON.stringify({report:"Test: Musik unverändert",
+        measures:[{index:item.index,xml:item.xml}]})
+      if(!app.notationAiRewriteAccept(pending,goodReply)||!app.aiRewriteSnapshot)
+        throw Error("Valid simulated KI response was rejected: "+app.aiRewriteReport)
       app.notationAiRewriteOpen()
       if(app.aiRewriteSnapshot!==null ||
          String(app.statusText).indexOf("KI-korrigierte Partiturkopie geöffnet")!==0)
