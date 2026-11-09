@@ -5322,8 +5322,72 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 report:'Schlüssel: '+a.changed+' Korrekturen; Achtelbalken: '+b.changed+
                     ' Gruppen.\n'+a.report+'\n'+b.report};
         }
+        // The AI returns a complete MusicXML <measure> for each requested index.
+        // Only the selected measure nodes are transplanted into a CLONE of the
+        // original score. Score metadata and every other part remain untouched.
+        function prepareRewrite(xml,selection,proposals) {
+            if (!selection || selection.partIndex<0 || !selection.staffs ||
+                !(selection.endQuarter>selection.startQuarter) ||
+                !Array.isArray(proposals) || !proposals.length || proposals.length>12)
+                throw Error('Ungültige oder leere KI-Korrekturfassung.');
+            var original=context.parse(xml), revised=clone(original);
+            var parts=children(revised,'part'),part=parts[selection.partIndex];
+            if (!part)throw Error('Instrument in MusicXML nicht gefunden.');
+            var rows=measureRows(part), nodes=children(part,'measure');
+            var staffCount=1;
+            rows.forEach(function(row){
+                var attrs=first(row.node,'attributes');
+                if(attrs)staffCount=Math.max(staffCount,Number(text(attrs,'staves',1))||1);
+                row.events.forEach(function(e){staffCount=Math.max(staffCount,e.staff)});
+            });
+            if(selection.staffs.length!==staffCount)
+                throw Error('KI-Neunotation benötigt alle Systeme des ausgewählten Instruments.');
+            for(var si=1;si<=staffCount;si++)
+                if(selection.staffs.indexOf(si)<0)
+                    throw Error('Die Systemauswahl ist unvollständig.');
+            var eligible=[];
+            rows.forEach(function(row){
+                if(row.start>=selection.startQuarter-1e-7 &&
+                   row.start+row.length/row.divisions<=selection.endQuarter+1e-7)
+                    eligible.push(row.index);
+            });
+            if(!eligible.length || eligible.length>12 || proposals.length!==eligible.length)
+                throw Error('Die KI muss genau die vollständig markierten Takte zurückgeben (maximal 12).');
+            var used={};
+            for(var i=0;i<proposals.length;i++) {
+                var item=proposals[i];
+                if(!item || typeof item.index!=='number' || item.index%1!==0 ||
+                    eligible.indexOf(item.index)<0 || used[item.index] ||
+                    typeof item.xml!=='string' || item.xml.length>16000 ||
+                    !/^<measure\b/.test(item.xml.trim()) ||
+                    !/<\/measure>\s*$/.test(item.xml.trim()) ||
+                    /<!DOCTYPE|<!ENTITY|<\\?xml/i.test(item.xml))
+                    throw Error('Ungültige KI-Taktangabe oder MusicXML-Struktur.');
+                used[item.index]=true;
+                var wrapped='<score-partwise><part id="AI">'+item.xml.trim()+
+                    '</part></score-partwise>';
+                var parsed=context.parse(wrapped), pp=children(parsed,'part');
+                var mm=pp.length===1?children(pp[0],'measure'):[];
+                if(mm.length!==1)throw Error('KI hat keinen einzelnen gültigen Takt geliefert.');
+                var old=nodes[item.index],replacement=mm[0];
+                var oldNumber=(/\bnumber=["']([^"']+)["']/.exec(old.open)||[])[1];
+                var newNumber=(/\bnumber=["']([^"']+)["']/.exec(replacement.open)||[])[1];
+                if(oldNumber!==newNumber)
+                    throw Error('Die KI hat eine andere Taktnummer geliefert.');
+                var position=part.children.indexOf(old);
+                if(position<0)throw Error('Taktposition verloren.');
+                part.children[position]=replacement;
+            }
+            if(signature(revised)!==signature(original))
+                throw Error('Musik geändert: Tonhöhen, Einsätze oder klingende Dauern stimmen nicht überein.');
+            var result='<?xml version="1.0" encoding="UTF-8"?>\n'+serialize(revised);
+            return {xml:result,changed:eligible.length,report:'KI hat '+eligible.length+
+                ' vollständig markierte Takte neu notiert. Klangsignatur unverändert. ' +
+                'Bitte das Notenbild in der Partiturkopie kontrollieren.'};
+        }
         return {repair:repair,repairRedundantClefs:repairRedundantClefs,
             repairMissingBeams:repairMissingBeams,repairSafeVisual:repairSafeVisual,
+            prepareRewrite:prepareRewrite,
             signature:function(xml){return signature(context.parse(xml))}}
     }
     
