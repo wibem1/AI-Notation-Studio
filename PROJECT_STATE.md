@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Fortsetzung 09.11.2026 – native Kopieöffnung und KI-Antwortpfad
+
+- **Konkreter Durchbruch:** Der native MuseScore-4.7.6-Workflow [#42566891516](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42566891516) ist **SUCCESS**. Nach abgeschlossener Fortsetzungs-/Importprüfung öffnet das Plugin eine validierte MusicXML-Korrektur über den echten `notationAiRewriteOpen()`-Aufruf als zweite Partitur. Log: `ANS_01122_AI_OPEN PASS`; Original-Partitur unverändert. Der erste Versuch [#42566626057](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42566626057) scheiterte nur daran, dass diese zweite Partitur den früheren Importtest vorzeitig übernahm; Reihenfolge im Test danach korrigiert.
+- **Verbesserte Testbarkeit:** Die tatsächliche Antwortauswertung ist in `notationAiRewriteAccept(snapshot, response)` gebündelt. Dieselbe Funktion wird vom realen Provider-Callback und von einem nativen Offline-Test mit gültigen und ungültigen simulierten JSON-KI-Antworten aufgerufen. Dadurch prüft der Test nicht bloß einen manuell eingesetzten Korrekturplan. Commit `d04d036f` (Code), `373e0abb` (nativer Test).
+- **Letzte Prüfserie:** [Notation Regression #42567171271](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42567171271) **SUCCESS**, [Continuation Contract #42567171304](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42567171304) **SUCCESS**. Nativer MuseScore-Lauf [#42567171276](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42567171276) war bei letzter Prüfung **in_progress**; Ergebnis muss vor Freigabe nachgetragen werden.
+- **Release-Blocker:** Es gab **keinen echten kostenpflichtigen Provideraufruf** für die neue MusicXML-Neunotation, keine reale AI-Ausgabe mit komplexeren Pausen/Stimmen/Verzierungen wurde musikalisch bewertet und keine macOS-/Windows-Interaktion direkt auf den Nutzersystemen getestet. `0.11.22-dev` bleibt auf Branch `feat/ai-musicxml-rewrite-20261109`, PR #15 Entwurf; `main` weiterhin 0.11.21. Kein Release ohne diese klar benannten Voraussetzungen.
+- **Nächster Schritt:** Neuesten nativen CI-Lauf und Logs nachprüfen; danach kleinsten realen Providerfall mit einer 2–4-taktigen Partitur im UI testen, Kosten und Originalerhalt messen, dann Freigabe entscheiden.
+
+
 ## Entwicklung 0.11.22-dev – KI erstellt vollständige korrigierte MusicXML-Takte (09.11.2026)
 
 - **Verbindliche Entscheidung:** Die KI erhält einen kompakten MusicXML-Ausschnitt der ausgewählten Takte samt Nachbartakten, analysiert und **notiert sämtliche ausgewählten Takte neu**. Sie liefert vollständige `<measure>`-Elemente statt bloßer Textvorschläge. Einzelheiten: [AI-RENOTATION-ARCHITECTURE.md](AI-RENOTATION-ARCHITECTURE.md).
