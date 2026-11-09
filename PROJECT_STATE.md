@@ -1,5 +1,13 @@
 # Projektstand – AI Notation Studio
 
+## Live 0.11.22 – KI-Neunotation veröffentlicht (09.11.2026)
+
+- **GitHub-Freigabe bestätigt:** [PR #15](https://github.com/wibem1/AI-Notation-Studio/pull/15) nach `main` gemergt, Merge-Commit `bfe4664b3392dc1d9adf87107455aea0bea7e3fe`. Die Live-App `AI-Notation-Studio-App.qml` und beide unveränderlichen 0.11.22-Archivdateien sind blob-identisch (`7f12f12dcbcee3474bee866885471e4a062de53c`). Update über den bestehenden Updateweg.
+- **Erfolgreiche Nachweise:** Notationsregression [#42576906400](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42576906400), Fortsetzungsregression [#42576906384](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42576906384) und native MuseScore-4.7.6-Prüfung [#42576906422](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42576906422) alle **SUCCESS** für die 0.11.22-Versionskennung. Testet simulierte KI-JSON-Antworten durch den Produktivvalidator, sichere MusicXML-Kopie und unverändertes Original.
+- **Praxistest-Hinweis:** Die neue KI-Neunotation ist noch **nicht** mit einer echten Providerantwort oder auf den Nutzerrechnern getestet. Qualität komplexer Notationsänderungen offen. Erste Benutzerprobe mit 2–4 Takten; KI-Kosten möglich. Die Details und Grenzen stehen in `RELEASE-0.11.22.md`. Der Benutzer hat die Veröffentlichung ausdrücklich beauftragt.
+- **Nächste Aufgabe:** Ersten realen KI-Durchlauf und importierte Notation anhand einer Diagnose auswerten, besonders Pausen-/Stimmen- und Verzierungsbehandlung; fehlerhafte Providerantworten nicht ungeprüft übernehmen.
+
+
 ## Freigabe 0.11.22 – KI-MusicXML-Neunotation (09.11.2026)
 
 - **Auftrag:** Veröffentlichung auf ausdrücklichen Wunsch des Nutzers. Neues Verhalten: KI schreibt ausgewählte vollständige Takte als MusicXML neu und die validierte Korrekturfassung wird **als eigene Partitur** geöffnet. Klassische kostenlose Korrekturfunktionen bleiben bestehen.
