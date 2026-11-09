@@ -38,7 +38,7 @@ MuseScore {
     var component=Qt.createComponent("AI-Notation-Studio-App.qml")
     if(component.status!==Component.Ready)throw Error(component.errorString())
     app=component.createObject(root)
-    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?|19(?:-dev)?|20(?:-dev)?|21(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
+    if(!app||!/^0\.11\.(?:16|17(?:-dev)?|18(?:-dev)?|19(?:-dev)?|20(?:-dev)?|21(?:-dev)?|22(?:-dev)?)$/.test(String(app.version)))throw Error("Unexpected staged app version: "+String(app&&app.version))
     if(String(app.version)==="0.11.20" || String(app.version)==="0.11.21") {
       // Exercise the new entry point in real MuseScore with no range selection.
       // Invalid selections must not trigger a paid model request or change music.
@@ -97,6 +97,30 @@ MuseScore {
         app.notationStructure.signature(beamResult.xml)!==app.notationStructure.signature(beamsXml))
         throw Error('Native rhythmic repair failed: '+beamResult.report)
       log("ANS_01121_BEAM_REPAIR PASS: four eighth-note groups repaired; music unchanged")
+    }
+    if(String(app.version)==="0.11.22-dev") {
+      // Native MuseScore integration: round-trip a selected MusicXML measure
+      // through the real AI rewrite validator; no provider is contacted.
+      original.selection.selectRange(0,1920,0,1)
+      if(!original.selection.isRange)throw Error("AI rewrite range selection failed")
+      var sel=app.notationStructureSelection(), raw=app.notationStructureExport()
+      var ctx=app.notationStructure.rewriteContext(raw,sel)
+      if(ctx.targets.length!==1)throw Error("AI rewrite wrong target range")
+      var proposal=null
+      for(var ci=0;ci<ctx.context.length;ci++)
+        if(ctx.context[ci].index===ctx.targets[0].index)proposal=ctx.context[ci]
+      if(!proposal)throw Error("AI rewrite measure context missing")
+      var rewrite=app.notationStructure.prepareRewrite(raw,sel,
+        [{index:proposal.index,xml:proposal.xml}])
+      if(rewrite.changed!==1 ||
+        app.notationStructure.signature(rewrite.xml)!==app.notationStructure.signature(raw))
+        throw Error("AI rewrite native musical invariant failed")
+      var invalid=false
+      try{app.notationStructure.prepareRewrite(raw,sel,[{index:999,xml:proposal.xml}])}
+      catch(negative){invalid=true}
+      if(!invalid)throw Error("Out-of-range AI rewrite was accepted")
+      original.selection.clear()
+      log("ANS_01122_AI_REWRITE PASS: selected MusicXML roundtrip and unsafe answer rejected")
     }
     var source=app.workflowXml(),request=JSON.parse(requestFile.read())
     var job={id:"append-test",mode:3,modeName:"Fortsetzen",sourcePath:"stored",
