@@ -5342,7 +5342,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             rows.forEach(function(row) {
                 var attrs=first(row.node,'attributes');
                 if(attrs) {
-                    activeAttributes=attrs;
+                    if(row.index<=targets[0].index) activeAttributes=attrs;
                     staffCount=Math.max(staffCount,Number(text(attrs,'staves',1))||1);
                 }
                 row.events.forEach(function(e){staffCount=Math.max(staffCount,e.staff)});
