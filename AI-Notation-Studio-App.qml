@@ -5699,6 +5699,32 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         } catch (e) {statusText='Notationskorrektur nicht übernommen: '+String(e);visualReport+='\n'+statusText}
     }
 
+    // Shared by the actual provider callback and offline/native simulated replies.
+    // Do not bypass this guard when testing a KI-generated score.
+    function notationAiRewriteAccept(snapshot,response) {
+        try {
+            if (!curScore || !(curScore===snapshot.score||curScore.is(snapshot.score)) ||
+                readSelectionForChat()!==snapshot.fingerprint ||
+                notationStructureExport()!==snapshot.sourceXml)
+                throw Error('Originalpartitur oder Auswahl während des KI-Aufrufs verändert.')
+            var answer=JSON.parse(extractJsonBlock(response))
+            if (!answer || !Array.isArray(answer.measures))
+                throw Error('KI hat keine vollständige MusicXML-Korrekturfassung geliefert.')
+            var corrected=notationStructure.prepareRewrite(snapshot.sourceXml,
+                snapshot.selection,answer.measures)
+            aiRewriteSnapshot={score:snapshot.score,sourceXml:snapshot.sourceXml,
+                xml:corrected.xml,fingerprint:snapshot.fingerprint,count:corrected.changed}
+            aiRewriteReport=corrected.report+'\n\nKI-Bericht: '+
+                String(answer.report||'').slice(0,4000)+
+                '\n\nDie Korrekturfassung ist erst eine Vorschau. '+
+                'Öffne sie als eigene Partitur und prüfe die musikalische Lesbarkeit.'
+            statusText='Korrigierte KI-Partitur geprüft – '+corrected.changed+
+                ' Takte zur Vorschau bereit.'
+            return true
+        }catch(e){aiRewriteSnapshot=null;aiRewriteReport='KI-Ergebnis verworfen: '+String(e);
+            statusText='KI-Korrektur nicht übernommen.';return false}
+    }
+
     function notationAiRewriteStart() {
         if (busy) return
         aiRewriteSnapshot=null; aiRewriteReport=""
@@ -5735,26 +5761,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 busy=false
                 if (!ok) {aiRewriteReport='KI-Korrektur fehlgeschlagen: '+String(response);
                     statusText='KI-Korrektur fehlgeschlagen.';return}
-                try {
-                    if (!curScore || !(curScore===snapshot.score||curScore.is(snapshot.score)) ||
-                        readSelectionForChat()!==snapshot.fingerprint ||
-                        notationStructureExport()!==snapshot.sourceXml)
-                        throw Error('Originalpartitur oder Auswahl während des KI-Aufrufs verändert.')
-                    var answer=JSON.parse(extractJsonBlock(response))
-                    if (!answer || !Array.isArray(answer.measures))
-                        throw Error('KI hat keine vollständige MusicXML-Korrekturfassung geliefert.')
-                    var corrected=notationStructure.prepareRewrite(snapshot.sourceXml,
-                        snapshot.selection,answer.measures)
-                    aiRewriteSnapshot={score:snapshot.score,sourceXml:snapshot.sourceXml,
-                        xml:corrected.xml,fingerprint:snapshot.fingerprint,count:corrected.changed}
-                    aiRewriteReport=corrected.report+'\n\nKI-Bericht: '+
-                        String(answer.report||'').slice(0,4000)+
-                        '\n\nDie Korrekturfassung ist erst eine Vorschau. '+
-                        'Öffne sie als eigene Partitur und prüfe die musikalische Lesbarkeit.'
-                    statusText='Korrigierte KI-Partitur geprüft – '+corrected.changed+
-                        ' Takte zur Vorschau bereit.'
-                }catch(e){aiRewriteSnapshot=null;aiRewriteReport='KI-Ergebnis verworfen: '+String(e);
-                    statusText='KI-Korrektur nicht übernommen.'}
+                notationAiRewriteAccept(snapshot,response)
             },'KI-Notation neu schreiben',instruction)
         } catch(e) {aiRewriteReport='KI-Korrektur nicht gestartet: '+String(e);
             statusText=aiRewriteReport+' Kein KI-Aufruf.'}
