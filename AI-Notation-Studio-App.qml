@@ -5332,6 +5332,34 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                     row.start+row.length/row.divisions<=selection.endQuarter+1e-7;
             }).map(function(row){return {index:row.index,number:row.number};});
         }
+        function rewriteContext(xml,selection) {
+            var doc=context.parse(xml),parts=children(doc,'part'),part=parts[selection.partIndex];
+            if(!part)throw Error('Instrument in MusicXML nicht gefunden.');
+            var rows=measureRows(part), targets=rewriteTargets(xml,selection);
+            if(!targets.length || targets.length>12)
+                throw Error('Bitte 1 bis 12 vollständig markierte Takte auswählen.');
+            var staffCount=1, activeAttributes=null;
+            rows.forEach(function(row) {
+                var attrs=first(row.node,'attributes');
+                if(attrs) {
+                    activeAttributes=attrs;
+                    staffCount=Math.max(staffCount,Number(text(attrs,'staves',1))||1);
+                }
+                row.events.forEach(function(e){staffCount=Math.max(staffCount,e.staff)});
+            });
+            if(selection.staffs.length!==staffCount)
+                throw Error('Vor dem KI-Aufruf alle Systeme des Instruments markieren.');
+            for(var si=1;si<=staffCount;si++)
+                if(selection.staffs.indexOf(si)<0)
+                    throw Error('Die KI-Auswahl enthält nicht alle Systeme des Instruments.');
+            var from=Math.max(0,targets[0].index-1),
+                to=Math.min(rows.length,targets[targets.length-1].index+2);
+            var excerpts=rows.slice(from,to).map(function(row) {
+                return {index:row.index,number:row.number,xml:serialize(row.node)};
+            });
+            return {targets:targets,context:excerpts,staffs:staffCount,
+                openingAttributes:activeAttributes?serialize(activeAttributes):''};
+        }
         // The AI returns a complete MusicXML <measure> for each requested index.
         // Only the selected measure nodes are transplanted into a CLONE of the
         // original score. Score metadata and every other part remain untouched.
@@ -5427,6 +5455,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         return {repair:repair,repairRedundantClefs:repairRedundantClefs,
             repairMissingBeams:repairMissingBeams,repairSafeVisual:repairSafeVisual,
             prepareRewrite:prepareRewrite,rewriteTargets:rewriteTargets,
+            rewriteContext:rewriteContext,
             signature:function(xml){return signature(context.parse(xml))}}
     }
     
@@ -5668,11 +5697,10 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
         try {
             var selection=notationStructureSelection()
             var source=notationStructureExport()
-            var targets=notationStructure.rewriteTargets(source,selection)
-            if (!targets.length || targets.length>12)
-                throw Error('Bitte 1 bis 12 vollständige Takte auswählen.')
-            if (source.length>36000)
-                throw Error('Die Partitur ist für einen sicheren KI-Aufruf zu groß (maximal 36.000 Zeichen MusicXML).')
+            var context=notationStructure.rewriteContext(source,selection)
+            var targets=context.targets
+            if (JSON.stringify(context).length>36000)
+                throw Error('Die ausgewählte Passage ist für den KI-Aufruf zu groß (maximal 36.000 Zeichen).')
             var snapshot={score:curScore,sourceXml:source,selection:selection,
                 fingerprint:readSelectionForChat(),targets:targets}
             var instruction='Antworte ausschließlich als JSON: '+
@@ -5690,7 +5718,8 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 'Unsichere Korrekturen unterlassen. Bei Bedarf die Notation unverändert '+
                 'zurückgeben. Weitere Anweisung: '+instructionBox.text.trim()+'\n'+
                 JSON.stringify({targets:targets,partIndex:selection.partIndex,
-                    selectedStaffs:selection.staffs,sourceMusicXML:source})
+                    selectedStaffs:selection.staffs,referenceMusicXML:context.context,
+                    activeAttributes:context.openingAttributes})
             saveCurrentKey();saveCurrentModel()
             busy=true
             statusText='KI erstellt eine korrigierte MusicXML-Fassung …'
