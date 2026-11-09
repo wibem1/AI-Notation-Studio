@@ -35,6 +35,9 @@ const orig='<score-partwise><part id="P1">'+first('C')+second('D')+
   '</part><part id="P2">'+first('G')+second('A')+'</part></score-partwise>';
 const selection={partIndex:0,staffs:[1],startQuarter:4,endQuarter:8};
 assert.deepEqual(engine.rewriteTargets(orig,selection),[{index:1,number:'2'}]);
+assert.equal(engine.rewriteContext(orig,selection).targets.length,1);
+assert.throws(()=>engine.rewriteContext(orig,{partIndex:0,staffs:[1],startQuarter:3,endQuarter:8}),
+  'partial measure selection must be rejected before any AI call');
 const revised=second('D').replace('</note>','<stem>up</stem></note>');
 const good=engine.prepareRewrite(orig,selection,[{index:1,xml:revised}]);
 assert.equal(good.changed,1);
