@@ -5338,6 +5338,10 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             var rows=measureRows(part), targets=rewriteTargets(xml,selection);
             if(!targets.length || targets.length>12)
                 throw Error('Bitte 1 bis 12 vollständig markierte Takte auswählen.');
+            var beginning=rows[targets[0].index],ending=rows[targets[targets.length-1].index];
+            if(Math.abs(beginning.start-selection.startQuarter)>1e-7 ||
+               Math.abs(ending.start+ending.length/ending.divisions-selection.endQuarter)>1e-7)
+                throw Error('Bitte nur vollständige Takte markieren; die Auswahl liegt auf Taktgrenzen.');
             var staffCount=1, activeAttributes=null;
             rows.forEach(function(row) {
                 var attrs=first(row.node,'attributes');
@@ -5391,6 +5395,10 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             });
             if(!eligible.length || eligible.length>12 || proposals.length!==eligible.length)
                 throw Error('Die KI muss genau die vollständig markierten Takte zurückgeben (maximal 12).');
+            var starting=rows[eligible[0]],finishing=rows[eligible[eligible.length-1]];
+            if(Math.abs(starting.start-selection.startQuarter)>1e-7 ||
+               Math.abs(finishing.start+finishing.length/finishing.divisions-selection.endQuarter)>1e-7)
+                throw Error('Die KI darf nur vollständige Takte bearbeiten.');
             var used={};
             for(var i=0;i<proposals.length;i++) {
                 var item=proposals[i];
