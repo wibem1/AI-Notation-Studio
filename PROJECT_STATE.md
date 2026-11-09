@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Freigabe 0.11.22 – KI-MusicXML-Neunotation (09.11.2026)
+
+- **Auftrag:** Veröffentlichung auf ausdrücklichen Wunsch des Nutzers. Neues Verhalten: KI schreibt ausgewählte vollständige Takte als MusicXML neu und die validierte Korrekturfassung wird **als eigene Partitur** geöffnet. Klassische kostenlose Korrekturfunktionen bleiben bestehen.
+- **Code:** `AI-Notation-Studio-App.qml`, unveränderliche Archive `AI-Notation-Studio-App-0.11.22.qml` und `versions/AI-Notation-Studio-App-0.11.22.qml`, Versionskennung `0.11.22`. Release- und Nutzungsgrenzen in [RELEASE-0.11.22.md](RELEASE-0.11.22.md). Bereitstellung über bestehenden Updateweg nach Merge.
+- **Erfolgreiche CI:** [Notation-Regression #42576906400](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42576906400), [Fortsetzungsvertrag #42576906384](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42576906384), [nativer MuseScore-4.7.6-Test #42576906422](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42576906422) **alle SUCCESS** für die releasefähige Versionskennung. Der native Test prüft eine gültige und eine unzulässige **simulierte KI-JSON-Antwort**, die gemeinsame Produktivvalidierung und das Öffnen der geprüften MusicXML-Kopie in der echten MuseScore-Anwendung bei unverändertem Original. Der zwischenzeitliche Testfehler #42567340227 entstand durch HTTP 504 beim Herunterladen von MuseScore vor Pluginstart; Wiederholung bestand.
+- **Unverändert offen:** **Keine echte Modellantwort**, kein kostenpflichtiger KI-Aufruf und noch keine Bewertung von realen Ergebnissen mit komplexer Rhythmik, Pausen, Verzierungen oder mehreren Systemen. Die Freigabe ist insofern ein **experimenteller Praxistest**, kein Nachweis musikalisch guter KI-Neunotation. Erster Anwendercheck mit 2–4 Takten, Ergebnis in MusicXML-Kopie visuell und musikalisch kontrollieren; Diagnose bei Fehlversuchen exportieren.
+- **Nächster Schritt:** Echte KI-Antwort durch Benutzer testen und Diagnose auswerten; keine stillen Musikänderungen akzeptieren. Release-Pull-Request #15 nach dokumentierten Tests mergen.
+
+
 ## Fortsetzung 09.11.2026 – native Kopieöffnung und KI-Antwortpfad
 
 - **Konkreter Durchbruch:** Der native MuseScore-4.7.6-Workflow [#42566891516](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42566891516) ist **SUCCESS**. Nach abgeschlossener Fortsetzungs-/Importprüfung öffnet das Plugin eine validierte MusicXML-Korrektur über den echten `notationAiRewriteOpen()`-Aufruf als zweite Partitur. Log: `ANS_01122_AI_OPEN PASS`; Original-Partitur unverändert. Der erste Versuch [#42566626057](https://github.com/wibem1/AI-Notation-Studio/actions/runs/42566626057) scheiterte nur daran, dass diese zweite Partitur den früheren Importtest vorzeitig übernahm; Reihenfolge im Test danach korrigiert.
