@@ -5384,6 +5384,35 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
                 var newNumber=(/\bnumber=["']([^"']+)["']/.exec(replacement.open)||[])[1];
                 if(oldNumber!==newNumber)
                     throw Error('Die KI hat eine andere Taktnummer geliefert.');
+                // Preserve phrasing and expression markings: sounding-event
+                // equality alone is insufficient for a musical score.
+                function protectedMarks(measure) {
+                    var keep=[];
+                    children(measure).forEach(function(element) {
+                        if(['direction','harmony','figured-bass','barline','sound','print'].indexOf(element.name)>=0)
+                            keep.push(serialize(element).replace(/\s+/g,''));
+                        if(element.name==='note') {
+                            ['lyric','grace','notations'].forEach(function(tag) {
+                                children(element,tag).forEach(function(mark) {
+                                    if(tag==='notations')children(mark).forEach(function(x) {
+                                        if(x.name!=='tied')keep.push(tag+':'+serialize(x).replace(/\s+/g,''));
+                                    });
+                                    else keep.push(tag+':'+serialize(mark).replace(/\s+/g,''));
+                                });
+                            });
+                        }
+                        if(element.name==='attributes') {
+                            ['divisions','key','time','transpose'].forEach(function(tag) {
+                                children(element,tag).forEach(function(mark){
+                                    keep.push(tag+':'+serialize(mark).replace(/\s+/g,''));
+                                });
+                            });
+                        }
+                    });
+                    return keep.sort().join('|');
+                }
+                if(protectedMarks(old)!==protectedMarks(replacement))
+                    throw Error('KI hat musikalische Ausdruckszeichen, Taktart oder Tonart verändert.');
                 var position=part.children.indexOf(old);
                 if(position<0)throw Error('Taktposition verloren.');
                 part.children[position]=replacement;
@@ -5647,8 +5676,7 @@ return createWorkflowCore({"version": "1.0.0", "format": "Composition-Workflow-1
             var snapshot={score:curScore,sourceXml:source,selection:selection,
                 fingerprint:readSelectionForChat(),targets:targets}
             var instruction='Antworte ausschließlich als JSON: '+
-                '{"report":"kurzer Bericht auf Deutsch",'+
-                '"measures":[{"index":0,"xml":"<measure number=\\"1\\">...</measure>"}]}. '+
+                '{"report":"kurzer Bericht auf Deutsch","measures":[]}. '+
                 'Alle angeforderten Takte genau einmal, mit 0-basiertem index und '+
                 'vollständigem MusicXML-Takt als xml-String. Keine Markdown-Codeblöcke.'
             var prompt='Du bist ein professioneller Notensetzer. Notiere die folgenden '+
