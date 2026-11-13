@@ -6,3 +6,4 @@
 4. Keine neuen Releases ohne tatsächliche Integrationstests; keine unnötigen Builds, kostenpflichtigen APIs oder Retry-Schleifen.
 5. Bei jeder Änderung eine neue App-Versionsnummer vergeben und über den bestehenden Updateweg auf `main` bereitstellen. Bereits veröffentlichte versionierte App-Dateien unverändert erhalten. Benutzeranweisung vom 24.10.2026.
 
+6. Bei Aufgaben zu **illustrierten Partituren** vor Arbeitsbeginn zusätzlich [ILLUSTRATED-SCORES-WORKFLOW.md](ILLUSTRATED-SCORES-WORKFLOW.md) vollständig lesen. Neue Szenen starten auf einer **neuen Seite**; zugehöriges Bild steht **oben und möglichst horizontal zentriert**, die Noten darunter. Visuelle Prüfung im echten MuseScore-PDF ist verpflichtend.
