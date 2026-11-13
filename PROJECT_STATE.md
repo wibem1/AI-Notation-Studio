@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Dokumentierter Workflow illustrierter Partituren (13.11.2026)
+
+- **Gesichert:** [ILLUSTRATED-SCORES-WORKFLOW.md](ILLUSTRATED-SCORES-WORKFLOW.md) enthält den vollständigen reproduzierbaren Ablauf für Szenen-Erkennung, Bilderstellung, MD4-basierte MSCZ-Einbettung, Seitenumbrüche, nativen MuseScore-PDF-Test und musikalische Integritätsprüfung.
+- **Verbindlicher Gestaltungswunsch:** Jede neue Szene beginnt auf einer neuen Seite; die Illustration steht oben und möglichst horizontal zentriert; Noten folgen darunter. Längere Szenen dürfen sich auf weiteren Seiten fortsetzen.
+- **Übergabe:** `AGENTS.md` verweist ausdrücklich auf die Workflow-Anweisung. Beim nächsten illustrierten Werk sind die Datei und der aktuelle Projektstand zuerst zu lesen.
+- **Grenze:** Automatische Seitenumbrüche und zuverlässige horizontale Zentrierung sind im eingecheckten generischen `illustrate_mscz.py` noch nicht implementiert; bisherige Layoutarbeit an Schneewittchen erfolgte außerhalb der generischen CLI. Eine automatische End-to-End-Erstellung für beliebige Partituren ist daher noch nicht bestätigt.
+- **Nächster Entwicklungsschritt:** Seitenumbruch-/Zentrierungsautomatik ergänzen und auf einer Testpartitur mit echter MuseScore-PDF-Darstellung und Notenvergleich nachweisen. Keine Änderung der Live-App.
+
+
 ## Experiment: illustrierte MSCZ-Dateien (13.11.2026)
 
 - **Ziel:** Schneewittchen, originale 64 Takte, fünf Bild-VBoxen bei Takten 1, 13, 25, 41, 53 in nativer MSCZ. Bearbeitung isoliert auf Branch `experiment/illustrated-mscz-20261113`, Draft PR #16, keine Änderung an Live-App 0.11.22.
