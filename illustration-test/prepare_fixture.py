@@ -16,8 +16,8 @@ musicxml='''<?xml version="1.0" encoding="utf-8"?>
 <note default-x="79.26" default-y="-20"><pitch><step>B</step><octave>4</octave></pitch><duration>40320</duration><type>whole</type></note></measure></part></score-partwise>'''
 (root/'fixture.musicxml').write_text(musicxml,encoding='utf-8')
 # Generate a red 16x16 PNG with standard-library-only zlib.
-raw=b''.join(b'\\x00'+bytes([210,30,60])*16 for _ in range(16))
+raw=b''.join(bytes([0])+bytes([210,30,60])*16 for _ in range(16))
 def chunk(t,data):return struct.pack('>I',len(data))+t+data+struct.pack('>I',zlib.crc32(t+data)&0xffffffff)
-png=b'\\x89PNG\\r\\n\\x1a\\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',16,16,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b'')
+png=bytes.fromhex('89504e470d0a1a0a')+chunk(b'IHDR',struct.pack('>IIBBBBB',16,16,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b'')
 (root/'fixture.png').write_bytes(png)
 print('fixture ready')
