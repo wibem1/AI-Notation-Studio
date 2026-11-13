@@ -1,5 +1,9 @@
-name: Illustrated MSCZ feasibility (manual)
+name: Illustrated MSCZ feasibility
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/illustrated-mscz-feasibility.yml'
+      - 'illustration-test/**'
   workflow_dispatch:
 
 permissions:
@@ -14,7 +18,7 @@ jobs:
       - name: Install rendering runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2 xvfb jq unzip
+          sudo apt-get install -y libfuse2t64 xvfb jq unzip
       - name: Install MuseScore Studio AppImage
         shell: bash
         run: |
