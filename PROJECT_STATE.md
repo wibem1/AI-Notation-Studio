@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Experiment: illustrierte MSCZ-Dateien (13.11.2026)
+
+- **Auftrag:** Schneewittchen-Partitur (MusicXML) mit fünf bereits erzeugten Szenenbildern als native MuseScore-Datei, automatisiert via GitHub Actions, einschließlich PDF-Sichtprüfung.
+- **Separater Branch:** `experiment/illustrated-mscz-20261113`. Die Live-App 0.11.22 bleibt unverändert.
+- **Implementiert (noch nicht ausgeführt):** manueller GitHub-Actions-Smoke-Test `.github/workflows/illustrated-mscz-feasibility.yml` für MuseScore 4.7.6 AppImage, minimale MusicXML-Probe, MSCZ/PDF-Export und Containervalidierung. Die Probe erzeugt außerdem eine gültige PNG-Datei, **fügt diese aber noch nicht in die Notation ein**.
+- **Nicht nachgewiesen:** Workflow-Lauf, AppImage-Download, Bildplatzierung, Anzeige im MuseScore-Renderer, Erhalt der Schneewittchen-Notendaten, fertige MSCZ-Datei. Keines davon als erledigt betrachten.
+- **Nächster einzelner Schritt:** Smoke-Test in GitHub Actions ausführen und aus Logs/Artefakten beurteilen. Erst danach den gezielten Bild-Einfügeweg auf einem synthetischen MSCZ-Muster implementieren und im echten MuseScore rendern, danach an der Schneewittchen-Datei testen.
+
+
 ## Live 0.11.22 – KI-Neunotation veröffentlicht (09.11.2026)
 
 - **GitHub-Freigabe bestätigt:** [PR #15](https://github.com/wibem1/AI-Notation-Studio/pull/15) nach `main` gemergt, Merge-Commit `bfe4664b3392dc1d9adf87107455aea0bea7e3fe`. Die Live-App `AI-Notation-Studio-App.qml` und beide unveränderlichen 0.11.22-Archivdateien sind blob-identisch (`7f12f12dcbcee3474bee866885471e4a062de53c`). Update über den bestehenden Updateweg.
