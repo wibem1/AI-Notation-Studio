@@ -1,0 +1,32 @@
+name: MuseScore runtime for local validation
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/musescore-runtime-export.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download MuseScore 4.7.6 AppImage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,urllib.request
+          req=urllib.request.Request("https://api.github.com/repos/musescore/MuseScore/releases/tags/v4.7.6",headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"User-Agent":"AI-Notation-Studio-CI"})
+          d=json.load(urllib.request.urlopen(req))
+          a=[x for x in d["assets"] if x["name"].endswith(".AppImage") and ("x86_64" in x["name"] or "x64" in x["name"])]
+          assert len(a)==1,[x["name"] for x in a]
+          urllib.request.urlretrieve(a[0]["browser_download_url"],"MuseScore-4.7.6.AppImage")
+          print("MuseScore AppImage bytes:",os.stat("MuseScore-4.7.6.AppImage").st_size)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: musescore-runtime-4.7.6-linux
+          path: MuseScore-4.7.6.AppImage
+          retention-days: 1
