@@ -107,10 +107,10 @@ for number, order in {1:(1,0,2),6:(0,1,2,3),20:(3,0,1,2)}.items():
 
 box(1, 15)
 text_box(1, 16, '<font size="24"/><b>Harmonie der nördlichen Flora</b><br/>'
-         '<font size="13"/>Klavierstück nach einem Gemälde von Paul Klee', align='center,top', offset_x=12.4)
+         '<font size="13"/>Klavierstück nach einem Gemälde von Paul Klee', align='center,top', offset_x=17.4)
 image_box_at(1, picture, 160, round(160 * 786 / 1260, 3))
 caption = text_box(1, 11, '<font size="11"/><i>Paul Klee · Harmonie der nördlichen Flora · 1927</i>',
-                   align='center,top')
+                   align='center,top', offset_x=52.7)
 child(child(caption, 'LayoutBreak'), 'subtype', 'page')
 
 # The detail views are crops of the embedded painting, keyed to the text.
@@ -142,12 +142,11 @@ sections = [
 for index, (start, end, title, crop, thought) in enumerate(sections, 1):
     if start > 1:
         break_after(start - 1, 'page')
-    detail(start, crop, {1:138,6:122,17:116,20:96,25:138}[start])
+    detail(start, crop, {1:138,6:106,17:116,20:96,25:138}[start])
     heading = f'<font size="10"/>TAKTE {start}–{end}<br/><font size="19"/><b>{index}. {escape(title)}</b>'
     text_box(start, 7, heading)
     thought_lines = textwrap.wrap(thought, width=89)
-    text_box(start, 2.85 * len(thought_lines) + 1,
-             '<i>' + '<br/>'.join(map(escape, thought_lines)) + '</i>')
+    thought_markup = '<i>' + '<br/>'.join(map(escape, thought_lines)) + '</i>'
     rows = []
     line_count = 0
     for number in range(start, end + 1):
@@ -162,7 +161,8 @@ for index, (start, end, title, crop, thought) in enumerate(sections, 1):
                 markup = '<i>' + markup + '</i>'
             rows.append(markup)
             line_count += len(lines)
-    text_box(start, 2.65 * line_count + 1.4, '<br/>'.join(rows))
+    text_box(start, 2.65 * (line_count + len(thought_lines) + 1) + 1.4,
+             thought_markup + '<br/><br/>' + '<br/>'.join(rows))
 
 for number in (9, 12, 22, 28):
     break_after(number, 'line')
