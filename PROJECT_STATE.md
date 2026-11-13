@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Schneewittchen-Märchenbuch-Variante, 7 Musikthemen / 8 Bildmotive (13.11.2026)
+
+- **Konkret erzeugtes Nutzerartefakt (lokal, nicht in GitHub hochgeladen):** `Schneewittchen_7_Szenen_Maerchenbuch.mscz` sowie `Schneewittchen_7_Szenen_Maerchenbuch_Kontrolle.pdf`. Quelle: unveränderte originale `Schneewittchen.mscz` mit 78 Takten; Illustrationsausschnitte aus der vom Benutzer bestätigten grafischen Märchenbuch-Vorlage.
+- **Aufteilung:** Sieben musikalische Szenen beginnen in Takt 1, 13, 21, 33, 39, 55, 67. Acht Bilder stehen vor den Takten 1, 13, 21, 33, 39, 52 (Apfel **innerhalb** der Zwergenszene), 55 (Glassarg), 67 (Erwachen). Zusätzlicher Seitenwechsel nach Takt 51 zur korrekten Positionierung des Apfelbildes.
+- **Prüfung:** echte MuseScore-4.7.6-Linux-Anwendung öffnet und exportiert die MSCZ erfolgreich zu acht PDF-Seiten. ZIP-Integritätsprüfung erfolgreich, acht `Pictures/`-Dateien, 78 Takte im ersten System, 1.082 `Note`-Einträge. Strikter kanonisierter MSCX-Vergleich nach Entfernen ausschließlich der ergänzten Bildrahmen und sämtlicher LayoutBreaks bestätigt unveränderte übrige Notenstruktur.
+- **Einschränkung:** Die hochwertige grafische Vorlage war eine KI-generierte **nicht spielbare** Beispielillustration. Die daraus übernommenen Szenenausschnitte sind entsprechend der Quellauflösung begrenzt; Skalierung erzeugt keine zusätzlichen Bilddetails. In der echten MSCZ bleiben Szenenüberschriften und Noten editierbar, aber kein völlig freier seitlicher Text-Bild-Satz wie in der Musterillustration. Online-Anzeige auf MuseScore.com noch ungetestet. Keine Änderung oder Veröffentlichung der Live-App.
+- **Übernahmefähigkeit:** Der konkrete Kompositions-/Crop-Code liegt derzeit lokal in `/mnt/data/make_snowwhite_book.py` und ist nicht als allgemeines Werkzeug auf GitHub gesichert. Die wiederverwendbare technische Bildintegration bleibt im Branch; zur Automatisierung des freien Szenenlayouts sind weitere native Tests erforderlich.
+
+
 ## Dokumentierter Workflow illustrierter Partituren (13.11.2026)
 
 - **Gesichert:** [ILLUSTRATED-SCORES-WORKFLOW.md](ILLUSTRATED-SCORES-WORKFLOW.md) enthält den vollständigen reproduzierbaren Ablauf für Szenen-Erkennung, Bilderstellung, MD4-basierte MSCZ-Einbettung, Seitenumbrüche, nativen MuseScore-PDF-Test und musikalische Integritätsprüfung.
