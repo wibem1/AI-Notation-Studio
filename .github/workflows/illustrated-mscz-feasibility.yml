@@ -1,0 +1,50 @@
+name: Illustrated MSCZ feasibility (manual)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-image-smoke-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rendering runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 xvfb jq unzip
+      - name: Install MuseScore Studio AppImage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, urllib.request
+          data=json.load(urllib.request.urlopen("https://api.github.com/repos/musescore/MuseScore/releases/tags/v4.7.6"))
+          matches=[a for a in data['assets'] if a['name'].endswith('.AppImage') and ('x86_64' in a['name'] or 'x64' in a['name'])]
+          if len(matches)!=1:
+              raise SystemExit(f"Expected one Linux MuseScore x86_64 AppImage, got {[a['name'] for a in matches]}")
+          urllib.request.urlretrieve(matches[0]['browser_download_url'], '/tmp/musescore.AppImage')
+          PY
+          chmod +x /tmp/musescore.AppImage
+      - name: Generate a minimal test score and illustration
+        run: python3 illustration-test/prepare_fixture.py
+      - name: Import original score and export MSCZ/PDF
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          xvfb-run -a /tmp/musescore.AppImage -o illustration-test/out/baseline.mscz illustration-test/out/fixture.musicxml
+          xvfb-run -a /tmp/musescore.AppImage -o illustration-test/out/baseline.pdf illustration-test/out/baseline.mscz
+          test -s illustration-test/out/baseline.mscz
+          test -s illustration-test/out/baseline.pdf
+      - name: Validate native baseline without claiming image support
+        run: python3 illustration-test/validate_baseline.py illustration-test/out/baseline.mscz
+      - name: Preserve proof artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musescore-native-baseline
+          path: illustration-test/out/
+          if-no-files-found: warn
