@@ -87,12 +87,13 @@ def text_box(before, height, markup, size=11, align='left,top', offset_x=0):
     return frame
 
 def image_box_at(before, path, width_mm, height_mm):
-    frame = box(before, round(height_mm / 1.7 + 2.3, 3))
+    frame = box(before, round(height_mm / 1.7 + 1.2, 3))
     im = child(frame, 'Image')
     child(im, 'autoplace', 0)
     child(im, 'offset', x=str((180 - width_mm) / 3.4), y='0')
     child(im, 'path', path)
     child(im, 'size', w=str(width_mm / 1.7), h=str(height_mm / 1.7))
+    return frame
 
 def break_after(number, kind):
     child(child(measures[number - 1], 'LayoutBreak'), 'subtype', kind)
@@ -104,10 +105,13 @@ def format_comment(number, value):
 for number, order in {1:(1,0,2),6:(0,1,2,3),20:(3,0,1,2)}.items():
     comments[number] = [comments[number][i] for i in order]
 
-text_box(1, 13, '<font size="24"/><b>Harmonie der nördlichen Flora</b><br/>'
-         '<font size="13"/>Klavierstück nach dem Gemälde von Paul Klee (1927)<br/>'
-         '<font size="10"/>Klavierstudie zu Paul Klee', align='center,top', offset_x=12.4)
-image_box_at(1, picture, 138, round(138 * 786 / 1260, 3))
+box(1, 15)
+text_box(1, 16, '<font size="24"/><b>Harmonie der nördlichen Flora</b><br/>'
+         '<font size="13"/>Klavierstück nach einem Gemälde von Paul Klee', align='center,top', offset_x=12.4)
+image_box_at(1, picture, 160, round(160 * 786 / 1260, 3))
+caption = text_box(1, 11, '<font size="11"/><i>Paul Klee · Harmonie der nördlichen Flora · 1927</i>',
+                   align='center,top')
+child(child(caption, 'LayoutBreak'), 'subtype', 'page')
 
 # The detail views are crops of the embedded painting, keyed to the text.
 painting = Image.open(BytesIO(files['Pictures/' + picture]))
@@ -124,18 +128,26 @@ def detail(before, bounds, width):
     image_box_at(before, path, width, round(width * crop.height / crop.width, 3))
 
 sections = [
-    (1, 5, 'Obere Farbflächen', None),
-    (6, 16, 'Vom Großraster zur Bildmitte', (0.04,0.23,0.96,0.58)),
-    (17, 19, 'Das Mosaik im oberen Zentrum', (0.43,0.23,0.73,0.43)),
-    (20, 24, 'Das weiße Zentrum und der Blick nach unten', (0.43,0.42,0.77,0.76)),
-    (25, 32, 'Die untere Bildkante', (0.005,0.72,0.995,0.995)),
+    (1, 5, 'Vom linken Rand zur oberen Bildreihe', (0.005,0.005,0.995,0.24),
+     'Mein Blick hält sich erst am dunklen Rand fest. Dann wandert er über Rot und Blau zum Gelb.'),
+    (6, 16, 'Vom Großraster zur Bildmitte', (0.04,0.23,0.96,0.58),
+     'Ich folge den schwarzen Linien. Je näher ich der Mitte komme, desto häufiger teilen sie die Farbflächen.'),
+    (17, 19, 'Das Mosaik im oberen Zentrum', (0.43,0.23,0.73,0.43),
+     'Jetzt springt mein Blick von Zelle zu Zelle. Die Farben flirren.'),
+    (20, 24, 'Das weiße Zentrum und der Blick nach unten', (0.43,0.42,0.77,0.76),
+     'Am weißen Feld halte ich inne. Von dort zieht das Grün meinen Blick weiter nach unten.'),
+    (25, 32, 'Die untere Bildkante', (0.005,0.72,0.995,0.995),
+     'Unten werden die Felder wieder groß. Am rechten Rand kehrt die Ruhe des Anfangs zurück.'),
 ]
-for index, (start, end, title, crop) in enumerate(sections, 1):
-    if crop:
+for index, (start, end, title, crop, thought) in enumerate(sections, 1):
+    if start > 1:
         break_after(start - 1, 'page')
-        detail(start, crop, {6:122,17:130,20:100,25:138}[start])
+    detail(start, crop, {1:138,6:122,17:116,20:96,25:138}[start])
     heading = f'<font size="10"/>TAKTE {start}–{end}<br/><font size="19"/><b>{index}. {escape(title)}</b>'
     text_box(start, 7, heading)
+    thought_lines = textwrap.wrap(thought, width=89)
+    text_box(start, 2.85 * len(thought_lines) + 1,
+             '<i>' + '<br/>'.join(map(escape, thought_lines)) + '</i>')
     rows = []
     line_count = 0
     for number in range(start, end + 1):
@@ -150,7 +162,7 @@ for index, (start, end, title, crop) in enumerate(sections, 1):
                 markup = '<i>' + markup + '</i>'
             rows.append(markup)
             line_count += len(lines)
-    text_box(start, 2.85 * line_count + 1.8, '<br/>'.join(rows))
+    text_box(start, 2.65 * line_count + 1.4, '<br/>'.join(rows))
 
 for number in (9, 12, 22, 28):
     break_after(number, 'line')
