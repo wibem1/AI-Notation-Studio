@@ -1,5 +1,16 @@
 # Projektstand – AI Notation Studio
 
+## Durchbruch: echtes Bild links neben eingerücktem Klaviersystem (13.11.2026)
+
+- **Neue, native Methode:** MuseScore 4.7.6 verwendet bei `enableIndentationOnFirstSystem=1` und erhöhtem `firstSystemIndentationValue` (Test: `37` Spatien in `score_style.mss`) einen tatsächlich nach rechts eingerückten **ersten** Notensatz; die folgenden Notensysteme bleiben vollbreit. Quellbeleg: `musescore/MuseScore`, Tag `v4.7.6`, `src/engraving/rendering/score/systemlayout.cpp`, Berechnung von `system->setLeftMargin(...)` unter `firstSystemIndent`.
+- **Bildintegration:** Ein `Image` als Element in der ersten `<Measure><voice>` mit korrekt eingebetteter MD4-`Pictures/`-Datei und negativem relativem `offset x=-40,y=-6` steht **sichtbar links neben genau diesem Notensystem**; nicht in einer zusätzlichen VBox-/HBox-Zeile. Im Szenentest ist ein Bild der Königin am Schlossfenster verwendet.
+- **Echte Prüfung:** Lokale AppImage-Extraktion `/mnt/data/ms_runtime/squashfs-root/AppRun`, `QT_QPA_PLATFORM=offscreen xvfb-run -a ... -o ...pdf ...mscz` erfolgreich. PDF-Seite 1 manuell angesehen: Bild befindet sich innerhalb des Seitenrands links neben dem ersten, eingerückten Klaviersystem. Nachfolgendes System erstreckt sich über gesamte Textbreite. Zuvor ausprobierter Offset -65 war zu weit links und schnitt das Bild ab; -40 funktioniert.
+- **Notenschutz:** MSCX-Statistik vor/nach dem Experiment unverändert: 78 Takte, 1.082 `Note`, 743 `Chord`, 17 `Rest`. Die **angezeigte** lange Szenenüberschrift wurde als Demonstration zu `I. Schnee, Blut und Ebenholz` verkürzt, um Überhang zu vermeiden; restliche musikalische Notation unverändert.
+- **Artefakte:** Lokale `Schneewittchen_Neben_Noten_Musterseite.mscz`, `Schneewittchen_Neben_Noten_Musterseite.pdf`, `Schneewittchen_Neben_Noten_Musterseite_Ansicht.png` und Einzelseiten-PDF. Im Chat zum Download bereitgestellt, nicht im Repo eingecheckt.
+- **Wichtige Einschränkung:** Der Versuch weist **nur die Geometrie des allerersten Systems** nach. Für beliebige spätere Szenen müssen echte SectionBreaks mit erstem System-Einzug und Positionierung des Bildes zuverlässig kontrolliert werden; der erste SectionBreak-Versuch lieferte kein belastbares Ergebnis. Ebenso muss die robuste systemübergreifende Text-/Bildpositionierung und MuseScore.com-Anzeige noch getestet werden. Keine pauschale Aussage über vollständige frei gestaltete Seiten. Live-App unverändert.
+- **Nächster gezielter Schritt:** Den erfolgreichen Mechanismus in eine isolierte Python-Test-CLI übertragen und an einer **späteren** Szene mit SectionBreak verifizieren, bevor er auf alle Szenen angewendet wird.
+
+
 ## Native MuseScore-Musterseite: HBox-Bild neben Titel, nicht neben Noten (13.11.2026)
 
 - **Auftrag:** Auf realer Schneewittchen-Langfassung (78 Takte, 1.082 Noteneinträge) gestalterisch testen, ob eine Illustration links und echte spielbare Noten rechts auf gleicher Höhe erscheinen können.
