@@ -1,19 +1,18 @@
 # Harmonie der nördlichen Flora
 
-Die Klavierpartitur folgt der Blickwanderung durch Paul Klees Gemälde von 1927. Auf der Titelseite steht die vollständige Reproduktion aus der Originalpartitur. Danach zeigen vier zentrierte Ausschnitte die jeweils besprochene Bildzone. Jeder musikalische Abschnitt beginnt auf einer neuen Seite.
+Das Titelblatt zeigt das vollständige Gemälde von Paul Klee mit Titel und Bildunterschrift. Die Musik beginnt auf der folgenden Seite. Jeder der fünf Abschnitte führt mit einem Ausschnitt und einem neu geschriebenen Gedanken aus der Sicht des Betrachters in die jeweilige Bildzone. Danach folgen die Originalkommentare mit ihren Taktangaben und der Notensatz.
 
-| Seite | Takte | Bildbereich |
+| Seite | Takte | Blickbewegung |
 | --- | --- | --- |
-| 1 | 1–5 | Vollbild und obere Farbflächen, vom linken Außenrahmen über die obere Bildreihe nach rechts |
-| 2 | 6–16 | Zweite Farbzeile und Übergang vom großen Raster zu den feineren Feldern der Bildmitte |
-| 3 | 17–19 | Die kleinen Farbzellen im oberen Zentrum |
-| 4 | 20–24 | Weißes Rechteck, angrenzendes Schattenfeld und Öffnung nach unten |
-| 5 | 25–32 | Untere Farbfelder, Klees Signatur und der rechte Außenrahmen |
+| 1 | | Das vollständige Gemälde |
+| 2 | 1–5 | Vom linken Außenrahmen über die obere Bildreihe |
+| 3 | 6–16 | Den Rasterlinien folgend in die Bildmitte |
+| 4 | 17–19 | Von Zelle zu Zelle im oberen Mosaik |
+| 5 | 20–24 | Am weißen Feld innehalten und dem Grün nach unten folgen |
+| 6 | 25–32 | Über die unteren Farbflächen bis zu Klees Signatur und zum rechten Rand |
 
-Alle 22 ursprünglichen Bildkommentare stehen mit ihrer ursprünglichen Taktzuordnung in bearbeitbaren Textbereichen über dem jeweiligen Notenabschnitt. Drei zusätzliche Bildbeschreibungen aus den Tempoangaben stehen ebenfalls dort. „Andante con moto, luminoso“, „ritardando“ und „morendo“ stehen an ihren ursprünglichen Stellen im Notentext. Ihre Tempowerte sind unverändert.
+Der Strukturvergleich mit der Originalpartitur bestätigt 32 Takte und 535 Noten mit unveränderter musikalischer Struktur. Alle 22 ursprünglichen Bildkommentare sind vollständig und ihren ursprünglichen Takten zugeordnet. Bei den drei kombinierten Tempo- und Bildtexten steht der beschreibende Teil im Kommentarbereich. Die musikalischen Anweisungen und Tempowerte bleiben an ihren ursprünglichen Stellen.
 
-Die ursprünglichen 32 Takte und 535 Noten wurden durch einen Strukturvergleich mit dem Original geprüft. Abgesehen von Rahmen, Umbrüchen, den versetzten Bildkommentaren und der Aufteilung der drei kombinierten Tempo- und Bildtexte stimmt der Inhalt der MSCX überein. Der Vergleich erfasst damit unter anderem Tonhöhen, Dauern, Stimmen, Dynamik, Artikulation und Pedal.
+Das PDF wurde mit MuseScore Studio 4.7.6 auf GitHub erzeugt. Die Kontrollbilder aller sechs Seiten wurden einzeln geprüft, einschließlich Titelblatt, Textumbruch, Bildrändern, Abständen und Überlappungen. Nach dem ersten Export wurde der Abschnitt Takt 6–16 auf einer Seite zusammengeführt.
 
-MuseScore Studio 4.7.6 hat das PDF auf einem GitHub-Runner erzeugt. Aus allen fünf Seiten wurden Kontrollbilder mit 140 dpi gerendert und einzeln auf Lesbarkeit, Abstände, Bildpositionen, Kollisionen und Seitenumbrüche geprüft. Nach der ersten Prüfung wurden Bildmaß und Textumbruch korrigiert. Im nächsten Durchlauf wurde der Titel zentriert und der erste Abschnitt auf einer Seite zusammengeführt.
-
-[GitHub-Actions-Lauf mit PDF und Kontrollbildern](https://github.com/wibem1/AI-Notation-Studio/actions/runs/43471010739)
+[GitHub-Actions-Lauf mit PDF und Kontrollbildern](https://github.com/wibem1/AI-Notation-Studio/actions/runs/43472573954)

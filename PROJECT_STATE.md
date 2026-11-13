@@ -2,9 +2,9 @@
 
 ## Paul Klee – Harmonie der nördlichen Flora (13.11.2026)
 
-- Der Branch `experiment/klee-layout-20261113` enthält die unveränderte Original-MSCZ und das reproduzierbare Layoutskript. Das Skript setzt fünf Seiten mit dem Vollbild und vier Detailausschnitten aus dem eingebetteten Original.
-- Die Musikprüfung bestätigt 32 Takte und 535 Noten. Die 22 Bildkommentare und die Bildbeschreibungen aus drei Tempoobjekten sind vollständig und nach ursprünglichem Takt zugeordnet. Die drei Tempoangaben und Tempowerte verbleiben im Notentext.
-- [MuseScore Studio 4.7.6: abschließender Runner-Export](https://github.com/wibem1/AI-Notation-Studio/actions/runs/43471010739). Alle fünf A4-Seiten wurden anhand der gerenderten Kontrollbilder einzeln geprüft. Die bearbeitbare MSCZ und das PDF liegen als Actions-Artefakt vor. Die Darstellung auf MuseScore.com wurde noch nicht geprüft. [Gestaltung und Sichtprüfung](score-layout/klee/Gestaltung_und_Sichtpruefung.md).
+- Sechs A4-Seiten mit notenfreiem Titelblatt, vollständigem Gemälde und fünf musikalischen Abschnitten mit Bildausschnitten, Betrachtergedanken und den 22 Originalkommentaren.
+- Strukturvergleich mit dem Original bestätigt 32 Takte und 535 Noten. Tempoanweisungen und Tempowerte stehen an ihren ursprünglichen Stellen.
+- [Runner-Export mit MuseScore Studio 4.7.6](https://github.com/wibem1/AI-Notation-Studio/actions/runs/43472573954). Alle sechs Seiten einzeln optisch geprüft. [Gestaltung und Sichtprüfung](score-layout/klee/Gestaltung_und_Sichtpruefung.md).
 
 ## Schneewittchen-Märchenbuch-Variante, 7 Musikthemen / 8 Bildmotive (13.11.2026)
 
