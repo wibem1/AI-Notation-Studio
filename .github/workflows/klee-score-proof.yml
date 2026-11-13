@@ -17,6 +17,11 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Build engraved edition from the original
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pil
+          python3 score-layout/klee/layout.py score-layout/klee/Paul_Klee_Harmonie_der_noerdlichen_Flora.mscz score-layout/klee/working.mscz
       - name: Check input
         id: input
         shell: bash
@@ -89,6 +94,7 @@ jobs:
           set -euo pipefail
           xvfb-run -a /tmp/musescore.AppImage -o score-layout/klee/out/klee-score.pdf "$SCORE"
           test -s score-layout/klee/out/klee-score.pdf
+          cp "$SCORE" score-layout/klee/out/Harmonie_der_noerdlichen_Flora.mscz
           pdfinfo score-layout/klee/out/klee-score.pdf | grep -E 'Pages:|Page size:'
           pdftoppm -r 140 -png score-layout/klee/out/klee-score.pdf score-layout/klee/out/page
           ls -lh score-layout/klee/out
