@@ -1,5 +1,15 @@
 # Projektstand – AI Notation Studio
 
+## Bilddominanter Seitenkopf mit echter MuseScore-Notation (13.11.2026)
+
+- **Vom Benutzer bestätigte Gestaltungsrichtung:** Große, führende Märchenillustration links; rechts kleinere goldfarbene Szenennummer, dunkelblauer kursiver EB-Garamond-Titel und grau-kursives Märchenzitat. Normale Klaviernoten **unterhalb**, nicht neben dem Bild. Der vorherige HBox-Test hatte ein zu kleines Bild.
+- **Realer verbesserter Prototyp:** `Schneewittchen_Bilddominante_Musterseite.mscz`, `Schneewittchen_Bilddominante_Musterseite_Einzelseite.pdf` und PNG-Kontrollansicht lokal im Chat bereitgestellt. Ausgangspunkt: frühere typografische MSCZ-Musterseite auf Basis der originalen 78-Takt-Langfassung. Die Szene II liegt auf PDF-Seite 2. Die anderen Szenen wurden **nicht** neu gesetzt.
+- **Technischer Schlüssel:** Eine `VBox` (anstelle `HBox`) mit festgelegter Höhe von 50 Spatien, darin eine große `Image` (`autoScale=1`) und drei echte, gesondert positionierte `Text`-Elemente. Das PNG ist eine **1600×650 transparente Montage**: links ein 940×650-Pixel-Ausschnitt des hochauflösenden Originalillustrationsbilds, rechts ausschließlich transparente Fläche als Freiraum für die separat bearbeitbaren nativen Textelemente. Dadurch skaliert MuseScore den gesamten Bild-Container groß, die Illustration bleibt auf der linken Hälfte, der rechte Textbereich wird nicht überdeckt. Bild MD4-gehasht und in `Pictures/` + Manifest eingebettet. Die Textpositionen wurden vertikal an die Bildmitte angepasst.
+- **Prüfung:** MuseScore Studio 4.7.6 real via Linux-AppImage: MSCZ → PDF erfolgreich (5 Seiten), Seite 2 als PNG visuell geprüft: große Illustration links, klar lesbare native Typografie rechts, volle Notenbreite darunter. 78 Takte im ersten Klaviersystem, 1.082 `Note`, 743 `Chord`, 17 `Rest` unverändert gegenüber der vorherigen Musterseite. Darstellung auf MuseScore.com und Komponisten-/Textdetails der übrigen Szenen nicht geprüft.
+- **Grenze:** Dies ist noch **keine vollständige Umgestaltung aller sieben Szenen**. Die Bilder benötigen je eine transparente Montage; eine allgemein parametrisierte Konverterlösung ist noch nicht erstellt oder über CI getestet. Der Ansatz bewahrt getrennte editierbare MuseScore-Texte, aber die freie Bild-/Textanordnung beruht auf sorgfältiger Rahmengröße und Montage. Keine Live-App-Version geändert.
+- **Nächster Schritt:** Nach Nutzerfeedback Verfahren auf alle Szenen übertragen, Bilder einzeln mit transparentem rechten Bereich vorbereiten, echte Szenenübergänge/Seitenumbrüche prüfen, musikalische Integrität sichern und MuseScore.com-Seitenansicht nach Upload testen.
+
+
 ## Typografische Musterseite Bild links / Text rechts (13.11.2026)
 
 - **Nutzerziel:** Szenenillustration und mehrstufige typografische Gestaltung unmittelbar **nebeneinander**, normale vollbreite spielbare Noten darunter. Das zuvor getestete Einrücken der Notensysteme wurde vom Nutzer ausdrücklich verworfen.
