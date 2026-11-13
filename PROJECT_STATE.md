@@ -1,5 +1,15 @@
 # Projektstand – AI Notation Studio
 
+## Schneewittchen: komplette bilddominante Märchenbuchausgabe (13.11.2026)
+
+- **Auftrag vollständig als Einzelwerk lokal ausgeführt:** Original `Schneewittchen.mscz` (78 Takte, 1.082 Noten) mit sieben musikalischen Szenen und acht Bildmotiven. Gegenüber der großen Musterseite Illustrationen etwas verkleinert, transparent weich auslaufend; Bild links, native EB-Garamond-Texte rechts, Noten mit voller Breite darunter. Szenen starten bei 1, 13, 21, 33, 39, 55, 67; Apfel-Zwischenspiel beginnt bei Takt 52 innerhalb der Zwergenszene. Erzwungene Seitenumbrüche nach 12, 20, 32, 38, 51, 54, 66. PDF besteht aus 8 Seiten.
+- **Native MuseScore-4.7.6-Integration erfolgreich:** Echte AppImage unter xvfb öffnete die neue MSCZ und exportierte `Schneewittchen_Maerchenbuch_komplett_Kontrolle.pdf`; alle Seiten visuell in `Schneewittchen_Maerchenbuch_komplett_Uebersicht.jpg` kontrolliert. Bilder sind 880x590 Pixel große Bühnen-Ausschnitte auf transparentem 1600x650-Pixel-Montagehintergrund, geglättete Alpha-Ränder, in `VBox` von 42 Spatien. Acht native MD4-`Pictures`-Bilddateien mit Manifest; darunter typografische `Text`-Elemente und originaler MuseScore-Notensatz. **Nicht** die künstlich generierte Notengrafik als Musik verwendet.
+- **Musikalische Identität nachgewiesen:** Ursprungs- und Ergebnis-MSCX haben 156 `Measure`-Knoten (78 je Klaviersystem), 1.082 `Note`, 743 `Chord`, 17 `Rest`. Serien aller `Note`, `Chord`, `Rest`, `Articulation` (211), `Dynamic` (53), `TimeSig` (2), `KeySig` (10) sind paarweise **kanonisch XML-identisch**. Die sichtbaren Tempo-**Texte** wurden zu prägnanten musikalischen Angaben gekürzt, während die tatsächlichen Tempo-Events und Taktinhalte unverändert sind; die Szenentitel stehen in den neuen Textrahmen.
+- **Artefakte im Chat:** `/mnt/data/Schneewittchen_Maerchenbuch_komplett.mscz` (~10 MB), `Schneewittchen_Maerchenbuch_komplett_Kontrolle.pdf`, `Schneewittchen_Maerchenbuch_komplett_Uebersicht.jpg`; lokal erstellt und verlinkt, **nicht ins Repository hochgeladen**. Erzeugungsskript `/mnt/data/build_schneewittchen_all.py` ist ein werksspezifischer Prototyp und noch kein generischer, getesteter CI-Konverter.
+- **Grenzen:** Musikalische Qualität wurde nicht neu bewertet; MuseScore.com-Anzeige, tatsächliche Online-Abspielbarkeit, Schriftfallbacks und Seitenreflow nach Upload bleiben ungetestet. App 0.11.22 nicht geändert, kein Release.
+- **Nächster Schritt:** Nutzer kontrolliert Gesamtausgabe und MuseScore.com-Upload. Bei Zustimmung kann der spezifische VBox/Bildmontage-Ansatz zu einer wiederverwendbaren CLI abstrahiert werden, ohne Originalpartituren zu überschreiben.
+
+
 ## Bilddominanter Seitenkopf mit echter MuseScore-Notation (13.11.2026)
 
 - **Vom Benutzer bestätigte Gestaltungsrichtung:** Große, führende Märchenillustration links; rechts kleinere goldfarbene Szenennummer, dunkelblauer kursiver EB-Garamond-Titel und grau-kursives Märchenzitat. Normale Klaviernoten **unterhalb**, nicht neben dem Bild. Der vorherige HBox-Test hatte ein zu kleines Bild.
