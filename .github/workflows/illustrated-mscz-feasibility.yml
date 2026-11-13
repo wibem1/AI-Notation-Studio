@@ -18,7 +18,7 @@ jobs:
       - name: Install rendering runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2t64 xvfb jq unzip
+          sudo apt-get install -y libfuse2t64 libegl1 libopengl0 libgl1 xvfb jq unzip
       - name: Install MuseScore Studio AppImage
         shell: bash
         run: |
