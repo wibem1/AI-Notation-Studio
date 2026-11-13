@@ -5,6 +5,7 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import xml.etree.ElementTree as ET
 import sys
+import hashlib
 
 original, picture, target = map(Path, sys.argv[1:4])
 with ZipFile(original) as z:
@@ -23,13 +24,17 @@ if staff is None:
 frame = ET.Element("VBox")
 ET.SubElement(frame, "height").text = "55"
 img = ET.SubElement(frame, "Image")
-ET.SubElement(img, "path").text = "Pictures/fixture.png"
+blob = picture.read_bytes()
+name = hashlib.md5(blob).hexdigest() + ".png"
+ET.SubElement(img, "path").text = name
 ET.SubElement(img, "autoScale").text = "1"
 ET.SubElement(img, "size").text = "80 50"
 ET.SubElement(img, "lockAspectRatio").text = "1"
 staff.insert(0, frame)
 files[rootfile] = ET.tostring(xml, encoding="utf-8", xml_declaration=True)
-files["Pictures/fixture.png"] = picture.read_bytes()
+ET.SubElement(next(e for e in manifest.iter() if e.tag.endswith("rootfiles")), "file").text = "Pictures/" + name
+files["META-INF/container.xml"] = ET.tostring(manifest, encoding="utf-8", xml_declaration=True)
+files["Pictures/" + name] = blob
 target.parent.mkdir(parents=True, exist_ok=True)
 with ZipFile(target, "w", ZIP_DEFLATED) as z:
     for name, data in files.items():
