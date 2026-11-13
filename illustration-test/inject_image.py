@@ -5,7 +5,7 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import xml.etree.ElementTree as ET
 import sys
-import hashlib
+import subprocess
 
 original, picture, target = map(Path, sys.argv[1:4])
 with ZipFile(original) as z:
@@ -25,7 +25,7 @@ frame = ET.Element("VBox")
 ET.SubElement(frame, "height").text = "55"
 img = ET.SubElement(frame, "Image")
 blob = picture.read_bytes()
-name = hashlib.md5(blob).hexdigest() + ".png"
+name = subprocess.run(["openssl", "dgst", "-provider", "legacy", "-md4", "-binary"], input=blob, stdout=subprocess.PIPE, check=True).stdout.hex() + ".png"
 ET.SubElement(img, "path").text = name
 ET.SubElement(img, "autoScale").text = "1"
 ET.SubElement(img, "size").text = "80 50"
