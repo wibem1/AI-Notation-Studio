@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Typografische Musterseite Bild links / Text rechts (13.11.2026)
+
+- **Nutzerziel:** Szenenillustration und mehrstufige typografische Gestaltung unmittelbar **nebeneinander**, normale vollbreite spielbare Noten darunter. Das zuvor getestete Einrücken der Notensysteme wurde vom Nutzer ausdrücklich verworfen.
+- **Realisierter Prototyp:** `Schneewittchen_Typografie_Musterseite.mscz` aus bereits funktionierender HBox-Spiegelszene; `HBox` vor Takt 13 mit linksstehendem eingebettetem PNG (`Image`), rechts **drei nativen MuseScore-`Text`-Elementen** mit `EB Garamond`, individuellen Größen, Kursiv/Fett, dunkelblauer und goldener Textfarbe und gezielten x/y-Offets: `SZENE II` (Gold), `Die eitle Königin` (Blau, kursiv), Zitat (Grau, kursiv). Musikalische Tempoangabe weiterhin darunter; Notensystem in voller Breite.
+- **Echter Prüfnachweis:** Unter MuseScore Studio 4.7.6 AppImage lokal aus MSCZ PDF erstellt (5 Seiten); Seite 2 als PNG kontrolliert: Bild links, drei Titelzeilen rechts korrekt innerhalb des Satzspiegels, keine Titelüberläufe, originale Musik direkt darunter. Alle 78 Takte, 1.082 Noten, 743 Akkorde und 17 Pausen unverändert gezählt. Musikerzeugung und Website-Rendering nicht geprüft; einzelne vorhandene Szenen-Tempo-Texte für frühere Layoutprobe visuell vereinfacht, Musikstruktur erhalten.
+- **Artefakte:** `Schneewittchen_Typografie_Musterseite.mscz`, `Schneewittchen_Typografie_Musterseite_Einzelseite.pdf` und `Schneewittchen_Typografie_Musterseite_Ansicht.png` lokal in Konversation bereitgestellt, **nicht** als Repo-Dateien hinterlegt. Die Bearbeitung wurde mit lokalem Python-XML-Skript vorgenommen; keine generische End-to-End-Automatik.
+- **Nächster Schritt:** Nutzer beurteilt die tatsächliche Musterseite. Bei Zustimmung mehrstufige Typografie in den generischen MSCZ-Konverter integrieren, Überschriften/Tempo ohne Duplikate korrekt erhalten, Schriftfallbacks auf MuseScore.com prüfen. Keine Live-App-Änderung, kein Release.
+
+
 ## Durchbruch: echtes Bild links neben eingerücktem Klaviersystem (13.11.2026)
 
 - **Neue, native Methode:** MuseScore 4.7.6 verwendet bei `enableIndentationOnFirstSystem=1` und erhöhtem `firstSystemIndentationValue` (Test: `37` Spatien in `score_style.mss`) einen tatsächlich nach rechts eingerückten **ersten** Notensatz; die folgenden Notensysteme bleiben vollbreit. Quellbeleg: `musescore/MuseScore`, Tag `v4.7.6`, `src/engraving/rendering/score/systemlayout.cpp`, Berechnung von `system->setLeftMargin(...)` unter `firstSystemIndent`.
