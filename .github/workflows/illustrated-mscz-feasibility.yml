@@ -18,7 +18,7 @@ jobs:
       - name: Install rendering runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2t64 libegl1 libopengl0 libgl1 xvfb jq unzip
+          sudo apt-get install -y libfuse2t64 libegl1 libopengl0 libgl1 xvfb jq unzip poppler-utils python3-pil
       - name: Install MuseScore Studio AppImage
         shell: bash
         run: |
@@ -45,6 +45,22 @@ jobs:
           test -s illustration-test/out/baseline.pdf
       - name: Validate native baseline without claiming image support
         run: python3 illustration-test/validate_baseline.py illustration-test/out/baseline.mscz
+      - name: Experimental image roundtrip and visual check
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          python3 illustration-test/inject_image.py illustration-test/out/baseline.mscz illustration-test/out/fixture.png illustration-test/out/with-image-experimental.mscz
+          xvfb-run -a /tmp/musescore.AppImage -o illustration-test/out/with-image-experimental.pdf illustration-test/out/with-image-experimental.mscz
+          pdftoppm -f 1 -l 1 -singlefile -r 110 -png illustration-test/out/with-image-experimental.pdf illustration-test/out/with-image-experimental
+          python3 - <<'PY'
+          from PIL import Image
+          p='illustration-test/out/with-image-experimental.png'
+          im=Image.open(p).convert('RGB')
+          n=sum(1 for r,g,b in im.getdata() if r>140 and g<100 and b<130)
+          print('Strong red picture pixels:',n)
+          assert n>100, 'Image not visibly rendered by native MuseScore'
+          PY
       - name: Preserve proof artifacts
         if: always()
         uses: actions/upload-artifact@v4
