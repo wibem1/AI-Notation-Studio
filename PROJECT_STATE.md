@@ -2,12 +2,12 @@
 
 ## Experiment: illustrierte MSCZ-Dateien (13.11.2026)
 
-- **Auftrag:** Schneewittchen-Partitur (MusicXML) mit fünf bereits erzeugten Szenenbildern als native MuseScore-Datei, automatisiert via GitHub Actions, einschließlich PDF-Sichtprüfung.
-- **Separater Branch:** `experiment/illustrated-mscz-20261113`. Die Live-App 0.11.22 bleibt unverändert.
-- **Implementiert (noch nicht ausgeführt):** manueller GitHub-Actions-Smoke-Test `.github/workflows/illustrated-mscz-feasibility.yml` für MuseScore 4.7.6 AppImage, minimale MusicXML-Probe, MSCZ/PDF-Export und Containervalidierung. Die Probe erzeugt außerdem eine gültige PNG-Datei, **fügt diese aber noch nicht in die Notation ein**.
-- **Nicht nachgewiesen:** Workflow-Lauf, AppImage-Download, Bildplatzierung, Anzeige im MuseScore-Renderer, Erhalt der Schneewittchen-Notendaten, fertige MSCZ-Datei. Keines davon als erledigt betrachten.
-- **Nächster einzelner Schritt:** Smoke-Test in GitHub Actions ausführen und aus Logs/Artefakten beurteilen. Erst danach den gezielten Bild-Einfügeweg auf einem synthetischen MSCZ-Muster implementieren und im echten MuseScore rendern, danach an der Schneewittchen-Datei testen.
-
+- **Ziel:** Schneewittchen, 64 Takte, fünf Illustrationen an Takten 1, 13, 25, 41 und 53, als native MSCZ mit überprüfter Bilddarstellung. Bestehende Musik nicht ändern.
+- **Stand:** Separater Branch `experiment/illustrated-mscz-20261113`, Draft PR #16. Keine App-Änderung, kein Release.
+- **Verifiziert:** GitHub Actions startet MuseScore Studio 4.7.6 unter Ubuntu. Workflow-Lauf [#43393754957](https://github.com/wibem1/AI-Notation-Studio/actions/runs/43393754957) SUCCESS: minimale MusicXML-Partitur in MSCZ umgewandelt, PDF erstellt und MSCX-Score-Struktur geprüft.
+- **Entwickelt, aber fehlgeschlagen:** Experimenteller Bild-Injektor `illustration-test/inject_image.py` fügt eine VBox/Image-Struktur und PNG in eine MSCZ ein. Nach Korrektur der Zuordnung von MSCX gegenüber der Style-MSS-Datei sowie der Manifest- und Hash-Referenzierung bleibt das Bild im MuseScore-PDF unsichtbar: **0 rote Bildpixel** (Lauf [#43394622391](https://github.com/wibem1/AI-Notation-Studio/actions/runs/43394622391)). Die Integration ist **nicht funktionsfähig**.
+- **Qualitätsentscheidung:** Nach mehreren negativen Bildtests keine weiteren spekulativen XML-Änderungen. Zuerst ein von MuseScore selbst gespeichertes MSCZ mit sichtbarem Bild beschaffen, dessen XML/Manifest/Pictures-Struktur exakt vergleichen und diese als Regressionstest verwenden. Dann zunächst eine einzige Bildprobe nachbauen, visuell rendern und bei Erfolg auf die fünf originalen Illustrationen übertragen.
+- **Offen:** echte Bilder in generierter MSCZ, visuelle Bildprüfung, unveränderte Wiedergabe/Noten in der 64-taktigen Schneewittchen-Partitur, fertige Datei. Keine Freigabe vor Abschluss.
 
 ## Live 0.11.22 – KI-Neunotation veröffentlicht (09.11.2026)
 
