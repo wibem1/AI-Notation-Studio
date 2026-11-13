@@ -3,12 +3,14 @@ from copy import deepcopy
 from html import escape, unescape
 from io import BytesIO
 from pathlib import Path
-import subprocess
 import re
+import subprocess
 import sys
 import textwrap
-from zipfile import ZipFile, ZIP_DEFLATED
 import xml.etree.ElementTree as ET
+from zipfile import ZIP_DEFLATED, ZipFile
+
+from PIL import Image
 
 source, destination = map(Path, sys.argv[1:])
 with ZipFile(source) as archive:
@@ -46,6 +48,7 @@ for number in (1, 31, 32):
         br.tail = ' ' + (br.tail or '')
     full = ' '.join(''.join(old_text.itertext()).split())
     cue, prose = full.split(' — ', 1)
+    assert cue == {1: 'Andante con moto, luminoso', 31: 'ritardando', 32: 'morendo'}[number]
     tempo_guides[number] = prose
     tempo.remove(old_text)
     tempo.append(ET.fromstring('<text><i>' + escape(cue) + '</i></text>'))
@@ -72,12 +75,14 @@ def box(before, height):
     staff.insert(list(staff).index(measures[before - 1]), frame)
     return frame
 
-def text_box(before, height, markup, size=11, align='left,top'):
+def text_box(before, height, markup, size=11, align='left,top', offset_x=0):
     frame = box(before, height)
     t = child(frame, 'Text')
     child(t, 'style', 'frame')
     child(t, 'align', align)
     child(t, 'size', size)
+    if offset_x:
+        child(t, 'offset', x=str(offset_x), y='0')
     t.append(ET.fromstring('<text>' + markup + '</text>'))
     return frame
 
@@ -101,11 +106,10 @@ for number, order in {1:(1,0,2),6:(0,1,2,3),20:(3,0,1,2)}.items():
 
 text_box(1, 13, '<font size="24"/><b>Harmonie der nördlichen Flora</b><br/>'
          '<font size="13"/>Klavierstück nach dem Gemälde von Paul Klee (1927)<br/>'
-         '<font size="10"/>Klavierstudie zu Paul Klee', align='center,top')
+         '<font size="10"/>Klavierstudie zu Paul Klee', align='center,top', offset_x=12.4)
 image_box_at(1, picture, 138, round(138 * 786 / 1260, 3))
 
 # The detail views are crops of the embedded painting, keyed to the text.
-from PIL import Image
 painting = Image.open(BytesIO(files['Pictures/' + picture]))
 manifest = ET.fromstring(files['META-INF/container.xml'])
 def detail(before, bounds, width):
@@ -148,7 +152,7 @@ for index, (start, end, title, crop) in enumerate(sections, 1):
             line_count += len(lines)
     text_box(start, 2.85 * line_count + 1.8, '<br/>'.join(rows))
 
-for number in (3, 9, 12, 22, 28):
+for number in (9, 12, 22, 28):
     break_after(number, 'line')
 
 style = ET.fromstring(files['score_style.mss'])
