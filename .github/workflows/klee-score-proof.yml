@@ -24,10 +24,12 @@ jobs:
           set -euo pipefail
           if test -s score-layout/klee/working.mscz; then
             echo "file=score-layout/klee/working.mscz" >> "$GITHUB_OUTPUT"
+          elif test -s score-layout/klee/Paul_Klee_Harmonie_der_noerdlichen_Flora.mscz; then
+            echo "file=score-layout/klee/Paul_Klee_Harmonie_der_noerdlichen_Flora.mscz" >> "$GITHUB_OUTPUT"
           elif test -s score-layout/klee/original.mscz; then
             echo "file=score-layout/klee/original.mscz" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Upload original.mscz into score-layout/klee to enable the native proof."
+            echo "::notice::Upload Paul_Klee_Harmonie_der_noerdlichen_Flora.mscz into score-layout/klee to enable the native proof."
             echo "file=" >> "$GITHUB_OUTPUT"
           fi
       - name: Install dependencies
