@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Native MuseScore-Musterseite: HBox-Bild neben Titel, nicht neben Noten (13.11.2026)
+
+- **Auftrag:** Auf realer Schneewittchen-Langfassung (78 Takte, 1.082 Noteneinträge) gestalterisch testen, ob eine Illustration links und echte spielbare Noten rechts auf gleicher Höhe erscheinen können.
+- **Ausführung:** Ein `HBox` vor Takt 13 im ersten `Staff` als Bildrahmen, MD4/Pictures/Manifest-Einbettung. Seitenumbruch nach Takt 12. Zweiter Prototyp mit zusätzlichem `Text` in der `HBox` und separater Bezeichnung/Tempo darunter. MuseScore Studio **4.7.6** unter `xvfb-run` exportiert erfolgreich PDF (5 Seiten, Musterseite = Seite 2).
+- **Nachgewiesen:** Illustration **links** und Text **rechts** können in demselben horizontalen Rahmen sichtbar nebeneinander stehen; darunter folgen die Notensysteme weiterhin **über die gesamte Seitenbreite**. Ein `HBox` vor `Measure` bildet demnach einen **eigenen Rahmen/Systembereich** und ist **kein** Nachweis für ein verkürztes Notensystem rechts neben dem Bild. Die wesentliche Vorlage-Anforderung ist noch **nicht erreicht**.
+- **Integrität:** In der Test-MSCZ 78 Takte im ersten System, 1.082 `Note`, 743 `Chord`, 17 `Rest` wie im Original; ein Bild, eine neue Seitenumbruchmarke, geänderte visuelle Tempo-/Szenentextanordnung. Die musikalischen Ereignisse wurden nicht verändert. Die Testdateien `Schneewittchen_Layout_Musterseite.mscz`, `Schneewittchen_Layout_Musterseite.pdf` und `Schneewittchen_Layout_Musterseite_eine_Seite.pdf` wurden lokal im Chat erstellt, **nicht auf GitHub hochgeladen**.
+- **Schlussfolgerung:** Das bisher vorgeschlagene `HBox`-Verfahren löst die Anforderung `Bild links / Musik rechts` nicht. Nächster technischer Schritt nur mit neuer, belegbarer MuseScore-Layoutmethode (z.B. gezielte Systemgeometrie/echte frei platzierte Bilder); weitere spekulative HBox-Änderungen vermeiden. App 0.11.22 unverändert. Kein Release.
+
+
 ## Dokumentation illustrierter Partituren auf main (13.11.2026)
 
 - **Auf Benutzerwunsch dauerhaft übernommen:** [ILLUSTRATED-SCORES-WORKFLOW.md](ILLUSTRATED-SCORES-WORKFLOW.md) dokumentiert den künstlerisch-technischen Arbeitsablauf, die MD4-basierte Bild-Einbettung in MSCZ, Testverfahren und typische Fehler.
