@@ -10,7 +10,12 @@ original, picture, target = map(Path, sys.argv[1:4])
 with ZipFile(original) as z:
     files = {name: z.read(name) for name in z.namelist()}
 manifest = ET.fromstring(files["META-INF/container.xml"])
-rootfile = next(x.attrib["full-path"] for x in manifest.iter() if x.tag.endswith("rootfile"))
+candidates = [x.attrib["full-path"] for x in manifest.iter() if x.tag.endswith("rootfile")]
+rootfile = next((p for p in candidates if p.lower().endswith(".mscx")), None)
+if rootfile is None:
+    rootfile = next((p for p in files if p.lower().endswith(".mscx")), None)
+if rootfile is None:
+    raise SystemExit("MSCZ contains no .mscx score file")
 xml = ET.fromstring(files[rootfile])
 staff = next((element for element in xml.iter("Staff") if element.find("Measure") is not None), None)
 if staff is None:
