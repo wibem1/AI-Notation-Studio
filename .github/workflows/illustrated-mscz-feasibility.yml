@@ -20,12 +20,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfuse2t64 libegl1 libopengl0 libgl1 xvfb jq unzip poppler-utils python3-pil
       - name: Install MuseScore Studio AppImage
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, urllib.request
-          data=json.load(urllib.request.urlopen("https://api.github.com/repos/musescore/MuseScore/releases/tags/v4.7.6"))
+          import json, os, urllib.request
+          req=urllib.request.Request("https://api.github.com/repos/musescore/MuseScore/releases/tags/v4.7.6", headers={"Authorization":"Bearer "+os.environ['GH_TOKEN'], "Accept":"application/vnd.github+json", "User-Agent":"AI-Notation-Studio-CI"})
+          data=json.load(urllib.request.urlopen(req))
           matches=[a for a in data['assets'] if a['name'].endswith('.AppImage') and ('x86_64' in a['name'] or 'x64' in a['name'])]
           if len(matches)!=1:
               raise SystemExit(f"Expected one Linux MuseScore x86_64 AppImage, got {[a['name'] for a in matches]}")
