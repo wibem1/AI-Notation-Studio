@@ -1,5 +1,14 @@
 # Projektstand – AI Notation Studio
 
+## Dokumentation illustrierter Partituren auf main (13.11.2026)
+
+- **Auf Benutzerwunsch dauerhaft übernommen:** [ILLUSTRATED-SCORES-WORKFLOW.md](ILLUSTRATED-SCORES-WORKFLOW.md) dokumentiert den künstlerisch-technischen Arbeitsablauf, die MD4-basierte Bild-Einbettung in MSCZ, Testverfahren und typische Fehler.
+- **Verbindliches Layout:** Jede neue Szene beginnt auf einer neuen Seite; ihre Illustration steht oben, möglichst horizontal zentriert; Noten folgen darunter. Längere Szenen können mehrere Seiten belegen.
+- **Projektübergabe:** `AGENTS.md` auf `main` verpflichtet neue Entwicklungsaufträge, die Anleitung zu lesen. Originalmusik und veröffentlichte Live-App bleiben unverändert.
+- **Abgrenzung:** Die zugehörigen Konverter- und GitHub-Actions-Experimente verbleiben vorerst auf Branch `experiment/illustrated-mscz-20261113` (PR #16). Die generische CLI implementiert noch nicht die vollständige automatische Seitenaufteilung und Zentrierung. Keine neue App-Version oder Freigabe behaupten.
+- **Nächster Schritt bei erneutem Auftrag:** Stand von PR #16 prüfen, dann Zentrierung/Seitenumbrüche in der CLI implementieren und nativ testen; erst nach Erfolg Werkzeugcode übernehmen.
+
+
 ## Live 0.11.22 – KI-Neunotation veröffentlicht (09.11.2026)
 
 - **GitHub-Freigabe bestätigt:** [PR #15](https://github.com/wibem1/AI-Notation-Studio/pull/15) nach `main` gemergt, Merge-Commit `bfe4664b3392dc1d9adf87107455aea0bea7e3fe`. Die Live-App `AI-Notation-Studio-App.qml` und beide unveränderlichen 0.11.22-Archivdateien sind blob-identisch (`7f12f12dcbcee3474bee866885471e4a062de53c`). Update über den bestehenden Updateweg.
