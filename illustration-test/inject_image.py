@@ -12,9 +12,9 @@ with ZipFile(original) as z:
 manifest = ET.fromstring(files["META-INF/container.xml"])
 rootfile = next(x.attrib["full-path"] for x in manifest.iter() if x.tag.endswith("rootfile"))
 xml = ET.fromstring(files[rootfile])
-staff = xml.find("./Score/Staff")
+staff = next((element for element in xml.iter("Staff") if element.find("Measure") is not None), None)
 if staff is None:
-    raise SystemExit("No notation staff in native MuseScore XML")
+    raise SystemExit("No notation staff in native MuseScore XML. Root=%s, child tags=%s" % (xml.tag, [x.tag for x in xml]))
 frame = ET.Element("VBox")
 ET.SubElement(frame, "height").text = "55"
 img = ET.SubElement(frame, "Image")
