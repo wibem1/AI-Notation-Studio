@@ -1,0 +1,73 @@
+name: Illustrated MSCZ feasibility
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/illustrated-mscz-feasibility.yml'
+      - 'illustration-test/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-image-smoke-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rendering runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2t64 libegl1 libopengl0 libgl1 xvfb jq unzip poppler-utils python3-pil
+      - name: Install MuseScore Studio AppImage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          req=urllib.request.Request("https://api.github.com/repos/musescore/MuseScore/releases/tags/v4.7.6", headers={"Authorization":"Bearer "+os.environ['GH_TOKEN'], "Accept":"application/vnd.github+json", "User-Agent":"AI-Notation-Studio-CI"})
+          data=json.load(urllib.request.urlopen(req))
+          matches=[a for a in data['assets'] if a['name'].endswith('.AppImage') and ('x86_64' in a['name'] or 'x64' in a['name'])]
+          if len(matches)!=1:
+              raise SystemExit(f"Expected one Linux MuseScore x86_64 AppImage, got {[a['name'] for a in matches]}")
+          urllib.request.urlretrieve(matches[0]['browser_download_url'], '/tmp/musescore.AppImage')
+          PY
+          chmod +x /tmp/musescore.AppImage
+      - name: Generate a minimal test score and illustration
+        run: python3 illustration-test/prepare_fixture.py
+      - name: Import original score and export MSCZ/PDF
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          xvfb-run -a /tmp/musescore.AppImage -o illustration-test/out/baseline.mscz illustration-test/out/fixture.musicxml
+          xvfb-run -a /tmp/musescore.AppImage -o illustration-test/out/baseline.pdf illustration-test/out/baseline.mscz
+          test -s illustration-test/out/baseline.mscz
+          test -s illustration-test/out/baseline.pdf
+      - name: Validate native baseline without claiming image support
+        run: python3 illustration-test/validate_baseline.py illustration-test/out/baseline.mscz
+      - name: Experimental image roundtrip and visual check
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          python3 illustration-test/inject_image.py illustration-test/out/baseline.mscz illustration-test/out/fixture.png illustration-test/out/with-image-experimental.mscz
+          xvfb-run -a /tmp/musescore.AppImage -o illustration-test/out/with-image-experimental.pdf illustration-test/out/with-image-experimental.mscz
+          pdftoppm -f 1 -l 1 -singlefile -r 110 -png illustration-test/out/with-image-experimental.pdf illustration-test/out/with-image-experimental
+          python3 - <<'PY'
+          from PIL import Image
+          p='illustration-test/out/with-image-experimental.png'
+          im=Image.open(p).convert('RGB')
+          n=sum(1 for r,g,b in im.getdata() if r>140 and g<100 and b<130)
+          print('Strong red picture pixels:',n)
+          assert n>100, 'Image not visibly rendered by native MuseScore'
+          PY
+      - name: Preserve proof artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musescore-native-baseline
+          path: illustration-test/out/
+          if-no-files-found: warn

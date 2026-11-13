@@ -1,5 +1,24 @@
 # Projektstand – AI Notation Studio
 
+## Dokumentierter Workflow illustrierter Partituren (13.11.2026)
+
+- **Gesichert:** [ILLUSTRATED-SCORES-WORKFLOW.md](ILLUSTRATED-SCORES-WORKFLOW.md) enthält den vollständigen reproduzierbaren Ablauf für Szenen-Erkennung, Bilderstellung, MD4-basierte MSCZ-Einbettung, Seitenumbrüche, nativen MuseScore-PDF-Test und musikalische Integritätsprüfung.
+- **Verbindlicher Gestaltungswunsch:** Jede neue Szene beginnt auf einer neuen Seite; die Illustration steht oben und möglichst horizontal zentriert; Noten folgen darunter. Längere Szenen dürfen sich auf weiteren Seiten fortsetzen.
+- **Übergabe:** `AGENTS.md` verweist ausdrücklich auf die Workflow-Anweisung. Beim nächsten illustrierten Werk sind die Datei und der aktuelle Projektstand zuerst zu lesen.
+- **Grenze:** Automatische Seitenumbrüche und zuverlässige horizontale Zentrierung sind im eingecheckten generischen `illustrate_mscz.py` noch nicht implementiert; bisherige Layoutarbeit an Schneewittchen erfolgte außerhalb der generischen CLI. Eine automatische End-to-End-Erstellung für beliebige Partituren ist daher noch nicht bestätigt.
+- **Nächster Entwicklungsschritt:** Seitenumbruch-/Zentrierungsautomatik ergänzen und auf einer Testpartitur mit echter MuseScore-PDF-Darstellung und Notenvergleich nachweisen. Keine Änderung der Live-App.
+
+
+## Experiment: illustrierte MSCZ-Dateien (13.11.2026)
+
+- **Ziel:** Schneewittchen, originale 64 Takte, fünf Bild-VBoxen bei Takten 1, 13, 25, 41, 53 in nativer MSCZ. Bearbeitung isoliert auf Branch `experiment/illustrated-mscz-20261113`, Draft PR #16, keine Änderung an Live-App 0.11.22.
+- **Ursachenklärung:** MuseScore 4.7.6 verwendet für Bildspeicherung **MD4**, nicht MD5; direkt durch `src/engraving/dom/imageStore.cpp` des MuseScore-v4.7.6-Quellcodes bestätigt. XML `Image/path` referenziert den Hashnamen ohne `Pictures/`-Präfix; Container führt Bilddateien unter `Pictures/<hash>.png` mit Manifest-Eintrag.
+- **Echte native Integration nachgewiesen:** GitHub Actions [#43396235626](https://github.com/wibem1/AI-Notation-Studio/actions/runs/43396235626) **SUCCESS**: eingebettetes farbiges Bild wird in MuseScore-4.7.6-PDF gerendert, rote Bildpixel nachgewiesen. Dies bestätigt den synthetischen Ein-Bild-Fall.
+- **Vollständige Nutzerdaten lokal geprüft:** MuseScore-4.7.6-AppImage wurde im separaten GitHub-Lauf [#43396515346](https://github.com/wibem1/AI-Notation-Studio/actions/runs/43396515346) als Artefakt bereitgestellt, lokal extrahiert und auf die vom Nutzer hochgeladene Original-`Schneewittchen_Klavierstueck.musicxml` angewendet. Daraus entstand eine native Basis-MSCZ, danach wurden fünf Illustrationen bei Takten 1, 13, 25, 41, 53 direkt in der MSCX-Struktur und im ZIP-Manifest ergänzt. Die dritte Illustration wurde durch ein passendes Bild der sieben Zwerge ersetzt.
+- **Prüfergebnis lokal:** MuseScore 4.7.6 exportierte die illustrierte MSCZ erfolgreich in ein sechseitiges PDF. Die fünf Bilder sind auf den Seiten 1–5 sichtbar (Kontrollübersicht manuell inspiziert). Nach Entfernen der fünf eingefügten Bildrahmen ist die kanonische XML-Repräsentation der MSCX-Dateien exakt gleich. Je 128 Measure-Einträge (64 je Klaviersystem), 855 Note-Einträge. Es liegt eine fertige lokal erzeugte Datei `/mnt/data/Schneewittchen_illustriert_musescore.mscz` samt PDF vor, **noch nicht von Nutzer oder MuseScore.com bestätigt**.
+- **Code:** Wiederverwendbare CLI `illustration-test/illustrate_mscz.py` eingecheckt; funktionaler Erzeugungsweg lokal mit `build_schneewittchen_mscz.py` (separates temporäres Arbeitsverzeichnis) getestet. Die eingecheckte generische CLI braucht noch einen eigenen CI-Regressionstest.
+- **Nächster Schritt:** Nutzer prüft die MSCZ auf MuseScore.com oder in MuseScore Studio, besonders alle fünf Bildpositionen und Spielbarkeit. Danach generische CLI nativ in CI aufnehmen und bei Bedarf Layout optimieren. Keine App-Veröffentlichung ohne Freigabe.
+
 ## Live 0.11.22 – KI-Neunotation veröffentlicht (09.11.2026)
 
 - **GitHub-Freigabe bestätigt:** [PR #15](https://github.com/wibem1/AI-Notation-Studio/pull/15) nach `main` gemergt, Merge-Commit `bfe4664b3392dc1d9adf87107455aea0bea7e3fe`. Die Live-App `AI-Notation-Studio-App.qml` und beide unveränderlichen 0.11.22-Archivdateien sind blob-identisch (`7f12f12dcbcee3474bee866885471e4a062de53c`). Update über den bestehenden Updateweg.
