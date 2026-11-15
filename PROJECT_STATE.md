@@ -1,5 +1,12 @@
 # Projektstand – AI Notation Studio
 
+## Festgeschriebener Märchenbuch-Gestaltungsstandard (15.11.2026)
+
+- **Auftrag abgeschlossen:** Die vom Benutzer gebilligte Gesamtgestaltung der siebenszenigen Schneewittchen-Ausgabe wurde in [ILLUSTRATED-SCORES-WORKFLOW.md](ILLUSTRATED-SCORES-WORKFLOW.md) auf `main` als wiederverwendbarer Gestaltungs- und Prüfstandard ergänzt: Bild mit weichen transparenten Rändern links, native individuell gestaltete Texte rechts, unveränderte spielbare Noten darunter; jede Szene auf neuer Seite. Die ursprüngliche zentrierte Darstellung bleibt optionale Alternative.
+- **Technische Einzelheiten dokumentiert:** `VBox`-Rahmen (bei Schneewittchen 42 Spatien), transparente 1600×650-Bildmontage (Illustrationsbereich ca. 880×590), MD4-Integration, separat editierbare EB-Garamond-Textblöcke, Seitenumbrüche, das zusätzliche Apfelmotiv im Zwergenabschnitt, echte MuseScore-4.7.6-PDF- und Notenidentitätsprüfung.
+- **Projektübergabe aktualisiert:** `AGENTS.md` verweist ausdrücklich auf diesen bestätigten Standard. Reine Dokumentationsänderung, kein App-Release oder neuer Build. Die generische CLI und die MuseScore.com-Darstellung bleiben weiterhin ungetestet bzw. unvollständig.
+
+
 ## Schneewittchen: komplette bilddominante Märchenbuchausgabe (13.11.2026)
 
 - **Auftrag vollständig als Einzelwerk lokal ausgeführt:** Original `Schneewittchen.mscz` (78 Takte, 1.082 Noten) mit sieben musikalischen Szenen und acht Bildmotiven. Gegenüber der großen Musterseite Illustrationen etwas verkleinert, transparent weich auslaufend; Bild links, native EB-Garamond-Texte rechts, Noten mit voller Breite darunter. Szenen starten bei 1, 13, 21, 33, 39, 55, 67; Apfel-Zwischenspiel beginnt bei Takt 52 innerhalb der Zwergenszene. Erzwungene Seitenumbrüche nach 12, 20, 32, 38, 51, 54, 66. PDF besteht aus 8 Seiten.
