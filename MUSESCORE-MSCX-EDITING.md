@@ -49,7 +49,7 @@ Am Ziel in der passenden Voice:
 </Spanner>
 ```
 
-Für Diminuendo wird der in MuseScore verwendete Diminuendo-Subtype gesetzt. Die `location`-Werte sind relativ zum jeweiligen Start- bzw. Endanker; bei untertaktigen Grenzen müssen Bruchteile ergänzt werden. Für einen halben Takt innerhalb derselben Voice ist das beispielsweise `<fractions>1/2</fractions>` am Start und `<fractions>-1/2</fractions>` am Endanker.
+Für normale Keil-Hairpins gilt `subtype 0` für Crescendo und `subtype 1` für Diminuendo. Die weiteren MuseScore-Subtype-Werte 2 und 3 bezeichnen Crescendo- bzw. Diminuendo-Textlinien. Die `location`-Werte sind relativ zum jeweiligen Start- bzw. Endanker; bei untertaktigen Grenzen müssen Bruchteile ergänzt werden. Für einen halben Takt innerhalb derselben Voice ist das beispielsweise `<fractions>1/2</fractions>` am Start und `<fractions>-1/2</fractions>` am Endanker.
 
 **Pedalabschnitt über einen halben Takt:**
 
