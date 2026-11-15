@@ -1,5 +1,12 @@
 # Projektstand – AI Notation Studio
 
+## MSCX-Ausdruckszeichen: Fehler dokumentiert und behoben (15.11.2026)
+
+- Auf Nutzerwunsch wurde [MUSESCORE-MSCX-EDITING.md](MUSESCORE-MSCX-EDITING.md) als allgemeine Anleitung für manuelle MuseScore-Partituränderungen ergänzt; `AGENTS.md` verweist künftig bei jeder MSCZ-Bearbeitung darauf.
+- In einer 48-taktigen Klavierpartitur lösten auf Score-Ebene abgelegte `HairPin`-/`Pedal`-Knoten eine MuseScore-Fehlermeldung aus; die Dynamikzeichen wurden nicht angezeigt. Die Umstellung auf lokale, gepaarte `<Spanner>`-Anker in der jeweiligen Voice ermöglichte das Öffnen in MuseScore Studio 4.7.6; Dynamik- und Pedalzeichen waren sichtbar.
+- Takt-, Noten-, Akkord- und Pausenzahlen blieben gleich. Die PDF-Darstellung der Hairpin-Linien wurde bei dieser Korrektur nicht geprüft. Reine Dokumentationsänderung, kein App-Code, Build oder Release.
+
+
 ## Festgeschriebener Märchenbuch-Gestaltungsstandard (15.11.2026)
 
 - **Auftrag abgeschlossen:** Die vom Benutzer gebilligte Gesamtgestaltung der siebenszenigen Schneewittchen-Ausgabe wurde in [ILLUSTRATED-SCORES-WORKFLOW.md](ILLUSTRATED-SCORES-WORKFLOW.md) auf `main` als wiederverwendbarer Gestaltungs- und Prüfstandard ergänzt: Bild mit weichen transparenten Rändern links, native individuell gestaltete Texte rechts, unveränderte spielbare Noten darunter; jede Szene auf neuer Seite. Die ursprüngliche zentrierte Darstellung bleibt optionale Alternative.
